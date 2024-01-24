@@ -2,6 +2,11 @@
 name = "qm"
 version = "0.0.1"
 edition = "2021"
+authors = ["Jürgen Seitz <juergen.seitz@h-d-gmbh.de>"]
+license = "MIT"
+description = "Utilities for quick microservices in Rust"
+repository = "https://github.com/hd-gmbh-dev/qm"
+
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
