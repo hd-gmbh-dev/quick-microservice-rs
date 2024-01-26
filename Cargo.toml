@@ -1,13 +1,62 @@
 [package]
 name = "qm"
-version = "0.0.1"
-edition = "2021"
-authors = ["Jürgen Seitz <juergen.seitz@h-d-gmbh.de>"]
-license = "MIT"
 description = "Utilities for quick microservices in Rust"
-repository = "https://github.com/hd-gmbh-dev/qm"
-
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+license.workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+qm-entity = { workspace = true, optional = true }
+qm-server = { workspace = true, optional = true }
+qm-mongodb = { workspace = true, optional = true }
+qm-redis = { workspace = true, optional = true }
+qm-s3 = { workspace = true, optional = true }
+qm-kafka = { workspace = true, optional = true }
+qm-keycloak = { workspace = true, optional = true }
+qm-role = { workspace = true, optional = true }
+
+[features]
+default = ["server"]
+entity = ["qm-entity"]
+server = ["qm-server"]
+mongodb = ["qm-mongodb"]
+redis = ["qm-redis"]
+s3 = ["qm-s3"]
+kafka = ["qm-kafka"]
+keycloak = ["qm-keycloak"]
+role = ["qm-role"]
+
+[workspace]
+resolver = "2"
+members = [
+  "crates/*",
+  "examples/*",
+]
+
+[workspace.package]
+version = "0.0.1"
+edition = "2021"
+rust-version = "1.75.0"
+authors = ["Jürgen Seitz <juergen.seitz@h-d-gmbh.de>"]
+license = "MIT"
+repository = "https://github.com/hd-gmbh-dev/qm"
+
+[workspace.dependencies]
+anyhow = "1"
+tokio = { version = "1.35.1", features = ["full"] }
+
+qm-entity = { path = "crates/entity" }
+qm-entity-derive = { path = "crates/entity-derive" }
+qm-server = { path = "crates/server" }
+qm-mongodb = { path = "crates/mongodb" }
+qm-redis = { path = "crates/redis" }
+qm-s3 = { path = "crates/s3" }
+qm-kafka = { path = "crates/kafka" }
+qm-keycloak = { path = "crates/keycloak" }
+qm-role = { path = "crates/role" }
+qm-role-build = { path = "crates/role-build" }
+qm = { path = ".", default-features = false }

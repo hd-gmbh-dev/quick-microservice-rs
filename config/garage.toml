@@ -1,0 +1,33 @@
+metadata_dir = "/s3-data/meta"
+data_dir = "/s3-data/db"
+
+db_engine = "lmdb"
+
+block_size = 10485760
+
+sled_cache_capacity = 8589934592
+sled_flush_every_ms = 10000
+
+replication_mode = "none"
+compression_level = 1
+
+rpc_bind_addr = "0.0.0.0:3901"
+rpc_public_addr = "127.0.0.1:3901"
+rpc_secret = "5287ad12a68094e1c6ac6abde7e6feae1ec1799bccfd7411eddcf9ebd316bc1f"
+
+bootstrap_peers = []
+
+[s3_api]
+s3_region = "garage"
+api_bind_addr = "0.0.0.0:3900"
+root_domain = "s3"
+
+[s3_web]
+bind_addr = "0.0.0.0:3902"
+root_domain = "s3"
+index = "index.html"
+
+[admin]
+api_bind_addr = "0.0.0.0:3903"
+metrics_token = "ac1496055aed248202d415398987e35f81cacce0b2de4bc2d9f5b5fdff551e01"
+admin_token = "7da833d3458a5f52086f4e805a570fb5c2aae8cb40ea7368bbdbb6430af11cca"
