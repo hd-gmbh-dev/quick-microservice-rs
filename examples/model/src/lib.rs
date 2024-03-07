@@ -1,3 +1,101 @@
+use async_graphql::{ComplexObject, InputObject, MaybeUndefined, SimpleObject};
+use qm::customer::model::{Customer, Institution, Organization};
+use qm::entity::ids::{EntityId, InstitutionResourceId, OrganizationResourceId};
+use serde::{Deserialize, Serialize};
+
+#[derive(Default, Debug, Clone, SimpleObject, InputObject, Serialize, Deserialize)]
+#[graphql(input_name = "PersonInput")]
+#[serde(rename_all = "camelCase")]
+pub struct Person {
+    pub salutation: Option<String>,
+    pub title: Option<String>,
+    #[serde(default)]
+    pub firstname: String,
+    pub middlename: Option<String>,
+    #[serde(default)]
+    pub lastname: String,
+    #[serde(default)]
+    pub gender: String,
+    #[serde(default)]
+    pub citizenships: Option<Vec<String>>,
+    pub confession: Option<String>,
+    pub denomination: Option<String>,
+    pub languages: Option<Vec<String>>,
+    pub is_german_first_language: Option<bool>,
+}
+
+#[derive(Default, Debug, Clone, SimpleObject, InputObject, Serialize, Deserialize)]
+#[graphql(input_name = "SimpleAddressInput")]
+#[serde(rename_all = "camelCase")]
+pub struct SimpleAddress {
+    pub street: Option<String>,
+    pub zip_code: Option<String>,
+    pub city: Option<String>,
+    pub district: Option<String>,
+    pub country: Option<String>,
+}
+
+#[derive(Default, Debug, Clone, SimpleObject, Serialize, Deserialize)]
+#[graphql(complex)]
+pub struct Employee {
+    #[serde(flatten)]
+    id: EntityId,
+    person: Person,
+    address: Option<SimpleAddress>,
+}
+
+#[ComplexObject]
+impl Employee {
+    async fn customer(&self) -> async_graphql::FieldResult<Customer> {
+        unimplemented!()
+    }
+
+    async fn organization(&self) -> async_graphql::FieldResult<Organization> {
+        unimplemented!()
+    }
+
+    async fn institution(&self) -> async_graphql::FieldResult<Institution> {
+        unimplemented!()
+    }
+}
+
+#[derive(SimpleObject)]
+pub struct EmployeeList {
+    pub items: Vec<Employee>,
+    pub limit: Option<i64>,
+    pub total: Option<i64>,
+    pub page: Option<i64>,
+}
+
+#[derive(Debug, InputObject)]
+pub struct UpdatePersonInput {
+    pub salutation: MaybeUndefined<String>,
+    pub title: MaybeUndefined<String>,
+    pub firstname: Option<String>,
+    pub middlename: MaybeUndefined<String>,
+    pub lastname: Option<String>,
+    pub gender: Option<String>,
+    pub citizenships: MaybeUndefined<Vec<String>>,
+    pub confession: MaybeUndefined<String>,
+    pub denomination: MaybeUndefined<String>,
+    pub languages: MaybeUndefined<Vec<String>>,
+    pub is_german_first_language: MaybeUndefined<bool>,
+}
+
+#[derive(Debug, InputObject)]
+pub struct CreateEmployeeInput {
+    institution: OrganizationResourceId,
+    person: Person,
+    address: Option<SimpleAddress>,
+}
+
+#[derive(Debug, InputObject)]
+pub struct UpdateEmployeeInput {
+    id: InstitutionResourceId,
+    person: Option<UpdatePersonInput>,
+    address: MaybeUndefined<SimpleAddress>,
+}
+
 // target structure, implemented with proc macros
 
 // use chrono::NaiveDateTime;

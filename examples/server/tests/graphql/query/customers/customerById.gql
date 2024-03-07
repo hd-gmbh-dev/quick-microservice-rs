@@ -1,0 +1,6 @@
+query CustomerById($name: String!) {
+    customerById(name: $name) {
+        id
+        name
+    }
+}

@@ -1,0 +1,24 @@
+[package]
+name = "qm-example-ctx"
+version = "0.1.0"
+authors = ["Jürgen Seitz <juergen.seitz@h-d-gmbh.de>"]
+edition = "2021"
+publish = false
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow.workspace = true
+async-graphql.workspace = true
+async-trait.workspace = true
+serde.workspace = true
+qm = { workspace = true, default-features = false, features = [
+    "mongodb",
+    "redis",
+    "kafka",
+    "s3",
+    "keycloak",
+    "server",
+    "role",
+    "entity",
+]}

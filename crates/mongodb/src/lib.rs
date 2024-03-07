@@ -1,14 +1,7 @@
-pub fn add(left: usize, right: usize) -> usize {
-    left + right
-}
+pub use mongodb::*;
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+mod config;
+mod db;
 
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
-}
+pub use crate::config::Config as DbConfig;
+pub use crate::db::{insert_always_opts, parse_vec, DB};

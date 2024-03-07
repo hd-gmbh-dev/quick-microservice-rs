@@ -1,5 +1,5 @@
 [package]
-name = "server"
+name = "qm-example-server"
 version = "0.1.0"
 authors = ["Jürgen Seitz <juergen.seitz@h-d-gmbh.de>"]
 edition = "2021"
@@ -7,8 +7,20 @@ publish = false
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+
+[[test]]
+name = "integration_test"
+harness = false
+
 [dependencies]
+env_logger = "0.11.0"
 anyhow.workspace = true
+log.workspace = true
+tokio.workspace = true
+constcat.workspace = true
+axum.workspace = true
+async-graphql.workspace = true
+tower-http.workspace = true
 qm = { workspace = true, default-features = false, features = [
     "mongodb",
     "redis",
@@ -18,8 +30,23 @@ qm = { workspace = true, default-features = false, features = [
     "server",
     "role",
     "entity",
+    "customer",
 ]}
+strum.workspace = true
+serde_json.workspace = true
+
+qm-example-model = { path = "../model" }
+qm-example-ctx = { path = "../ctx" }
+qm-example-auth = { path = "../auth" }
+async-trait.workspace = true
 
 [build-dependencies]
 anyhow.workspace = true
 qm-role-build.workspace = true
+
+[dev-dependencies]
+env_logger = "0.11.1"
+dotenv = "0.15.0"
+cucumber = { version = "0.20.2", features = ["libtest", "output-junit"] }
+futures.workspace = true
+async-trait.workspace = true

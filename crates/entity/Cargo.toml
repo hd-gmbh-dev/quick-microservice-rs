@@ -9,4 +9,15 @@ rust-version.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+anyhow.workspace = true
+thiserror.workspace = true
+async-graphql.workspace = true
+async-trait.workspace = true
+serde.workspace = true
+futures.workspace = true
+chrono.workspace = true
+tynm.workspace = true
+qm-redis.workspace = true
+qm-role.workspace = true
+qm-mongodb.workspace = true
 qm-entity-derive.workspace = true

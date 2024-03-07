@@ -1,0 +1,37 @@
+[package]
+name = "qm-example-auth"
+version = "0.1.0"
+authors = ["Jürgen Seitz <juergen.seitz@h-d-gmbh.de>"]
+edition = "2021"
+publish = false
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[dependencies]
+env_logger = "0.11.0"
+anyhow.workspace = true
+tokio.workspace = true
+constcat.workspace = true
+axum.workspace = true
+async-graphql.workspace = true
+async-trait.workspace = true
+tower-http.workspace = true
+qm = { workspace = true, default-features = false, features = [
+    "mongodb",
+    "redis",
+    "kafka",
+    "s3",
+    "keycloak",
+    "server",
+    "role",
+    "entity",
+    "customer",
+]}
+strum.workspace = true
+serde_json.workspace = true
+
+qm-example-model = { path = "../model" }
+qm-example-ctx = { path = "../ctx" }
+
+[build-dependencies]
+anyhow.workspace = true
+qm-role-build.workspace = true

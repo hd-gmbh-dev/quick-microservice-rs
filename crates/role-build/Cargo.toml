@@ -11,3 +11,4 @@ license.workspace = true
 
 [dependencies]
 anyhow.workspace = true
+Inflector = "0.11.4"
