@@ -7,7 +7,6 @@ use std::fmt::{Debug, Formatter};
 
 use crate::world::graphql::GraphQLQueryBuilder;
 use async_graphql::Response;
-use qm::customer::schema::customer::CustomerDB;
 use qm_example_ctx::Storage;
 use qm_example_server::schema::Schema;
 
@@ -34,7 +33,9 @@ pub async fn init_context() -> anyhow::Result<Ctx> {
     let cleanup = std::env::var("CLEANUP_INFRA_BEFORE").as_deref() == Ok("true");
     let store = Storage::new().await?;
     if cleanup {
-        store.customer_db().cleanup().await?;
+        <qm_example_ctx::Storage as AsRef<qm::mongodb::DB>>::as_ref(&store)
+            .cleanup()
+            .await?;
     }
     test_realm::ensure(&store, cleanup).await?;
     let schema = qm_example_server::schema::SchemaBuilder::default().build(store.clone());
@@ -67,10 +68,6 @@ impl<'a> DataSelector<'a> {
 
     pub fn as_str(&self) -> &str {
         self.val.as_str().unwrap_or("")
-    }
-
-    pub fn into_inner(self) -> &'a serde_json::Value {
-        self.val
     }
 }
 

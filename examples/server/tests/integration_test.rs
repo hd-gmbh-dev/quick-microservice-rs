@@ -5,7 +5,7 @@ use cucumber::event::Cucumber;
 use cucumber::gherkin::Feature;
 use cucumber::{writer, Event, World as _, WriterExt};
 use futures::FutureExt;
-use qm::customer::schema::customer::CustomerDB;
+use qm::mongodb::DB;
 use tokio::sync::RwLock;
 
 use crate::world::{init_context, Ctx, World};
@@ -44,7 +44,7 @@ impl<W: 'static> cucumber::Writer<W> for CustomWriter {
     async fn handle_event(
         &mut self,
         ev: cucumber::parser::Result<Event<Cucumber<W>>>,
-        cli: &Self::Cli,
+        _cli: &Self::Cli,
     ) {
         use cucumber::{event, Event};
         match ev {
@@ -87,7 +87,7 @@ async fn run_with_tag(
         tags.join("-or-")
     );
     let file = std::fs::File::create(path.join(&filename))?;
-    let result = World::cucumber()
+    let _result = World::cucumber()
         .fail_on_skipped()
         .with_writer(
             writer::libtest::Libtest::or_basic()
@@ -137,7 +137,9 @@ async fn main() -> anyhow::Result<()> {
     let cleanup = cleanup_after_env.as_deref() == Ok("true");
     if cleanup {
         let realm = ctx.store.keycloak().config().realm();
-        ctx.store.customer_db().cleanup().await?;
+        <qm_example_ctx::Storage as AsRef<DB>>::as_ref(&ctx.store)
+            .cleanup()
+            .await?;
         ctx.store.keycloak().remove_realm(realm).await?;
     }
     let failed = stats.read().await.failed;

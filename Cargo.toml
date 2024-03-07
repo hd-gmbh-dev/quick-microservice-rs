@@ -98,6 +98,8 @@ async-graphql = { version = "7.0.1", features = [
     "graphiql",
 ] }
 prometheus-client = "0.22.1"
+rdkafka = { version = "0.36.0" }
+
 qm-entity = { path = "crates/entity" }
 qm-entity-derive = { path = "crates/entity-derive" }
 qm-customer = { path = "crates/customer" }

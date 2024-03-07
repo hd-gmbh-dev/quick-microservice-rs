@@ -14,13 +14,16 @@ use qm_entity::ids::ID;
 use qm_mongodb::bson::doc;
 use qm_mongodb::bson::oid::ObjectId;
 use qm_mongodb::bson::Uuid;
-use qm_mongodb::DB;
 use qm_redis::redis::{AsyncCommands, Msg};
 
 use crate::model::Customer;
 use crate::model::Institution;
 use crate::model::Organization;
 use crate::model::OrganizationUnit;
+use crate::schema::customer::CustomerDB;
+use crate::schema::institution::InstitutionDB;
+use crate::schema::organization::OrganizationDB;
+use crate::schema::organization_unit::OrganizationUnitDB;
 
 pub type CustomerMap = BTreeMap<ID, Arc<Customer>>;
 pub type OrganizationMap = BTreeMap<CustomerResourceId, Arc<Organization>>;
@@ -29,10 +32,15 @@ pub type InstitutionMap = BTreeMap<OrganizationResourceId, Arc<Institution>>;
 
 use prometheus_client::metrics::gauge::Gauge;
 
-async fn load_customers(db: &DB) -> anyhow::Result<CustomerMap> {
+pub trait CustomerCacheDB:
+    CustomerDB + OrganizationDB + OrganizationUnitDB + InstitutionDB
+{
+}
+
+async fn load_customers(db: &impl CustomerDB) -> anyhow::Result<CustomerMap> {
     let items: Vec<Customer> = db
-        .get()
-        .collection(crate::schema::customer::DEFAULT_COLLECTION)
+        .customers()
+        .as_ref()
         .find(doc! {}, None)
         .await?
         .try_collect()
@@ -44,10 +52,10 @@ async fn load_customers(db: &DB) -> anyhow::Result<CustomerMap> {
     ))
 }
 
-async fn load_organizations(db: &DB) -> anyhow::Result<OrganizationMap> {
+async fn load_organizations(db: &impl OrganizationDB) -> anyhow::Result<OrganizationMap> {
     let items: Vec<Organization> = db
-        .get()
-        .collection(crate::schema::organization::DEFAULT_COLLECTION)
+        .organizations()
+        .as_ref()
         .find(doc! {}, None)
         .await?
         .try_collect()
@@ -59,10 +67,12 @@ async fn load_organizations(db: &DB) -> anyhow::Result<OrganizationMap> {
     ))
 }
 
-async fn load_organization_units(db: &DB) -> anyhow::Result<OrganizationUnitMap> {
+async fn load_organization_units(
+    db: &impl OrganizationUnitDB,
+) -> anyhow::Result<OrganizationUnitMap> {
     let items: Vec<OrganizationUnit> = db
-        .get()
-        .collection(crate::schema::organization_unit::DEFAULT_COLLECTION)
+        .organization_units()
+        .as_ref()
         .find(doc! {}, None)
         .await?
         .try_collect()
@@ -74,10 +84,10 @@ async fn load_organization_units(db: &DB) -> anyhow::Result<OrganizationUnitMap>
     ))
 }
 
-async fn load_institutions(db: &DB) -> anyhow::Result<InstitutionMap> {
+async fn load_institutions(db: &impl InstitutionDB) -> anyhow::Result<InstitutionMap> {
     let items: Vec<Institution> = db
-        .get()
-        .collection(crate::schema::institution::DEFAULT_COLLECTION)
+        .institutions()
+        .as_ref()
         .find(doc! {}, None)
         .await?
         .try_collect()
@@ -128,39 +138,19 @@ pub struct CustomerCache {
 }
 
 impl CustomerCache {
-    pub async fn new(prefix: &str, db: &DB) -> anyhow::Result<Self> {
-        log::info!("init CustomerCache");
-        let customers = load_customers(db).await?;
-        let organizations = load_organizations(db).await?;
-        let organization_units = load_organization_units(db).await?;
-        let institutions = load_institutions(db).await?;
-        log::info!(
-            "loaded {} customers, {} organizations, {} organization_units and {} institutions",
-            customers.len(),
-            organizations.len(),
-            organization_units.len(),
-            institutions.len()
-        );
-        let customers_total = Gauge::<f64, AtomicU64>::default();
-        customers_total.set(customers.len() as f64);
-        let organizations_total = Gauge::<f64, AtomicU64>::default();
-        organizations_total.set(organizations.len() as f64);
-        let organization_units_total = Gauge::<f64, AtomicU64>::default();
-        organization_units_total.set(organization_units.len() as f64);
-        let institutions_total = Gauge::<f64, AtomicU64>::default();
-        institutions_total.set(institutions.len() as f64);
+    pub async fn new(prefix: &str) -> anyhow::Result<Self> {
         Ok(Self {
             inner: Arc::new(CustomerCacheInner {
                 id: Arc::new(Uuid::new()),
-                customers: Arc::new(RwLock::new(customers)),
-                organizations: Arc::new(RwLock::new(organizations)),
-                organization_units: Arc::new(RwLock::new(organization_units)),
-                institutions: Arc::new(RwLock::new(institutions)),
-                customers_total,
-                organizations_total,
-                organization_units_total,
-                institutions_total,
+                customers_total: Default::default(),
+                organizations_total: Default::default(),
+                organization_units_total: Default::default(),
+                institutions_total: Default::default(),
                 channel: Arc::from(format!("{prefix}_customers")),
+                customers: Default::default(),
+                organizations: Default::default(),
+                organization_units: Default::default(),
+                institutions: Default::default(),
             }),
         })
     }
@@ -320,7 +310,7 @@ impl CustomerCache {
 
     pub async fn reload(
         &self,
-        db: &DB,
+        db: &impl CustomerCacheDB,
         redis: Option<&deadpool_redis::Pool>,
     ) -> anyhow::Result<()> {
         let next_items = load_customers(db).await?;
@@ -354,7 +344,7 @@ impl CustomerCache {
 
     pub async fn reload_customers(
         &self,
-        db: &DB,
+        db: &impl CustomerDB,
         redis: Option<&deadpool_redis::Pool>,
     ) -> anyhow::Result<()> {
         let next_items = load_customers(db).await?;
@@ -377,7 +367,7 @@ impl CustomerCache {
 
     pub async fn reload_organizations(
         &self,
-        db: &DB,
+        db: &impl OrganizationDB,
         redis: Option<&deadpool_redis::Pool>,
     ) -> anyhow::Result<()> {
         let next_items = load_organizations(db).await?;
@@ -400,7 +390,7 @@ impl CustomerCache {
 
     pub async fn reload_institutions(
         &self,
-        db: &DB,
+        db: &impl InstitutionDB,
         redis: Option<&deadpool_redis::Pool>,
     ) -> anyhow::Result<()> {
         let next_items = load_institutions(db).await?;
@@ -423,7 +413,7 @@ impl CustomerCache {
 
     pub async fn reload_organization_units(
         &self,
-        db: &DB,
+        db: &impl OrganizationUnitDB,
         redis: Option<&deadpool_redis::Pool>,
     ) -> anyhow::Result<()> {
         let next_items = load_organization_units(db).await?;
@@ -565,7 +555,7 @@ impl CustomerCache {
     // TODO: implement EntityCache in qm-entity crate
     pub async fn process_event(
         &self,
-        db: &DB,
+        db: &impl CustomerCacheDB,
         msg: Msg, /*  cache: &EntityCache */
     ) -> anyhow::Result<()> {
         let CustomerCacheEvent { publisher, event } =

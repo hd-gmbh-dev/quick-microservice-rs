@@ -21,89 +21,15 @@ use qm_mongodb::DB;
 
 pub const DEFAULT_COLLECTION: &str = "customers";
 
-pub trait CustomerDB {
+pub trait CustomerDB: AsRef<DB> {
     fn collection(&self) -> &str {
         DEFAULT_COLLECTION
     }
-    fn customer_db(&self) -> &DB;
     fn customers(&self) -> qm_entity::Collection<Customer> {
         let collection = self.collection();
-        qm_entity::Collection(self.customer_db().get().collection::<Customer>(collection))
+        qm_entity::Collection(self.as_ref().get().collection::<Customer>(collection))
     }
 }
-
-impl<T> CustomerDB for T
-where
-    T: AsRef<DB>,
-{
-    fn customer_db(&self) -> &DB {
-        self.as_ref()
-    }
-}
-
-// pub struct CustomerCtx<'ctx, Auth, Store, Resource, Permission> {
-//     auth: Auth,
-//     store: &'ctx Store,
-//     _marker: RpMarker<Resource, Permission>,
-// }
-
-// impl<'ctx, Auth, Store, Resource, Permission> CustomerCtx<'ctx, Auth, Store, Resource, Permission> {
-//     pub fn new(auth: Auth, store: &'ctx Store) -> Self {
-//         Self { auth, store, _marker: std::marker::PhantomData }
-//     }
-// }
-
-// impl<'ctx, Auth, Store, Resource, Permission> CustomerCtx<'ctx, Auth, Store, Resource, Permission>
-// where
-//     Auth: FromGraphQLContext + UserId + IsAdmin,
-//     Store: Send + Sync + 'static,
-//     Resource: Send + Sync + 'static,
-//     Permission: Send + Sync + 'static,
-// {
-//     pub async fn from_graphql(ctx: &'ctx Context<'_>) -> FieldResult<Self> {
-//         Ok(Self::new(
-//             Auth::from_graphql_context(ctx).await?,
-//             ctx.data_unchecked::<Store>(),
-//         ))
-//     }
-// }
-
-// impl<'ctx, Auth, Store, Resource, Permission> CustomerCtx<'ctx, Auth, Store, Resource, Permission>
-// where
-//     Auth: FromGraphQLContext + UserId + IsAdmin + HasRole<Resource, Permission>,
-//     Store: RelatedStorage,
-//     Resource: CustomerResource,
-// {
-//     pub async fn list(&self, _filter: Option<ListFilter>) -> FieldResult<CustomerList> {
-//         // if !self.auth.is_admin() {
-//         //     return Err(unauthorized(async_graphql::Error::new("invalid permission to list customers")));
-//         // }
-//         // let result = self.store.customers()
-//         //     .list(filter).await?;
-//         // Ok(CustomerList {
-//         //     items: result.items,
-//         //     limit: result.limit,
-//         //     total: result.total,
-//         //     page: result.page,
-//         // })
-//         unimplemented!()
-//     }
-
-//     pub async fn by_id(&self, _id: &CustomerId) -> FieldResult<Option<Customer>> {
-//         // if !self.auth.is_admin() {
-//         //     return Err(unauthorized(async_graphql::Error::new("invalid permission to get customer by id")));
-//         // }
-//         // Ok(self.store.customers().by_id(&id.id).await?)
-//         unimplemented!()
-//     }
-//     pub async fn update(&self, _input: &UpdateCustomerInput) -> anyhow::Result<Customer> {
-//         unimplemented!()
-//     }
-
-//     pub async fn remove(&self, _ids: &[CustomerId]) -> anyhow::Result<usize> {
-//         unimplemented!()
-//     }
-// }
 
 pub struct Ctx<'a, Auth, Store, AccessLevel, Resource, Permission>(
     pub AuthCtx<'a, Auth, Store, AccessLevel, Resource, Permission>,
@@ -150,10 +76,15 @@ where
                             .await?;
                         cache
                             .user()
-                            .new_roles(
-                                self.0.store.customer_db(),
-                                self.0.store.redis().as_ref(),
-                                roles,
+                            .new_roles(self.0.store, self.0.store.redis().as_ref(), roles)
+                            .await?;
+                    }
+                    if let Some(producer) = self.0.store.mutation_event_producer() {
+                        producer
+                            .create_event(
+                                &qm_kafka::producer::EventNs::Customer,
+                                CustomerDB::collection(self.0.store),
+                                &result,
                             )
                             .await?;
                     }

@@ -23,6 +23,7 @@ prometheus-client.workspace = true
 deadpool-redis.workspace = true
 
 qm-mongodb.workspace = true
+qm-kafka.workspace = true
 qm-keycloak.workspace = true
 qm-entity.workspace = true
 qm-redis.workspace = true

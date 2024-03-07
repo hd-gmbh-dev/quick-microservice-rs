@@ -10,3 +10,9 @@ license.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+anyhow.workspace = true
+envy.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+log.workspace = true
+rdkafka.workspace = true

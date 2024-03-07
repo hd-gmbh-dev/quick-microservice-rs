@@ -7,7 +7,6 @@ use qm_keycloak::RoleRepresentation;
 use qm_keycloak::UserRepresentation;
 use qm_mongodb::bson::doc;
 use qm_mongodb::bson::Uuid;
-use qm_mongodb::DB;
 use qm_redis::redis::{AsyncCommands, Msg};
 use std::collections::BTreeMap;
 use std::sync::atomic::AtomicU64;
@@ -16,11 +15,15 @@ use tokio::sync::RwLock;
 
 use crate::model::User;
 use crate::model::UserDetails;
+use crate::roles::RoleDB;
+use crate::schema::user::UserDB;
 
 pub type DbUserMap = BTreeMap<Arc<Uuid>, Arc<User>>;
 pub type KeycloakUserMap = BTreeMap<Arc<Uuid>, Arc<UserDetails>>;
 pub type KeycloakGroupMap = BTreeMap<Arc<str>, (Arc<str>, GroupRepresentation)>;
 pub type KeycloakRoleMap = BTreeMap<Arc<str>, (Arc<str>, RoleRepresentation)>;
+
+pub trait UserCacheDB: UserDB + RoleDB {}
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub enum UserCacheEventType {
@@ -67,10 +70,10 @@ where
     }
 }
 
-async fn load_users(db: &DB) -> anyhow::Result<Vec<User>> {
+async fn load_users(db: &impl UserDB) -> anyhow::Result<Vec<User>> {
     Ok(db
-        .get()
-        .collection(crate::schema::user::DEFAULT_COLLECTION)
+        .users()
+        .as_ref()
         .find(doc! {}, None)
         .await?
         .try_collect()
@@ -87,7 +90,7 @@ async fn load_keycloak_users(
 async fn load_user_maps(
     realm: &str,
     keycloak: &Keycloak,
-    db: &DB,
+    db: &impl UserDB,
 ) -> anyhow::Result<(DbUserMap, KeycloakUserMap)> {
     let db_users: DbUserMap = BTreeMap::from_iter(
         load_users(db)
@@ -115,10 +118,10 @@ fn parse_role(r: &RoleRepresentation) -> Option<ParsedRole> {
     })
 }
 
-async fn load_roles(db: &DB) -> anyhow::Result<KeycloakRoleMap> {
+async fn load_roles(db: &impl RoleDB) -> anyhow::Result<KeycloakRoleMap> {
     let roles: Vec<RoleRepresentation> = db
-        .get()
-        .collection("roles")
+        .roles()
+        .as_ref()
         .find(doc! {}, None)
         .await?
         .try_collect()
@@ -129,32 +132,19 @@ async fn load_roles(db: &DB) -> anyhow::Result<KeycloakRoleMap> {
 }
 
 impl UserCache {
-    pub async fn new(prefix: &str, keycloak: &Keycloak, db: &DB) -> anyhow::Result<Self> {
-        let realm = keycloak.config().realm();
-        let (db_users, keycloak_users) = load_user_maps(realm, keycloak, db).await?;
-        log::info!("loaded {} users", db_users.len());
-        let users_total = Gauge::<f64, AtomicU64>::default();
-        users_total.set(db_users.len() as f64);
-        let groups = load_groups(realm, keycloak).await?;
-        log::info!("loaded {} groups", groups.len());
-        let groups_total = Gauge::<f64, AtomicU64>::default();
-        groups_total.set(groups.len() as f64);
-        let roles = load_roles(db).await?;
-        log::info!("loaded {} roles", roles.len());
-        let roles_total = Gauge::<f64, AtomicU64>::default();
-        roles_total.set(roles.len() as f64);
+    pub async fn new(prefix: &str, realm: &str) -> anyhow::Result<Self> {
         Ok(Self {
             inner: Arc::new(UserCacheInner {
                 id: Arc::new(Uuid::new()),
                 channel: Arc::from(format!("{prefix}_users")),
                 realm: Arc::from(realm.to_string()),
-                db_users: Arc::new(RwLock::new(db_users)),
-                keycloak_users: Arc::new(RwLock::new(keycloak_users)),
-                users_total,
-                groups: Arc::new(RwLock::new(groups)),
-                groups_total,
-                roles: Arc::new(RwLock::new(roles)),
-                roles_total,
+                db_users: Default::default(),
+                keycloak_users: Default::default(),
+                groups: Default::default(),
+                roles: Default::default(),
+                users_total: Default::default(),
+                groups_total: Default::default(),
+                roles_total: Default::default(),
             }),
         })
     }
@@ -208,7 +198,7 @@ impl UserCache {
     pub async fn reload_users(
         &self,
         keycloak: &Keycloak,
-        db: &DB,
+        db: &impl UserDB,
         redis: Option<&deadpool_redis::Pool>,
     ) -> anyhow::Result<()> {
         let (db_users, keycloak_users) =
@@ -258,7 +248,7 @@ impl UserCache {
 
     pub async fn reload_roles(
         &self,
-        db: &DB,
+        db: &impl RoleDB,
         redis: Option<&deadpool_redis::Pool>,
     ) -> anyhow::Result<()> {
         let next_items = load_roles(db).await?;
@@ -354,16 +344,12 @@ impl UserCache {
 
     pub async fn new_roles(
         &self,
-        db: &DB,
+        db: &impl RoleDB,
         redis: &deadpool_redis::Pool,
         roles: Vec<RoleRepresentation>,
     ) -> anyhow::Result<()> {
         self.load_roles(&roles).await;
-        db.get()
-            .collection::<RoleRepresentation>("roles")
-            .insert_many(&roles, None)
-            .await
-            .ok();
+        db.roles().as_ref().insert_many(&roles, None).await.ok();
         let publisher = self.inner.id.clone();
         let mut con = redis.get().await?;
         con.publish(
@@ -391,7 +377,7 @@ impl UserCache {
     pub async fn process_event(
         &self,
         keycloak: &Keycloak,
-        db: &DB,
+        db: &impl UserCacheDB,
         msg: Msg,
         /*cache: &Cache,*/
     ) -> anyhow::Result<()> {

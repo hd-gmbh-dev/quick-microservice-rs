@@ -37,23 +37,13 @@ where
 
 pub const DEFAULT_COLLECTION: &str = "users";
 
-pub trait UserDB {
+pub trait UserDB: AsRef<DB> {
     fn collection(&self) -> &str {
         DEFAULT_COLLECTION
     }
-    fn user_db(&self) -> &qm_mongodb::DB;
     fn users(&self) -> qm_entity::Collection<User> {
         let collection = self.collection();
-        qm_entity::Collection(self.user_db().get().collection::<User>(collection))
-    }
-}
-
-impl<T> UserDB for T
-where
-    T: AsRef<DB>,
-{
-    fn user_db(&self) -> &DB {
-        self.as_ref()
+        qm_entity::Collection(self.as_ref().get().collection::<User>(collection))
     }
 }
 

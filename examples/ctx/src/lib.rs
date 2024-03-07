@@ -1,5 +1,6 @@
 use qm::{
     customer::{cache::Cache, context::InMemoryCache},
+    kafka::producer::Producer,
     keycloak::{JwtStore, Keycloak},
     mongodb::DB,
     redis::Redis,
@@ -14,6 +15,7 @@ struct Inner {
     db: DB,
     redis: Redis,
     cache: Cache,
+    mutation_event_producer: Producer,
 }
 
 #[derive(Clone)]
@@ -24,7 +26,14 @@ pub struct Storage {
 qm::mongodb::db!(Storage);
 qm::keycloak::keycloak!(Storage);
 qm::redis::redis!(Storage);
+qm::customer::mutation_event_producer!(Storage);
 qm::customer::storage!(Storage);
+
+impl InMemoryCache for Storage {
+    fn cache(&self) -> Option<&qm::customer::cache::Cache> {
+        Some(&self.inner.cache)
+    }
+}
 
 impl Storage {
     pub async fn new() -> anyhow::Result<Self> {
@@ -34,8 +43,9 @@ impl Storage {
         let keycloak = qm::keycloak::Keycloak::new().await?;
         let jwt_store = JwtStore::new(keycloak.config());
         let redis = Redis::new()?;
-        let cache = Cache::new("qm-example", &keycloak, &db).await?;
-        Ok(Self {
+        let cache = Cache::new("qm-example", keycloak.config().realm()).await?;
+        let mutation_event_producer = Producer::new()?;
+        let result = Self {
             inner: Arc::new(Inner {
                 server_config,
                 keycloak,
@@ -43,8 +53,14 @@ impl Storage {
                 db,
                 redis,
                 cache,
+                mutation_event_producer,
             }),
-        })
+        };
+        result
+            .cache()
+            .reload_all(result.keycloak(), &result)
+            .await?;
+        Ok(result)
     }
 
     pub fn server_config(&self) -> &ServerConfig {
@@ -56,10 +72,7 @@ impl Storage {
     pub fn jwt_store(&self) -> &JwtStore {
         &self.inner.jwt_store
     }
-}
-
-impl InMemoryCache for Storage {
-    fn cache(&self) -> Option<&qm::customer::cache::Cache> {
-        Some(&self.inner.cache)
+    fn cache(&self) -> &qm::customer::cache::Cache {
+        &self.inner.cache
     }
 }

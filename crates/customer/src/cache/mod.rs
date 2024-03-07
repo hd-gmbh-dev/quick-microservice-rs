@@ -1,13 +1,15 @@
-use std::sync::Arc;
-
 use qm_keycloak::Keycloak;
-use qm_mongodb::DB;
+use std::sync::Arc;
 
 pub mod customer;
 pub mod user;
 
 use customer::CustomerCache;
 use user::UserCache;
+
+use self::{customer::CustomerCacheDB, user::UserCacheDB};
+
+pub trait CacheDB: CustomerCacheDB + UserCacheDB {}
 
 struct Inner {
     customer: CustomerCache,
@@ -20,11 +22,11 @@ pub struct Cache {
 }
 
 impl Cache {
-    pub async fn new(prefix: &str, keycloak: &Keycloak, db: &DB) -> anyhow::Result<Self> {
+    pub async fn new(prefix: &str, realm: &str) -> anyhow::Result<Self> {
         Ok(Cache {
             inner: Arc::new(Inner {
-                customer: CustomerCache::new(prefix, db).await?,
-                user: UserCache::new(prefix, keycloak, db).await?,
+                customer: CustomerCache::new(prefix).await?,
+                user: UserCache::new(prefix, realm).await?,
             }),
         })
     }
@@ -37,16 +39,11 @@ impl Cache {
         &self.inner.user
     }
 
-    pub async fn reload_all(
-        &self,
-        keycloak: &Keycloak,
-        db: &DB,
-        redis: &deadpool_redis::Pool,
-    ) -> anyhow::Result<()> {
-        self.customer().reload(db, Some(redis)).await?;
-        self.user().reload_users(keycloak, db, Some(redis)).await?;
-        self.user().reload_groups(keycloak, Some(redis)).await?;
-        self.user().reload_roles(db, Some(redis)).await?;
+    pub async fn reload_all(&self, keycloak: &Keycloak, db: &impl CacheDB) -> anyhow::Result<()> {
+        self.customer().reload(db, None).await?;
+        self.user().reload_users(keycloak, db, None).await?;
+        self.user().reload_groups(keycloak, None).await?;
+        self.user().reload_roles(db, None).await?;
         Ok(())
     }
 }

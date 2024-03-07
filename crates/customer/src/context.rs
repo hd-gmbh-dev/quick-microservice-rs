@@ -5,16 +5,24 @@ use qm_entity::IsAdmin;
 use qm_entity::MutatePermissions;
 use qm_entity::UserAccessLevel;
 use qm_entity::UserId;
+pub use qm_kafka::producer::Producer;
 use qm_redis::Redis;
 
 use crate::cache::Cache;
 use crate::groups::RelatedGroups;
+use crate::roles::RoleDB;
 use crate::schema::customer::CustomerDB;
 use crate::schema::institution::InstitutionDB;
 use crate::schema::organization::OrganizationDB;
 use crate::schema::organization_unit::OrganizationUnitDB;
 use crate::schema::user::KeycloakClient;
 use crate::schema::user::UserDB;
+
+pub trait MutationEventProducer {
+    fn mutation_event_producer(&self) -> Option<&Producer> {
+        None
+    }
+}
 
 pub trait InMemoryCache {
     fn cache(&self) -> Option<&Cache> {
@@ -41,9 +49,12 @@ pub trait RelatedStorage:
     + OrganizationDB
     + OrganizationUnitDB
     + InstitutionDB
+    + RoleDB
+    + UserDB
     + RedisClient
     + KeycloakClient
     + InMemoryCache
+    + MutationEventProducer
     + Send
     + Sync
     + 'static

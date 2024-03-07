@@ -25,27 +25,13 @@ use crate::schema::auth::AuthCtx;
 
 pub const DEFAULT_COLLECTION: &str = "organizations";
 
-pub trait OrganizationDB {
+pub trait OrganizationDB: AsRef<DB> {
     fn collection(&self) -> &str {
         DEFAULT_COLLECTION
     }
-    fn organization_db(&self) -> &DB;
     fn organizations(&self) -> qm_entity::Collection<Organization> {
         let collection = self.collection();
-        qm_entity::Collection(
-            self.organization_db()
-                .get()
-                .collection::<Organization>(collection),
-        )
-    }
-}
-
-impl<T> OrganizationDB for T
-where
-    T: AsRef<DB>,
-{
-    fn organization_db(&self) -> &DB {
-        self.as_ref()
+        qm_entity::Collection(self.as_ref().get().collection::<Organization>(collection))
     }
 }
 
@@ -101,10 +87,15 @@ where
                             .await?;
                         cache
                             .user()
-                            .new_roles(
-                                self.0.store.organization_db(),
-                                self.0.store.redis().as_ref(),
-                                roles,
+                            .new_roles(self.0.store, self.0.store.redis().as_ref(), roles)
+                            .await?;
+                    }
+                    if let Some(producer) = self.0.store.mutation_event_producer() {
+                        producer
+                            .create_event(
+                                &qm_kafka::producer::EventNs::Organization,
+                                OrganizationDB::collection(self.0.store),
+                                &result,
                             )
                             .await?;
                     }
