@@ -1,9 +1,12 @@
-use async_graphql::{Context, Object, ResultExt};
+use async_graphql::{Context, Object};
 
+use qm_entity::ctx::InstitutionFilter;
 use qm_entity::ctx::MutationContext;
 use qm_entity::ctx::OrganizationFilter;
 use qm_entity::err;
+use qm_entity::error::EntityResult;
 use qm_entity::ids::InstitutionId;
+use qm_entity::ids::OrganizationId;
 use qm_entity::model::ListFilter;
 use qm_entity::Create;
 use qm_mongodb::DB;
@@ -15,10 +18,11 @@ use crate::context::RelatedResource;
 use crate::context::RelatedStorage;
 use crate::marker::Marker;
 use crate::model::CreateInstitutionInput;
+use crate::model::CreateUserInput;
 use crate::model::Institution;
 use crate::model::{InstitutionData, InstitutionList, UpdateInstitutionInput};
+use crate::roles;
 use crate::schema::auth::AuthCtx;
-// use crate::schema::user::Owner;
 
 pub const DEFAULT_COLLECTION: &str = "institutions";
 
@@ -46,6 +50,82 @@ where
     }
 }
 
+pub struct Ctx<'a, Auth, Store, AccessLevel, Resource, Permission>(
+    pub AuthCtx<'a, Auth, Store, AccessLevel, Resource, Permission>,
+)
+where
+    Auth: RelatedAuth<AccessLevel, Resource, Permission>,
+    Store: RelatedStorage,
+    AccessLevel: RelatedAccessLevel,
+    Resource: RelatedResource,
+    Permission: RelatedPermission;
+impl<'a, Auth, Store, AccessLevel, Resource, Permission>
+    Ctx<'a, Auth, Store, AccessLevel, Resource, Permission>
+where
+    Auth: RelatedAuth<AccessLevel, Resource, Permission>,
+    Store: RelatedStorage,
+    AccessLevel: RelatedAccessLevel,
+    Resource: RelatedResource,
+    Permission: RelatedPermission,
+{
+    pub async fn create(&self, institution: InstitutionData) -> EntityResult<Institution> {
+        let OrganizationId { cid, id: oid } = institution.0.clone();
+        let name = institution.1.clone();
+        let lock_key = format!(
+            "v1_institution_lock_{}_{}_{name}",
+            cid.to_hex(),
+            oid.to_hex()
+        );
+        let lock = self.0.store.redis().lock(&lock_key, 5000, 20, 250).await?;
+        let (result, exists) = async {
+            EntityResult::Ok(
+                if let Some(item) = self
+                    .0
+                    .store
+                    .institutions()
+                    .by_field_with_customer_filter(&cid, "name", &name)
+                    .await?
+                {
+                    (item, true)
+                } else {
+                    let result = self
+                        .0
+                        .store
+                        .institutions()
+                        .save(institution.create(&self.0.auth)?)
+                        .await?;
+                    let access = qm_role::Access::new(AccessLevel::institution())
+                        .with_fmt_id(result.id.as_institution_id().as_ref())
+                        .to_string();
+                    let roles =
+                        roles::ensure(self.0.store.keycloak(), Some(access).into_iter()).await?;
+                    if let Some(cache) = self.0.store.cache() {
+                        cache
+                            .customer()
+                            .new_institution(self.0.store.redis().as_ref(), result.clone())
+                            .await?;
+                        cache
+                            .user()
+                            .new_roles(
+                                self.0.store.institution_db(),
+                                self.0.store.redis().as_ref(),
+                                roles,
+                            )
+                            .await?;
+                    }
+                    (result, false)
+                },
+            )
+        }
+        .await?;
+        self.0.store.redis().unlock(&lock_key, &lock.id).await?;
+        if exists {
+            return err!(name_conflict::<Institution>(name));
+        }
+        Ok(result)
+    }
+}
+
 pub struct InstitutionQueryRoot<Auth, Store, AccessLevel, Resource, Permission> {
     _marker: Marker<Auth, Store, AccessLevel, Resource, Permission>,
 }
@@ -67,8 +147,8 @@ where
     Auth: RelatedAuth<AccessLevel, Resource, Permission>,
     Store: RelatedStorage,
     AccessLevel: RelatedAccessLevel,
-    Resource: RelatedResource,
-    Permission: RelatedPermission,
+    Resource: Send + Sync + 'static,
+    Permission: Send + Sync + 'static,
 {
     async fn institution_by_id(
         &self,
@@ -93,10 +173,6 @@ where
         //     .await?)
         unimplemented!()
     }
-}
-
-pub trait InstitutionResource {
-    fn institution() -> Self;
 }
 
 pub struct InstitutionMutationRoot<Auth, Store, AccessLevel, Resource, Permission> {
@@ -129,36 +205,37 @@ where
         context: OrganizationFilter,
         input: CreateInstitutionInput,
     ) -> async_graphql::FieldResult<Institution> {
-        let auth_ctx = AuthCtx::<Auth, Store, AccessLevel, Resource, Permission>::mutate_with_role(
-            ctx,
-            MutationContext::Organization(context.clone()),
-            (Resource::institution(), Permission::create()),
+        let result = Ctx(
+            AuthCtx::<Auth, Store, AccessLevel, Resource, Permission>::mutate_with_role(
+                ctx,
+                MutationContext::Organization(context.clone()),
+                (Resource::institution(), Permission::create()),
+            )
+            .await?,
         )
+        .create(InstitutionData(context.into(), input.name))
         .await?;
-        let institution = InstitutionData(context.into(), input.name);
-        let item = auth_ctx
-            .store
-            .institutions()
-            .by_name(&institution.1)
+        if let Some(user) = input.initial_user {
+            crate::schema::user::Ctx(
+                AuthCtx::<'_, Auth, Store, AccessLevel, Resource, Permission>::new_with_role(
+                    ctx,
+                    (Resource::user(), Permission::create()),
+                )
+                .await?,
+            )
+            .create(CreateUserInput {
+                access: qm_role::Access::new(AccessLevel::institution())
+                    .with_fmt_id(result.id.as_institution_id().as_ref())
+                    .to_string(),
+                user,
+                group: Auth::create_institution_owner_group().name,
+                context: qm_entity::ctx::ContextFilterInput::Institution(InstitutionFilter {
+                    customer: result.id.cid.clone().unwrap(),
+                    organization: result.id.oid.clone().unwrap(),
+                    institution: result.id.id.clone().unwrap(),
+                }),
+            })
             .await?;
-        if item.is_some() {
-            return err!(name_conflict::<Institution>(institution.1)).extend();
-        }
-        let result = auth_ctx
-            .store
-            .institutions()
-            .save(institution.create(&auth_ctx.auth).extend()?)
-            .await?;
-
-        if let Some(_initial_user) = input.initial_user {
-            // UserCtx::<Auth, Store, AccessLevel, Resource, Permission>::from_graphql(ctx)
-            //     .await?
-            //     .create(
-            //         Auth::create_institution_owner_group(),
-            //         Owner::Institution(result.id.clone().into()),
-            //         initial_user,
-            //     )
-            //     .await?;
         }
         Ok(result)
     }

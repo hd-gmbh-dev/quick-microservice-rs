@@ -1,13 +1,8 @@
+use async_graphql::{ErrorExtensions, FieldResult, ResultExt};
 use std::collections::HashMap;
 use std::sync::Arc;
-// use async_graphql::Context;
-// use async_graphql::FieldResult;
 
-use async_graphql::{ErrorExtensions, FieldResult, ResultExt};
 use qm_entity::error::EntityError;
-
-// use qm_entity::FromGraphQLContext;
-// use qm_entity::UserId;
 use qm_entity::{err, Create};
 use qm_keycloak::CredentialRepresentation;
 use qm_keycloak::Keycloak;
@@ -20,8 +15,12 @@ use crate::model::CreateUserInput;
 use crate::model::User;
 use crate::model::UserInput;
 use crate::model::{RequiredUserAction, UserData, UserDetails};
-
-// use crate::model::UserInput;
+use crate::schema::auth::AuthCtx;
+use crate::schema::RelatedAccessLevel;
+use crate::schema::RelatedAuth;
+use crate::schema::RelatedPermission;
+use crate::schema::RelatedResource;
+use crate::schema::RelatedStorage;
 
 pub trait KeycloakClient {
     fn keycloak(&self) -> &Keycloak;
@@ -57,13 +56,6 @@ where
         self.as_ref()
     }
 }
-
-use crate::schema::auth::AuthCtx;
-use crate::schema::RelatedAccessLevel;
-use crate::schema::RelatedAuth;
-use crate::schema::RelatedPermission;
-use crate::schema::RelatedResource;
-use crate::schema::RelatedStorage;
 
 fn set_attributes(attributes: HashMap<&str, Option<String>>, u: &mut UserRepresentation) {
     if u.attributes.is_none() {
@@ -303,16 +295,7 @@ where
                     .await?;
             }
             if let Some(role) = cache.user().get_role(&access).await {
-                keycloak
-                    .add_user_role(
-                        realm,
-                        &k_user
-                            .id
-                            .clone()
-                            .expect("Keycloak must have returned a user"),
-                        role,
-                    )
-                    .await?;
+                keycloak.add_user_role(realm, &user_id, role).await?;
             }
         } else {
             unimplemented!()

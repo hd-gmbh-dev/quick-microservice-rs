@@ -106,6 +106,23 @@ where
         self.as_ref().find_one(doc! { field: value }, None).await
     }
 
+    pub async fn by_field_with_customer_filter(
+        &self,
+        cid: &ObjectId,
+        field: &str,
+        value: &str,
+    ) -> qm_mongodb::error::Result<Option<T>> {
+        self.as_ref()
+            .find_one(
+                doc! {
+                    "cid": &cid,
+                    field: value
+                },
+                None,
+            )
+            .await
+    }
+
     pub async fn list(
         &self,
         filter: Option<ListFilter>,

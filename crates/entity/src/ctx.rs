@@ -130,6 +130,16 @@ pub enum OrgOrInstFilter {
 /// Oneof input object in GraphQL
 /// Oneof input objects requires have exactly one field
 #[derive(Debug, Clone, Serialize, Deserialize, OneofObject)]
+pub enum CustOrOrgFilter {
+    #[graphql(name = "customerFilter")]
+    Customer(CustomerFilter),
+    #[graphql(name = "organizationFilter")]
+    Organization(OrganizationFilter),
+}
+
+/// Oneof input object in GraphQL
+/// Oneof input objects requires have exactly one field
+#[derive(Debug, Clone, Serialize, Deserialize, OneofObject)]
 pub enum ContextFilterInput {
     #[graphql(name = "customerFilter")]
     Customer(CustomerFilter),

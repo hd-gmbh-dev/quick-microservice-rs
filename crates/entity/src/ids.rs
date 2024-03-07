@@ -41,6 +41,33 @@ impl EntityId {
     pub fn as_customer_id(&self) -> Option<CustomerId> {
         self.id.clone().map(|id| CustomerId { id })
     }
+
+    pub fn as_organization_id(&self) -> Option<OrganizationId> {
+        self.cid
+            .clone()
+            .zip(self.id.clone())
+            .map(|(cid, id)| OrganizationId { cid, id })
+    }
+
+    pub fn as_organization_unit_id(&self) -> Option<OrganizationUnitId> {
+        if let Some(oid) = self.oid.clone() {
+            self.cid.clone().zip(self.id.clone()).map(|(cid, id)| {
+                OrganizationUnitId::Organization(OrganizationResourceId { cid, oid, id })
+            })
+        } else {
+            self.cid
+                .clone()
+                .zip(self.id.clone())
+                .map(|(cid, id)| OrganizationUnitId::Customer(CustomerResourceId { cid, id }))
+        }
+    }
+
+    pub fn as_institution_id(&self) -> Option<InstitutionId> {
+        self.cid
+            .clone()
+            .zip(self.oid.clone().zip(self.id.clone()))
+            .map(|(cid, (oid, id))| InstitutionId { cid, oid, id })
+    }
 }
 
 pub type EntityIds = Arc<[EntityId]>;
@@ -401,6 +428,58 @@ impl TryFrom<EntityId> for OrganizationUnitId {
     }
 }
 
+impl FromStr for OrganizationUnitId {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s.len() == 76 {
+            return Ok(Self::Organization(OrganizationResourceId {
+                cid: parse_object_id(&s[0..24])?.ok_or(anyhow::anyhow!(
+                    "'cid' is required on OrganizationUnitId::Organization"
+                ))?,
+                oid: parse_object_id(&s[24..48])?.ok_or(anyhow::anyhow!(
+                    "'oid' is required on OrganizationUnitId::Organization"
+                ))?,
+                id: parse_object_id(&s[48..72])?.ok_or(anyhow::anyhow!(
+                    "'id' is required on OrganizationUnitId::Organization"
+                ))?,
+            }));
+        }
+        if s.len() == 48 {
+            return Ok(Self::Customer(CustomerResourceId {
+                cid: parse_object_id(&s[0..24])?.ok_or(anyhow::anyhow!(
+                    "'cid' is required on OrganizationUnitId::Customer"
+                ))?,
+                id: parse_object_id(&s[24..48])?.ok_or(anyhow::anyhow!(
+                    "'id' is required on OrganizationUnitId::Customer"
+                ))?,
+            }));
+        }
+        anyhow::bail!("invalid length, OrganizationUnitId should have 48 or 72 characters")
+    }
+}
+
+#[Scalar]
+impl ScalarType for OrganizationUnitId {
+    fn parse(value: Value) -> InputValueResult<Self> {
+        if let Value::String(value) = &value {
+            // Parse the integer value
+            Ok(OrganizationUnitId::from_str(value)
+                .map_err(|err| InputValueError::custom(err.to_string()))?)
+        } else {
+            // If the type does not match
+            Err(InputValueError::expected_type(value))
+        }
+    }
+
+    fn to_value(&self) -> Value {
+        match self {
+            OrganizationUnitId::Customer(v) => v.to_value(),
+            OrganizationUnitId::Organization(v) => v.to_value(),
+        }
+    }
+}
+
 #[derive(
     Clone, Debug, Eq, Hash, PartialEq, PartialOrd, Ord, serde::Serialize, serde::Deserialize,
 )]
@@ -518,12 +597,39 @@ impl From<EntityId> for OrganizationId {
     }
 }
 
+impl std::fmt::Display for OrganizationId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}{}", self.cid.to_hex(), self.id.to_hex())
+    }
+}
+
 impl From<EntityId> for InstitutionId {
     fn from(value: EntityId) -> Self {
         Self {
             cid: value.cid.unwrap_or_default(),
             oid: value.oid.unwrap_or_default(),
             id: value.id.unwrap_or_default(),
+        }
+    }
+}
+
+impl std::fmt::Display for InstitutionId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}{}{}",
+            self.cid.to_hex(),
+            self.oid.to_hex(),
+            self.id.to_hex()
+        )
+    }
+}
+
+impl std::fmt::Display for OrganizationUnitId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            OrganizationUnitId::Customer(v) => v.fmt(f),
+            OrganizationUnitId::Organization(v) => v.fmt(f),
         }
     }
 }

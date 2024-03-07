@@ -1,10 +1,11 @@
-use async_graphql::FieldError;
-use async_graphql::{Context, Object, ResultExt};
+use async_graphql::{Context, Object};
 
-use qm_entity::ctx::ContextFilterInput;
+use qm_entity::ctx::CustOrOrgFilter;
+use qm_entity::ctx::MutationContext;
+use qm_entity::ctx::OrganizationUnitFilter;
 use qm_entity::err;
-use qm_entity::ids::StrictOrganizationUnitIds;
-use qm_entity::ids::ID;
+use qm_entity::error::EntityResult;
+use qm_entity::ids::OrganizationUnitId;
 use qm_entity::model::ListFilter;
 use qm_entity::Create;
 use qm_mongodb::DB;
@@ -16,12 +17,11 @@ use crate::context::RelatedResource;
 use crate::context::RelatedStorage;
 use crate::marker::Marker;
 use crate::model::CreateOrganizationUnitInput;
+use crate::model::CreateUserInput;
 use crate::model::OrganizationUnit;
 use crate::model::{OrganizationUnitData, OrganizationUnitList, UpdateOrganizationUnitInput};
+use crate::roles;
 use crate::schema::auth::AuthCtx;
-use crate::schema::user::KeycloakClient;
-// use crate::schema::user::Owner;
-// use crate::schema::user::UserCtx;
 
 pub const DEFAULT_COLLECTION: &str = "organization_units";
 
@@ -49,9 +49,79 @@ where
     }
 }
 
-pub trait OrganizationUnitStorage:
-    OrganizationUnitDB + KeycloakClient + Send + Sync + 'static
+pub struct Ctx<'a, Auth, Store, AccessLevel, Resource, Permission>(
+    pub AuthCtx<'a, Auth, Store, AccessLevel, Resource, Permission>,
+)
+where
+    Auth: RelatedAuth<AccessLevel, Resource, Permission>,
+    Store: RelatedStorage,
+    AccessLevel: RelatedAccessLevel,
+    Resource: RelatedResource,
+    Permission: RelatedPermission;
+impl<'a, Auth, Store, AccessLevel, Resource, Permission>
+    Ctx<'a, Auth, Store, AccessLevel, Resource, Permission>
+where
+    Auth: RelatedAuth<AccessLevel, Resource, Permission>,
+    Store: RelatedStorage,
+    AccessLevel: RelatedAccessLevel,
+    Resource: RelatedResource,
+    Permission: RelatedPermission,
 {
+    pub async fn create(
+        &self,
+        organization_unit: OrganizationUnitData,
+    ) -> EntityResult<OrganizationUnit> {
+        let cid = organization_unit.cid.clone();
+        let name = organization_unit.name.clone();
+        let lock_key = format!("v1_organization_unit_lock_{}_{name}", cid.to_hex());
+        let lock = self.0.store.redis().lock(&lock_key, 5000, 20, 250).await?;
+        let (result, exists) = async {
+            EntityResult::Ok(
+                if let Some(item) = self
+                    .0
+                    .store
+                    .organization_units()
+                    .by_field_with_customer_filter(&cid, "name", &name)
+                    .await?
+                {
+                    (item, true)
+                } else {
+                    let result = self
+                        .0
+                        .store
+                        .organization_units()
+                        .save(organization_unit.create(&self.0.auth)?)
+                        .await?;
+                    let access = qm_role::Access::new(AccessLevel::organization_unit())
+                        .with_fmt_id(result.id.as_organization_unit_id().as_ref())
+                        .to_string();
+                    let roles =
+                        roles::ensure(self.0.store.keycloak(), Some(access).into_iter()).await?;
+                    if let Some(cache) = self.0.store.cache() {
+                        cache
+                            .customer()
+                            .new_organization_unit(self.0.store.redis().as_ref(), result.clone())
+                            .await?;
+                        cache
+                            .user()
+                            .new_roles(
+                                self.0.store.organization_unit_db(),
+                                self.0.store.redis().as_ref(),
+                                roles,
+                            )
+                            .await?;
+                    }
+                    (result, false)
+                },
+            )
+        }
+        .await?;
+        self.0.store.redis().unlock(&lock_key, &lock.id).await?;
+        if exists {
+            return err!(name_conflict::<OrganizationUnit>(name));
+        }
+        Ok(result)
+    }
 }
 
 pub struct OrganizationUnitQueryRoot<Auth, Store, AccessLevel, Resource, Permission> {
@@ -75,13 +145,13 @@ where
     Auth: RelatedAuth<AccessLevel, Resource, Permission>,
     Store: RelatedStorage,
     AccessLevel: RelatedAccessLevel,
-    Resource: RelatedResource,
-    Permission: RelatedPermission,
+    Resource: Send + Sync + 'static,
+    Permission: Send + Sync + 'static,
 {
     async fn organization_unit_by_id(
         &self,
         _ctx: &Context<'_>,
-        _id: ID,
+        _id: OrganizationUnitId,
     ) -> async_graphql::FieldResult<Option<OrganizationUnit>> {
         // Ok(OrganizationUnitCtx::<Auth, Store>::from_graphql(ctx)
         //     .await?
@@ -101,10 +171,6 @@ where
         //     .await?)
         unimplemented!()
     }
-}
-
-pub trait OrganizationUnitResource {
-    fn organization_unit() -> Self;
 }
 
 pub struct OrganizationUnitMutationRoot<Auth, Store, AccessLevel, Resource, Permission> {
@@ -134,55 +200,68 @@ where
     async fn create_organization_unit(
         &self,
         ctx: &Context<'_>,
-        context: ContextFilterInput,
+        context: CustOrOrgFilter,
         input: CreateOrganizationUnitInput,
     ) -> async_graphql::FieldResult<OrganizationUnit> {
-        let auth_ctx = AuthCtx::<Auth, Store, AccessLevel, Resource, Permission>::new_with_role(
-            ctx,
-            (Resource::organization_unit(), Permission::create()),
-        )
-        .await?;
-        if let ContextFilterInput::Institution(_) = &context {
-            return Err(FieldError::new("invalid ContextFilterInput, organization units requires CustomerFilter or OrganizationFilter"));
-        }
-        let organization_unit = match context {
-            ContextFilterInput::Customer(v) => OrganizationUnitData {
-                cid: v.customer,
-                members: input.members,
-                name: input.name,
-                oid: None,
-            },
-            ContextFilterInput::Organization(v) => OrganizationUnitData {
-                cid: v.customer,
-                members: input.members,
-                name: input.name,
-                oid: Some(v.organization),
-            },
-            _ => unreachable!(),
+        let result = match context {
+            CustOrOrgFilter::Customer(context) => {
+                Ctx(
+                    AuthCtx::<Auth, Store, AccessLevel, Resource, Permission>::mutate_with_role(
+                        ctx,
+                        MutationContext::Customer(context.clone()),
+                        (Resource::organization_unit(), Permission::create()),
+                    )
+                    .await?,
+                )
+                .create(OrganizationUnitData {
+                    cid: context.customer.clone(),
+                    oid: None,
+                    name: input.name,
+                    members: input.members,
+                })
+                .await?
+            }
+            CustOrOrgFilter::Organization(context) => {
+                Ctx(
+                    AuthCtx::<Auth, Store, AccessLevel, Resource, Permission>::mutate_with_role(
+                        ctx,
+                        MutationContext::Organization(context.clone()),
+                        (Resource::organization_unit(), Permission::create()),
+                    )
+                    .await?,
+                )
+                .create(OrganizationUnitData {
+                    cid: context.customer.clone(),
+                    oid: Some(context.organization.clone()),
+                    name: input.name,
+                    members: input.members,
+                })
+                .await?
+            }
         };
-        let item = auth_ctx
-            .store
-            .organization_units()
-            .by_name(&organization_unit.name)
+        if let Some(user) = input.initial_user {
+            crate::schema::user::Ctx(
+                AuthCtx::<'_, Auth, Store, AccessLevel, Resource, Permission>::new_with_role(
+                    ctx,
+                    (Resource::user(), Permission::create()),
+                )
+                .await?,
+            )
+            .create(CreateUserInput {
+                access: qm_role::Access::new(AccessLevel::organization_unit())
+                    .with_fmt_id(result.id.as_organization_unit_id().as_ref())
+                    .to_string(),
+                user,
+                group: Auth::create_organization_unit_owner_group().name,
+                context: qm_entity::ctx::ContextFilterInput::OrganizationUnit(
+                    OrganizationUnitFilter {
+                        customer: result.id.cid.clone().unwrap(),
+                        organization: result.id.oid.clone(),
+                        organization_unit: result.id.id.clone().unwrap(),
+                    },
+                ),
+            })
             .await?;
-        if item.is_some() {
-            return err!(name_conflict::<OrganizationUnit>(organization_unit.name)).extend();
-        }
-        let result = auth_ctx
-            .store
-            .organization_units()
-            .save(organization_unit.create(&auth_ctx.auth).extend()?)
-            .await?;
-
-        if let Some(_initial_user) = input.initial_user {
-            // UserCtx::<Auth, Store, AccessLevel, Resource, Permission>::from_graphql(ctx)
-            //     .await?
-            //     .create(
-            //         Auth::create_organization_unit_owner_group(),
-            //         Owner::OrganizationUnit(result.id.clone().try_into()?),
-            //         initial_user,
-            //     )
-            //     .await?;
         }
         Ok(result)
     }
@@ -202,7 +281,7 @@ where
     async fn remove_organization_units(
         &self,
         _ctx: &Context<'_>,
-        _ids: StrictOrganizationUnitIds,
+        _ids: Vec<OrganizationUnitId>,
     ) -> async_graphql::FieldResult<usize> {
         // Ok(OrganizationUnitCtx::<Auth, Store>::from_graphql(ctx)
         //     .await?
