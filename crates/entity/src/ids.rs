@@ -37,6 +37,10 @@ impl EntityId {
         self.cid = Some(cid);
         self
     }
+
+    pub fn as_customer_id(&self) -> Option<CustomerId> {
+        self.id.clone().map(|id| CustomerId { id })
+    }
 }
 
 pub type EntityIds = Arc<[EntityId]>;
@@ -135,6 +139,12 @@ impl From<CustomerId> for EntityId {
             oid: None,
             iid: None,
         }
+    }
+}
+
+impl std::fmt::Display for CustomerId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.id.to_hex())
     }
 }
 

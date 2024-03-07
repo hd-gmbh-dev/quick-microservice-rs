@@ -1,13 +1,38 @@
 use std::hash::{Hash, Hasher};
 
-use crate::schema::user::Owner;
 use async_graphql::{Enum, InputObject, SimpleObject};
+use qm_entity::ctx::ContextFilterInput;
+
+use qm_entity::error::EntityError;
+use qm_entity::error::EntityResult;
 use qm_entity::ids::EntityId;
 use qm_entity::model::Modification;
+use qm_entity::Create;
+use qm_entity::UserId;
 use qm_keycloak::UserRepresentation;
 use qm_mongodb::bson::Uuid;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+
+#[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
+#[serde(tag = "ty", content = "entityId")]
+pub enum Owner {
+    Customer(EntityId),
+    Organization(EntityId),
+    Institution(EntityId),
+    OrganizationUnit(EntityId),
+}
+
+impl From<ContextFilterInput> for Owner {
+    fn from(value: ContextFilterInput) -> Self {
+        match value {
+            ContextFilterInput::Customer(v) => Owner::Customer(v.into()),
+            ContextFilterInput::Organization(v) => Owner::Organization(v.into()),
+            ContextFilterInput::Institution(v) => Owner::Institution(v.into()),
+            ContextFilterInput::OrganizationUnit(v) => Owner::OrganizationUnit(v.into()),
+        }
+    }
+}
 
 #[derive(serde::Deserialize, serde::Serialize, Debug, Clone, Enum, Copy, Eq, PartialEq)]
 pub enum RequiredUserAction {
@@ -97,6 +122,42 @@ pub struct User {
     pub created: Modification,
     #[graphql(skip)]
     pub modified: Option<Modification>,
+}
+
+impl AsMut<EntityId> for User {
+    fn as_mut(&mut self) -> &mut EntityId {
+        match &mut self.owner {
+            Owner::Customer(v) => v,
+            Owner::Organization(v) => v,
+            Owner::Institution(v) => v,
+            Owner::OrganizationUnit(v) => v,
+        }
+    }
+}
+
+pub struct UserData {
+    pub owner: Owner,
+    pub groups: Vec<String>,
+    pub details: UserDetails,
+    pub access: String,
+}
+
+impl<C> Create<User, C> for UserData
+where
+    C: UserId,
+{
+    fn create(self, c: &C) -> EntityResult<User> {
+        let user_id = c.user_id().ok_or(EntityError::Forbidden)?.to_owned();
+        Ok(User {
+            owner: self.owner,
+            groups: self.groups,
+            access: self.access,
+            custom_groups: Default::default(),
+            details: Arc::new(self.details),
+            created: Modification::new(user_id),
+            modified: None,
+        })
+    }
 }
 
 impl TryFrom<UserRepresentation> for UserDetails {
@@ -201,5 +262,5 @@ pub struct CreateUserInput {
     pub user: UserInput,
     pub group: String,
     pub access: String,
-    pub context: EntityId,
+    pub context: ContextFilterInput,
 }

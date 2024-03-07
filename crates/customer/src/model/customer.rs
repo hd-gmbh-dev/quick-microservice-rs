@@ -27,6 +27,7 @@ pub struct UpdateCustomerInput {
 #[graphql(complex)]
 pub struct Customer {
     #[graphql(skip)]
+    #[serde(flatten)]
     pub id: EntityId,
     pub name: String,
     pub created: Modification,

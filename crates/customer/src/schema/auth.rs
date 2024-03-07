@@ -8,7 +8,7 @@ use qm_entity::ctx::MutationContext;
 use qm_entity::err;
 use qm_entity::error::EntityError;
 
-use crate::context::RelatedAccess;
+use crate::context::RelatedAccessLevel;
 use crate::context::RelatedAuth;
 use crate::context::RelatedPermission;
 use crate::context::RelatedResource;
@@ -16,22 +16,23 @@ use crate::context::RelatedStorage;
 use crate::marker::ArpMarker;
 use crate::model::Customer;
 
-pub struct AuthCtx<'ctx, Auth, Store, Access, Resource, Permission> {
+#[derive(Clone)]
+pub struct AuthCtx<'ctx, Auth, Store, AccessLevel, Resource, Permission> {
     pub auth: Auth,
     pub store: &'ctx Store,
     pub is_admin: bool,
-    _marker: ArpMarker<Access, Resource, Permission>,
+    _marker: ArpMarker<AccessLevel, Resource, Permission>,
     // access: Access,
     // resource: Resource,
     // permission: Permission,
 }
 
-impl<'ctx, Auth, Store, Access, Resource, Permission>
-    AuthCtx<'ctx, Auth, Store, Access, Resource, Permission>
+impl<'ctx, Auth, Store, AccessLevel, Resource, Permission>
+    AuthCtx<'ctx, Auth, Store, AccessLevel, Resource, Permission>
 where
-    Auth: RelatedAuth<Access, Resource, Permission>,
+    Auth: RelatedAuth<AccessLevel, Resource, Permission>,
     Store: RelatedStorage,
-    Access: RelatedAccess,
+    AccessLevel: RelatedAccessLevel,
     Resource: RelatedResource,
     Permission: RelatedPermission,
 {
@@ -72,7 +73,7 @@ where
                 .extend()?;
 
             if !self.auth.has_access(
-                &qm_role::Access::new(Access::customer())
+                &qm_role::Access::new(AccessLevel::customer())
                     .with_id(Arc::from(customer_filter.customer.to_hex())),
             ) {
                 return err!(unauthorized(&self.auth)).extend();

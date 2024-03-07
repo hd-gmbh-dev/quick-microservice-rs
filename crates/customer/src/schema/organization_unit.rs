@@ -9,7 +9,7 @@ use qm_entity::model::ListFilter;
 use qm_entity::Create;
 use qm_mongodb::DB;
 
-use crate::context::RelatedAccess;
+use crate::context::RelatedAccessLevel;
 use crate::context::RelatedAuth;
 use crate::context::RelatedPermission;
 use crate::context::RelatedResource;
@@ -20,8 +20,8 @@ use crate::model::OrganizationUnit;
 use crate::model::{OrganizationUnitData, OrganizationUnitList, UpdateOrganizationUnitInput};
 use crate::schema::auth::AuthCtx;
 use crate::schema::user::KeycloakClient;
-use crate::schema::user::Owner;
-use crate::schema::user::UserCtx;
+// use crate::schema::user::Owner;
+// use crate::schema::user::UserCtx;
 
 pub const DEFAULT_COLLECTION: &str = "organization_units";
 
@@ -54,12 +54,12 @@ pub trait OrganizationUnitStorage:
 {
 }
 
-pub struct OrganizationUnitQueryRoot<Auth, Store, Access, Resource, Permission> {
-    _marker: Marker<Auth, Store, Access, Resource, Permission>,
+pub struct OrganizationUnitQueryRoot<Auth, Store, AccessLevel, Resource, Permission> {
+    _marker: Marker<Auth, Store, AccessLevel, Resource, Permission>,
 }
 
-impl<Auth, Store, Access, Resource, Permission> Default
-    for OrganizationUnitQueryRoot<Auth, Store, Access, Resource, Permission>
+impl<Auth, Store, AccessLevel, Resource, Permission> Default
+    for OrganizationUnitQueryRoot<Auth, Store, AccessLevel, Resource, Permission>
 {
     fn default() -> Self {
         Self {
@@ -69,12 +69,12 @@ impl<Auth, Store, Access, Resource, Permission> Default
 }
 
 #[Object]
-impl<Auth, Store, Access, Resource, Permission>
-    OrganizationUnitQueryRoot<Auth, Store, Access, Resource, Permission>
+impl<Auth, Store, AccessLevel, Resource, Permission>
+    OrganizationUnitQueryRoot<Auth, Store, AccessLevel, Resource, Permission>
 where
-    Auth: RelatedAuth<Access, Resource, Permission>,
+    Auth: RelatedAuth<AccessLevel, Resource, Permission>,
     Store: RelatedStorage,
-    Access: RelatedAccess,
+    AccessLevel: RelatedAccessLevel,
     Resource: RelatedResource,
     Permission: RelatedPermission,
 {
@@ -107,12 +107,12 @@ pub trait OrganizationUnitResource {
     fn organization_unit() -> Self;
 }
 
-pub struct OrganizationUnitMutationRoot<Auth, Store, Access, Resource, Permission> {
-    _marker: Marker<Auth, Store, Access, Resource, Permission>,
+pub struct OrganizationUnitMutationRoot<Auth, Store, AccessLevel, Resource, Permission> {
+    _marker: Marker<Auth, Store, AccessLevel, Resource, Permission>,
 }
 
-impl<Auth, Store, Access, Resource, Permission> Default
-    for OrganizationUnitMutationRoot<Auth, Store, Access, Resource, Permission>
+impl<Auth, Store, AccessLevel, Resource, Permission> Default
+    for OrganizationUnitMutationRoot<Auth, Store, AccessLevel, Resource, Permission>
 {
     fn default() -> Self {
         Self {
@@ -122,12 +122,12 @@ impl<Auth, Store, Access, Resource, Permission> Default
 }
 
 #[Object]
-impl<Auth, Store, Access, Resource, Permission>
-    OrganizationUnitMutationRoot<Auth, Store, Access, Resource, Permission>
+impl<Auth, Store, AccessLevel, Resource, Permission>
+    OrganizationUnitMutationRoot<Auth, Store, AccessLevel, Resource, Permission>
 where
-    Auth: RelatedAuth<Access, Resource, Permission>,
+    Auth: RelatedAuth<AccessLevel, Resource, Permission>,
     Store: RelatedStorage,
-    Access: RelatedAccess,
+    AccessLevel: RelatedAccessLevel,
     Resource: RelatedResource,
     Permission: RelatedPermission,
 {
@@ -137,7 +137,7 @@ where
         context: ContextFilterInput,
         input: CreateOrganizationUnitInput,
     ) -> async_graphql::FieldResult<OrganizationUnit> {
-        let auth_ctx = AuthCtx::<Auth, Store, Access, Resource, Permission>::new_with_role(
+        let auth_ctx = AuthCtx::<Auth, Store, AccessLevel, Resource, Permission>::new_with_role(
             ctx,
             (Resource::organization_unit(), Permission::create()),
         )
@@ -174,15 +174,15 @@ where
             .save(organization_unit.create(&auth_ctx.auth).extend()?)
             .await?;
 
-        if let Some(initial_user) = input.initial_user {
-            UserCtx::<Auth, Store, Access, Resource, Permission>::from_graphql(ctx)
-                .await?
-                .create(
-                    Auth::create_organization_unit_owner_group(),
-                    Owner::OrganizationUnit(result.id.clone().try_into()?),
-                    initial_user,
-                )
-                .await?;
+        if let Some(_initial_user) = input.initial_user {
+            // UserCtx::<Auth, Store, AccessLevel, Resource, Permission>::from_graphql(ctx)
+            //     .await?
+            //     .create(
+            //         Auth::create_organization_unit_owner_group(),
+            //         Owner::OrganizationUnit(result.id.clone().try_into()?),
+            //         initial_user,
+            //     )
+            //     .await?;
         }
         Ok(result)
     }

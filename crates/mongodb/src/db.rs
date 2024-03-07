@@ -51,7 +51,7 @@ pub struct DB {
 
 impl DB {
     pub async fn new(app_name: &str, cfg: &MongoDbConfig) -> mongodb::error::Result<Self> {
-        log::info!("{app_name} -> connects to mongodb");
+        log::info!("'{app_name}' -> connects to mongodb '{}'", cfg.database());
         let mut client_options = ClientOptions::parse(cfg.root_address()).await?;
         client_options.app_name = Some(app_name.to_string());
         let admin = Client::with_options(client_options)?;

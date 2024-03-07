@@ -623,7 +623,8 @@ impl Keycloak {
         realm: &str,
     ) -> Result<Vec<GroupRepresentation>, KeycloakError> {
         let mut result = vec![];
-        for group in self.groups(realm).await? {
+        let groups = self.groups(realm).await?;
+        for group in groups {
             let group = self
                 .inner
                 .admin

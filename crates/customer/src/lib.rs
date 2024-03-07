@@ -3,6 +3,7 @@ pub mod context;
 pub mod groups;
 pub mod marker;
 pub mod model;
+pub mod roles;
 pub mod schema;
 
 #[macro_export]

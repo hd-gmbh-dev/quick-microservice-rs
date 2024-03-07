@@ -34,6 +34,13 @@ impl<T> Access<T> {
         self.id = Some(id);
         self
     }
+
+    pub fn with_fmt_id(mut self, id: Option<&impl std::fmt::Display>) -> Self {
+        if let Some(id) = id {
+            self.id = Some(Arc::from(id.to_string()));
+        }
+        self
+    }
 }
 
 impl<T> std::fmt::Display for Access<T>

@@ -7,6 +7,7 @@ use qm::{
             AdminContext, CustomerAccess, CustomerResource, InstitutionAccess, InstitutionResource,
             OrganizationAccess, OrganizationResource, OrganizationUnitAccess,
             OrganizationUnitResource, RelatedAuth, RelatedPermission, RelatedResource, UserContext,
+            UserResource,
         },
         groups::{
             CreateCustomerOwnerGroup, CreateInstitutionOwnerGroup, CreateOrganizationOwnerGroup,
@@ -180,7 +181,7 @@ impl InstitutionAccess for AccessLevel {
     }
 }
 
-impl qm::customer::context::RelatedAccess for AccessLevel {}
+impl qm::customer::context::RelatedAccessLevel for AccessLevel {}
 
 impl CustomerResource for Resource {
     fn customer() -> Self {
@@ -200,6 +201,11 @@ impl OrganizationResource for Resource {
 impl InstitutionResource for Resource {
     fn institution() -> Self {
         Self::Institution
+    }
+}
+impl UserResource for Resource {
+    fn user() -> Self {
+        Self::User
     }
 }
 impl RelatedResource for Resource {}

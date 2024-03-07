@@ -185,6 +185,26 @@ impl UserCache {
             .cloned()
     }
 
+    pub async fn get_role_id(&self, name: &str) -> Option<Arc<str>> {
+        self.inner
+            .roles
+            .read()
+            .await
+            .get(name)
+            .map(|(id, _)| id)
+            .cloned()
+    }
+
+    pub async fn get_role(&self, name: &str) -> Option<RoleRepresentation> {
+        self.inner
+            .roles
+            .read()
+            .await
+            .get(name)
+            .map(|(_, role)| role)
+            .cloned()
+    }
+
     pub async fn reload_users(
         &self,
         keycloak: &Keycloak,
@@ -332,6 +352,31 @@ impl UserCache {
         Ok(())
     }
 
+    pub async fn new_roles(
+        &self,
+        db: &DB,
+        redis: &deadpool_redis::Pool,
+        roles: Vec<RoleRepresentation>,
+    ) -> anyhow::Result<()> {
+        self.load_roles(&roles).await;
+        db.get()
+            .collection::<RoleRepresentation>("roles")
+            .insert_many(&roles, None)
+            .await
+            .ok();
+        let publisher = self.inner.id.clone();
+        let mut con = redis.get().await?;
+        con.publish(
+            self.inner.channel.as_ref(),
+            serde_json::to_string(&UserCacheEvent {
+                publisher,
+                event: UserCacheEventType::NewRoles(roles),
+            })?,
+        )
+        .await?;
+        Ok(())
+    }
+
     async fn load_roles(&self, roles: &[RoleRepresentation]) {
         self.inner
             .roles
@@ -396,7 +441,7 @@ fn parse_group(r: &GroupRepresentation) -> ParsedGroup {
 }
 
 async fn load_groups(realm: &str, keycloak: &Keycloak) -> anyhow::Result<KeycloakGroupMap> {
-    let groups = ignore_404(keycloak.groups_with_subgroups(realm).await)?;
+    let groups = ignore_404(keycloak.groups(realm).await)?;
     Ok(KeycloakGroupMap::from_iter(
         groups.iter().filter_map(parse_group),
     ))

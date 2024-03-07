@@ -14,6 +14,7 @@ use crate::schema::institution::InstitutionDB;
 use crate::schema::organization::OrganizationDB;
 use crate::schema::organization_unit::OrganizationUnitDB;
 use crate::schema::user::KeycloakClient;
+use crate::schema::user::UserDB;
 
 pub trait InMemoryCache {
     fn cache(&self) -> Option<&Cache> {
@@ -35,7 +36,8 @@ where
 }
 
 pub trait RelatedStorage:
-    CustomerDB
+    UserDB
+    + CustomerDB
     + OrganizationDB
     + OrganizationUnitDB
     + InstitutionDB
@@ -81,11 +83,12 @@ pub trait CustomerAccess {
     fn customer() -> Self;
 }
 
-pub trait RelatedAccess:
+pub trait RelatedAccessLevel:
     OrganizationAccess
     + InstitutionAccess
     + OrganizationUnitAccess
     + CustomerAccess
+    + AsRef<str>
     + Ord
     + Send
     + Sync
@@ -105,12 +108,16 @@ pub trait OrganizationUnitResource {
 pub trait CustomerResource {
     fn customer() -> Self;
 }
+pub trait UserResource {
+    fn user() -> Self;
+}
 
 pub trait RelatedResource:
     OrganizationResource
     + InstitutionResource
     + OrganizationUnitResource
     + CustomerResource
+    + UserResource
     + Send
     + Sync
     + 'static

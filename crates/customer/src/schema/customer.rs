@@ -1,23 +1,22 @@
-use async_graphql::FieldResult;
 use async_graphql::{Context, Object, ResultExt};
+use qm_entity::ctx::CustomerFilter;
 
-use crate::context::RelatedAccess;
+use crate::context::RelatedAccessLevel;
 use crate::context::RelatedStorage;
-use crate::context::{CustomerResource, RelatedAuth, RelatedPermission, RelatedResource};
-use crate::marker::{Marker, RpMarker};
+use crate::context::{RelatedAuth, RelatedPermission, RelatedResource};
+use crate::marker::Marker;
 use crate::model::CreateCustomerInput;
+use crate::model::CreateUserInput;
 use crate::model::Customer;
 use crate::model::{CustomerData, CustomerList, UpdateCustomerInput};
+use crate::roles;
 use crate::schema::auth::AuthCtx;
-use crate::schema::user::Owner;
-use crate::schema::user::UserCtx;
+
+use qm_entity::err;
 use qm_entity::error::EntityResult;
 use qm_entity::ids::CustomerId;
 use qm_entity::model::ListFilter;
-use qm_entity::IsAdmin;
-use qm_entity::UserId;
-use qm_entity::{err, HasRole};
-use qm_entity::{Create, FromGraphQLContext};
+use qm_entity::Create;
 use qm_mongodb::DB;
 
 pub const DEFAULT_COLLECTION: &str = "customers";
@@ -106,21 +105,21 @@ where
 //     }
 // }
 
-struct Ctx<'a, Auth, Store, Access, Resource, Permission>(
-    pub AuthCtx<'a, Auth, Store, Access, Resource, Permission>,
+pub struct Ctx<'a, Auth, Store, AccessLevel, Resource, Permission>(
+    pub AuthCtx<'a, Auth, Store, AccessLevel, Resource, Permission>,
 )
 where
-    Auth: RelatedAuth<Access, Resource, Permission>,
+    Auth: RelatedAuth<AccessLevel, Resource, Permission>,
     Store: RelatedStorage,
-    Access: RelatedAccess,
+    AccessLevel: RelatedAccessLevel,
     Resource: RelatedResource,
     Permission: RelatedPermission;
-impl<'a, Auth, Store, Access, Resource, Permission>
-    Ctx<'a, Auth, Store, Access, Resource, Permission>
+impl<'a, Auth, Store, AccessLevel, Resource, Permission>
+    Ctx<'a, Auth, Store, AccessLevel, Resource, Permission>
 where
-    Auth: RelatedAuth<Access, Resource, Permission>,
+    Auth: RelatedAuth<AccessLevel, Resource, Permission>,
     Store: RelatedStorage,
-    Access: RelatedAccess,
+    AccessLevel: RelatedAccessLevel,
     Resource: RelatedResource,
     Permission: RelatedPermission,
 {
@@ -139,10 +138,23 @@ where
                         .customers()
                         .save(customer.create(&self.0.auth)?)
                         .await?;
+                    let access = qm_role::Access::new(AccessLevel::customer())
+                        .with_fmt_id(result.id.as_customer_id().as_ref())
+                        .to_string();
+                    let roles =
+                        roles::ensure(self.0.store.keycloak(), Some(access).into_iter()).await?;
                     if let Some(cache) = self.0.store.cache() {
                         cache
                             .customer()
                             .new_customer(self.0.store.redis().as_ref(), result.clone())
+                            .await?;
+                        cache
+                            .user()
+                            .new_roles(
+                                self.0.store.customer_db(),
+                                self.0.store.redis().as_ref(),
+                                roles,
+                            )
                             .await?;
                     }
                     (result, false)
@@ -158,12 +170,12 @@ where
     }
 }
 
-pub struct CustomerQueryRoot<Auth, Store, Access, Resource, Permission> {
-    _marker: Marker<Auth, Store, Access, Resource, Permission>,
+pub struct CustomerQueryRoot<Auth, Store, AccessLevel, Resource, Permission> {
+    _marker: Marker<Auth, Store, AccessLevel, Resource, Permission>,
 }
 
-impl<Auth, Store, Access, Resource, Permission> Default
-    for CustomerQueryRoot<Auth, Store, Access, Resource, Permission>
+impl<Auth, Store, AccessLevel, Resource, Permission> Default
+    for CustomerQueryRoot<Auth, Store, AccessLevel, Resource, Permission>
 {
     fn default() -> Self {
         Self {
@@ -173,12 +185,12 @@ impl<Auth, Store, Access, Resource, Permission> Default
 }
 
 #[Object]
-impl<Auth, Store, Access, Resource, Permission>
-    CustomerQueryRoot<Auth, Store, Access, Resource, Permission>
+impl<Auth, Store, AccessLevel, Resource, Permission>
+    CustomerQueryRoot<Auth, Store, AccessLevel, Resource, Permission>
 where
-    Auth: RelatedAuth<Access, Resource, Permission>,
+    Auth: RelatedAuth<AccessLevel, Resource, Permission>,
     Store: RelatedStorage,
-    Access: RelatedAccess,
+    AccessLevel: RelatedAccessLevel,
     Resource: RelatedResource,
     Permission: RelatedPermission,
 {
@@ -207,12 +219,12 @@ where
     }
 }
 
-pub struct CustomerMutationRoot<Auth, Store, Access, Resource, Permission> {
-    _marker: Marker<Auth, Store, Access, Resource, Permission>,
+pub struct CustomerMutationRoot<Auth, Store, AccessLevel, Resource, Permission> {
+    _marker: Marker<Auth, Store, AccessLevel, Resource, Permission>,
 }
 
-impl<Auth, Store, Access, Resource, Permission> Default
-    for CustomerMutationRoot<Auth, Store, Access, Resource, Permission>
+impl<Auth, Store, AccessLevel, Resource, Permission> Default
+    for CustomerMutationRoot<Auth, Store, AccessLevel, Resource, Permission>
 {
     fn default() -> Self {
         Self {
@@ -222,12 +234,12 @@ impl<Auth, Store, Access, Resource, Permission> Default
 }
 
 #[Object]
-impl<Auth, Store, Access, Resource, Permission>
-    CustomerMutationRoot<Auth, Store, Access, Resource, Permission>
+impl<Auth, Store, AccessLevel, Resource, Permission>
+    CustomerMutationRoot<Auth, Store, AccessLevel, Resource, Permission>
 where
-    Auth: RelatedAuth<Access, Resource, Permission>,
+    Auth: RelatedAuth<AccessLevel, Resource, Permission>,
     Store: RelatedStorage,
-    Access: RelatedAccess,
+    AccessLevel: RelatedAccessLevel,
     Resource: RelatedResource,
     Permission: RelatedPermission,
 {
@@ -236,8 +248,8 @@ where
         ctx: &Context<'_>,
         input: CreateCustomerInput,
     ) -> async_graphql::FieldResult<Customer> {
-        Ctx(
-            AuthCtx::<'_, Auth, Store, Access, Resource, Permission>::new_with_role(
+        let result = Ctx(
+            AuthCtx::<'_, Auth, Store, AccessLevel, Resource, Permission>::new_with_role(
                 ctx,
                 (Resource::customer(), Permission::create()),
             )
@@ -245,7 +257,29 @@ where
         )
         .create(CustomerData(input.name))
         .await
-        .extend()
+        .extend()?;
+
+        if let Some(user) = input.initial_user {
+            crate::schema::user::Ctx(
+                AuthCtx::<'_, Auth, Store, AccessLevel, Resource, Permission>::new_with_role(
+                    ctx,
+                    (Resource::customer(), Permission::create()),
+                )
+                .await?,
+            )
+            .create(CreateUserInput {
+                access: qm_role::Access::new(AccessLevel::customer())
+                    .with_fmt_id(result.id.as_customer_id().as_ref())
+                    .to_string(),
+                user,
+                group: Auth::create_customer_owner_group().name,
+                context: qm_entity::ctx::ContextFilterInput::Customer(CustomerFilter {
+                    customer: result.id.id.clone().unwrap(),
+                }),
+            })
+            .await?;
+        }
+        Ok(result)
     }
 
     async fn update_customer(

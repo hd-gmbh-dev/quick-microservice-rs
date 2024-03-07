@@ -38,9 +38,9 @@ impl Writer<std::fs::File> {
 }
 
 const ENUM_DERIVE: &'static str =
-    "#[derive(Copy, EnumString, EnumIter, AsRefStr, Ord, PartialOrd, Eq, PartialEq)]";
+    "#[derive(Clone, Copy, EnumString, EnumIter, AsRefStr, Ord, PartialOrd, Eq, PartialEq)]";
 const ENUM_DERIVE_ACCESS_LEVELS: &'static str =
-    "#[derive(Copy, EnumString, AsRefStr, Eq, PartialEq)]";
+    "#[derive(Clone, Copy, EnumString, AsRefStr, Eq, PartialEq)]";
 
 impl<W> Writer<W>
 where

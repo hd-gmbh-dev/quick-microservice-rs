@@ -12,21 +12,35 @@ pub enum EntityError {
     /// A unhandled Database error occurred.
     #[error("{0}")]
     Database(#[from] qm_mongodb::error::Error),
+    /// Keycloak request failure.
+    #[error(transparent)]
+    KeycloakRequest(#[from] reqwest::Error),
     /// A unexpected error occured.
     #[error(transparent)]
     UnexpectedError(#[from] anyhow::Error),
     /// Conflicting error, because resource already exists.
     #[error("the resource {0} with name '{1}' already exists")]
     NameConflict(String, String),
+    /// Conflicting error, because resource already exists.
+    #[error("the resource {0} with name '{1}' has conflicting unique fields")]
+    FieldsConflict(String, String, async_graphql::Value),
     /// Forbidden because of missing session.
     #[error("forbidden")]
     Forbidden,
+    #[error("internal server error")]
+    Internal,
     /// Unauthorized user.
     #[error("the user with id '{0}' is unauthorized")]
     Unauthorized(String),
-    /// not found.
+    /// not found by id.
     #[error("the resource {0} with id '{1}' was not found")]
-    NotFound(String, String),
+    NotFoundById(String, String),
+    /// not found by field.
+    #[error("the resource {0} with {1} '{2}' was not found")]
+    NotFoundByField(String, String, String),
+    /// bad request.
+    #[error("{1}")]
+    BadRequest(String, String),
 }
 
 pub type EntityResult<T> = Result<T, EntityError>;
@@ -55,8 +69,27 @@ impl EntityError {
         Self::NameConflict(tynm::type_name::<T>().into(), name.into())
     }
 
+    pub fn fields_conflict<T>(
+        name: impl Into<String>,
+        fields: impl Into<async_graphql::Value>,
+    ) -> Self {
+        Self::FieldsConflict(tynm::type_name::<T>().into(), name.into(), fields.into())
+    }
+
     pub fn not_found_by_id<T>(id: impl Into<String>) -> Self {
-        Self::NotFound(tynm::type_name::<T>().into(), id.into())
+        Self::NotFoundById(tynm::type_name::<T>().into(), id.into())
+    }
+
+    pub fn not_found_by_field<T>(field: impl Into<String>, value: impl Into<String>) -> Self {
+        Self::NotFoundByField(tynm::type_name::<T>().into(), field.into(), value.into())
+    }
+
+    pub fn bad_request(err_type: impl Into<String>, err_msg: impl Into<String>) -> Self {
+        Self::BadRequest(err_type.into(), err_msg.into())
+    }
+
+    pub fn internal() -> Self {
+        Self::Internal
     }
 }
 
@@ -68,8 +101,18 @@ impl ErrorExtensions for EntityError {
                 e.set("type", ty);
                 e.set("field", "name");
             }
+            EntityError::FieldsConflict(ty, _, fields) => {
+                e.set("code", 409);
+                e.set("type", ty);
+                e.set("details", fields.clone());
+            }
             EntityError::Unauthorized(_) => e.set("code", 401),
             EntityError::Forbidden => e.set("code", 403),
+            EntityError::Internal => e.set("code", 500),
+            EntityError::BadRequest(ty, _) => {
+                e.set("code", 400);
+                e.set("details", ty);
+            }
             _ => {}
         })
     }
