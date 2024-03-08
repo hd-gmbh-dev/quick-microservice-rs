@@ -1,5 +1,5 @@
 use qm::{
-    customer::{cache::Cache, context::InMemoryCache},
+    customer::{cache::Cache, worker::CleanupProducer},
     kafka::producer::Producer,
     keycloak::{JwtStore, Keycloak},
     mongodb::DB,
@@ -16,6 +16,7 @@ struct Inner {
     redis: Redis,
     cache: Cache,
     mutation_event_producer: Producer,
+    cleanup_task_producer: CleanupProducer,
 }
 
 #[derive(Clone)]
@@ -27,13 +28,9 @@ qm::mongodb::db!(Storage);
 qm::keycloak::keycloak!(Storage);
 qm::redis::redis!(Storage);
 qm::customer::mutation_event_producer!(Storage);
+qm::customer::cleanup_task_producer!(Storage);
 qm::customer::storage!(Storage);
-
-impl InMemoryCache for Storage {
-    fn cache(&self) -> Option<&qm::customer::cache::Cache> {
-        Some(&self.inner.cache)
-    }
-}
+qm::customer::cache!(Storage);
 
 impl Storage {
     pub async fn new() -> anyhow::Result<Self> {
@@ -45,6 +42,7 @@ impl Storage {
         let redis = Redis::new()?;
         let cache = Cache::new("qm-example", keycloak.config().realm()).await?;
         let mutation_event_producer = Producer::new()?;
+        let cleanup_task_producer = CleanupProducer::new(redis.pool());
         let result = Self {
             inner: Arc::new(Inner {
                 server_config,
@@ -54,6 +52,7 @@ impl Storage {
                 redis,
                 cache,
                 mutation_event_producer,
+                cleanup_task_producer,
             }),
         };
         result

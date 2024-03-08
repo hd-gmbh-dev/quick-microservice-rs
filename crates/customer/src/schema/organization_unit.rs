@@ -1,3 +1,4 @@
+use async_graphql::ResultExt;
 use async_graphql::{Context, Object};
 
 use qm_entity::ctx::CustOrOrgFilter;
@@ -6,6 +7,7 @@ use qm_entity::ctx::OrganizationUnitFilter;
 use qm_entity::err;
 use qm_entity::error::EntityResult;
 use qm_entity::ids::OrganizationUnitId;
+use qm_entity::list::ListCtx;
 use qm_entity::model::ListFilter;
 use qm_entity::Create;
 use qm_mongodb::DB;
@@ -57,6 +59,16 @@ where
     Resource: RelatedResource,
     Permission: RelatedPermission,
 {
+    pub async fn list(
+        &self,
+        filter: Option<ListFilter>,
+    ) -> async_graphql::FieldResult<OrganizationUnitList> {
+        ListCtx::new(self.0.store.organization_units())
+            .list(filter)
+            .await
+            .extend()
+    }
+
     pub async fn create(
         &self,
         organization_unit: OrganizationUnitData,
@@ -87,16 +99,15 @@ where
                         .to_string();
                     let roles =
                         roles::ensure(self.0.store.keycloak(), Some(access).into_iter()).await?;
-                    if let Some(cache) = self.0.store.cache() {
-                        cache
-                            .customer()
-                            .new_organization_unit(self.0.store.redis().as_ref(), result.clone())
-                            .await?;
-                        cache
-                            .user()
-                            .new_roles(self.0.store, self.0.store.redis().as_ref(), roles)
-                            .await?;
-                    }
+                    let cache = self.0.store.cache();
+                    cache
+                        .customer()
+                        .new_organization_unit(self.0.store.redis().as_ref(), result.clone())
+                        .await?;
+                    cache
+                        .user()
+                        .new_roles(self.0.store, self.0.store.redis().as_ref(), roles)
+                        .await?;
                     if let Some(producer) = self.0.store.mutation_event_producer() {
                         producer
                             .create_event(
@@ -140,8 +151,8 @@ where
     Auth: RelatedAuth<AccessLevel, Resource, Permission>,
     Store: RelatedStorage,
     AccessLevel: RelatedAccessLevel,
-    Resource: Send + Sync + 'static,
-    Permission: Send + Sync + 'static,
+    Resource: RelatedResource,
+    Permission: RelatedPermission,
 {
     async fn organization_unit_by_id(
         &self,
@@ -157,14 +168,19 @@ where
 
     async fn organization_units(
         &self,
-        _ctx: &Context<'_>,
-        _filter: Option<ListFilter>,
+        ctx: &Context<'_>,
+        filter: Option<ListFilter>,
     ) -> async_graphql::FieldResult<OrganizationUnitList> {
-        // Ok(OrganizationUnitCtx::<Auth, Store>::from_graphql(ctx)
-        //     .await?
-        //     .list(filter)
-        //     .await?)
-        unimplemented!()
+        Ctx(
+            AuthCtx::<'_, Auth, Store, AccessLevel, Resource, Permission>::new_with_role(
+                ctx,
+                (Resource::organization_unit(), Permission::list()),
+            )
+            .await?,
+        )
+        .list(filter)
+        .await
+        .extend()
     }
 }
 
@@ -214,7 +230,8 @@ where
                     name: input.name,
                     members: input.members,
                 })
-                .await?
+                .await
+                .extend()?
             }
             CustOrOrgFilter::Organization(context) => {
                 Ctx(
@@ -231,7 +248,8 @@ where
                     name: input.name,
                     members: input.members,
                 })
-                .await?
+                .await
+                .extend()?
             }
         };
         if let Some(user) = input.initial_user {
@@ -256,7 +274,8 @@ where
                     },
                 ),
             })
-            .await?;
+            .await
+            .extend()?;
         }
         Ok(result)
     }

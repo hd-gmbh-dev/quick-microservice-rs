@@ -278,17 +278,14 @@ where
             EntityError::Internal
         })?;
 
-        if let Some(cache) = self.0.store.cache() {
-            if let Some(group_id) = cache.user().get_group_id(&group).await {
-                keycloak
-                    .add_user_to_group(realm, &user_id, &group_id)
-                    .await?;
-            }
-            if let Some(role) = cache.user().get_role(&access).await {
-                keycloak.add_user_role(realm, &user_id, role).await?;
-            }
-        } else {
-            unimplemented!()
+        let cache = self.0.store.cache();
+        if let Some(group_id) = cache.user().get_group_id(&group).await {
+            keycloak
+                .add_user_to_group(realm, &user_id, &group_id)
+                .await?;
+        }
+        if let Some(role) = cache.user().get_role(&access).await {
+            keycloak.add_user_role(realm, &user_id, role).await?;
         }
 
         let db_user = Arc::new(
@@ -317,13 +314,12 @@ where
                 .await?,
         );
 
-        if let Some(cache) = self.0.store.cache() {
-            cache
-                .user()
-                .new_user(self.0.store.redis().as_ref(), k_user, db_user.clone())
-                .await?;
-        }
-
+        self.0
+            .store
+            .cache()
+            .user()
+            .new_user(self.0.store.redis().as_ref(), k_user, db_user.clone())
+            .await?;
         Ok(db_user)
     }
 }

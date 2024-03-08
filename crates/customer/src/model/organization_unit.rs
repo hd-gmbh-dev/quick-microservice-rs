@@ -1,9 +1,10 @@
 use qm_entity::error::{EntityError, EntityResult};
 use qm_entity::ids::{EntityId, MemberId, OrganizationUnitId, StrictOrganizationUnitId, ID};
 
+use qm_entity::list::NewList;
 use qm_entity::{Create, UserId};
 
-use async_graphql::{ComplexObject, InputObject, SimpleObject};
+use async_graphql::{ComplexObject, FieldResult, InputObject, SimpleObject};
 use serde::{Deserialize, Serialize};
 
 use crate::model::UserInput;
@@ -25,6 +26,7 @@ pub struct UpdateOrganizationUnitInput {
 #[derive(Default, Debug, Clone, SimpleObject, Serialize, Deserialize)]
 #[graphql(complex)]
 pub struct OrganizationUnit {
+    #[graphql(skip)]
     #[serde(flatten)]
     pub id: EntityId,
     pub name: String,
@@ -68,12 +70,8 @@ where
 
 #[ComplexObject]
 impl OrganizationUnit {
-    pub async fn cid(&self) -> Option<ID> {
-        self.id.cid.clone()
-    }
-
-    pub async fn oid(&self) -> Option<ID> {
-        self.id.oid.clone()
+    async fn id(&self) -> FieldResult<OrganizationUnitId> {
+        Ok(self.id.clone().try_into()?)
     }
 }
 
@@ -90,5 +88,21 @@ impl<'a> TryInto<OrganizationUnitId> for &'a OrganizationUnit {
 
     fn try_into(self) -> Result<OrganizationUnitId, Self::Error> {
         self.id.clone().try_into()
+    }
+}
+
+impl NewList<OrganizationUnit> for OrganizationUnitList {
+    fn new(
+        items: Vec<OrganizationUnit>,
+        limit: Option<i64>,
+        total: Option<i64>,
+        page: Option<i64>,
+    ) -> Self {
+        Self {
+            items,
+            limit,
+            total,
+            page,
+        }
     }
 }

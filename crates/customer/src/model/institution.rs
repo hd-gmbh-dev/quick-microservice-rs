@@ -1,9 +1,12 @@
-use async_graphql::{ComplexObject, InputObject, SimpleObject};
+use async_graphql::{ComplexObject, FieldResult, InputObject, SimpleObject};
+use qm_entity::list::NewList;
 use serde::{Deserialize, Serialize};
 
 use crate::model::UserInput;
 use qm_entity::error::{EntityError, EntityResult};
-use qm_entity::ids::{EntityId, InstitutionId, OrganizationId, OrganizationResourceId, ID};
+use qm_entity::ids::{
+    EntityId, InstitutionId, OrganizationId, OrganizationResourceId, StrictInstitutionId,
+};
 use qm_entity::model::Modification;
 use qm_entity::{Create, UserId};
 
@@ -22,11 +25,22 @@ pub struct UpdateInstitutionInput {
 #[derive(Default, Debug, Clone, SimpleObject, Serialize, Deserialize)]
 #[graphql(complex)]
 pub struct Institution {
+    #[graphql(skip)]
     #[serde(flatten)]
     pub id: EntityId,
     pub name: String,
     pub created: Modification,
     pub modified: Option<Modification>,
+}
+
+impl TryInto<StrictInstitutionId> for Institution {
+    type Error = anyhow::Error;
+    fn try_into(self) -> Result<StrictInstitutionId, Self::Error> {
+        let cid = self.id.cid.ok_or(anyhow::anyhow!("'cid' is required"))?;
+        let oid = self.id.oid.ok_or(anyhow::anyhow!("'oid' is required"))?;
+        let id = self.id.id.ok_or(anyhow::anyhow!("'id' is required"))?;
+        Ok((cid, oid, id).into())
+    }
 }
 
 #[derive(Default, Debug, Clone, SimpleObject, Serialize, Deserialize)]
@@ -39,12 +53,8 @@ pub struct InstitutionList {
 
 #[ComplexObject]
 impl Institution {
-    pub async fn cid(&self) -> Option<ID> {
-        self.id.cid.clone()
-    }
-
-    pub async fn oid(&self) -> Option<ID> {
-        self.id.oid.clone()
+    async fn id(&self) -> FieldResult<InstitutionId> {
+        Ok(self.id.clone().try_into()?)
     }
 }
 
@@ -92,5 +102,21 @@ impl<'a> TryInto<OrganizationResourceId> for &'a Institution {
                 .ok_or(anyhow::anyhow!("oid is missing"))?,
             id: self.id.id.clone().ok_or(anyhow::anyhow!("id is missing"))?,
         })
+    }
+}
+
+impl NewList<Institution> for InstitutionList {
+    fn new(
+        items: Vec<Institution>,
+        limit: Option<i64>,
+        total: Option<i64>,
+        page: Option<i64>,
+    ) -> Self {
+        Self {
+            items,
+            limit,
+            total,
+            page,
+        }
     }
 }

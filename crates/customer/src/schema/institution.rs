@@ -1,3 +1,4 @@
+use async_graphql::ResultExt;
 use async_graphql::{Context, Object};
 
 use qm_entity::ctx::InstitutionFilter;
@@ -7,6 +8,7 @@ use qm_entity::err;
 use qm_entity::error::EntityResult;
 use qm_entity::ids::InstitutionId;
 use qm_entity::ids::OrganizationId;
+use qm_entity::list::ListCtx;
 use qm_entity::model::ListFilter;
 use qm_entity::Create;
 use qm_mongodb::DB;
@@ -54,6 +56,16 @@ where
     Resource: RelatedResource,
     Permission: RelatedPermission,
 {
+    pub async fn list(
+        &self,
+        filter: Option<ListFilter>,
+    ) -> async_graphql::FieldResult<InstitutionList> {
+        ListCtx::new(self.0.store.institutions())
+            .list(filter)
+            .await
+            .extend()
+    }
+
     pub async fn create(&self, institution: InstitutionData) -> EntityResult<Institution> {
         let OrganizationId { cid, id: oid } = institution.0.clone();
         let name = institution.1.clone();
@@ -85,16 +97,15 @@ where
                         .to_string();
                     let roles =
                         roles::ensure(self.0.store.keycloak(), Some(access).into_iter()).await?;
-                    if let Some(cache) = self.0.store.cache() {
-                        cache
-                            .customer()
-                            .new_institution(self.0.store.redis().as_ref(), result.clone())
-                            .await?;
-                        cache
-                            .user()
-                            .new_roles(self.0.store, self.0.store.redis().as_ref(), roles)
-                            .await?;
-                    }
+                    let cache = self.0.store.cache();
+                    cache
+                        .customer()
+                        .new_institution(self.0.store.redis().as_ref(), result.clone())
+                        .await?;
+                    cache
+                        .user()
+                        .new_roles(self.0.store, self.0.store.redis().as_ref(), roles)
+                        .await?;
                     if let Some(producer) = self.0.store.mutation_event_producer() {
                         producer
                             .create_event(
@@ -138,8 +149,8 @@ where
     Auth: RelatedAuth<AccessLevel, Resource, Permission>,
     Store: RelatedStorage,
     AccessLevel: RelatedAccessLevel,
-    Resource: Send + Sync + 'static,
-    Permission: Send + Sync + 'static,
+    Resource: RelatedResource,
+    Permission: RelatedPermission,
 {
     async fn institution_by_id(
         &self,
@@ -155,14 +166,19 @@ where
 
     async fn institutions(
         &self,
-        _ctx: &Context<'_>,
-        _filter: Option<ListFilter>,
+        ctx: &Context<'_>,
+        filter: Option<ListFilter>,
     ) -> async_graphql::FieldResult<InstitutionList> {
-        // Ok(InstitutionCtx::<Auth, Store>::from_graphql(ctx)
-        //     .await?
-        //     .list(filter)
-        //     .await?)
-        unimplemented!()
+        Ctx(
+            AuthCtx::<'_, Auth, Store, AccessLevel, Resource, Permission>::new_with_role(
+                ctx,
+                (Resource::institution(), Permission::list()),
+            )
+            .await?,
+        )
+        .list(filter)
+        .await
+        .extend()
     }
 }
 
@@ -205,7 +221,8 @@ where
             .await?,
         )
         .create(InstitutionData(context.into(), input.name))
-        .await?;
+        .await
+        .extend()?;
         if let Some(user) = input.initial_user {
             crate::schema::user::Ctx(
                 AuthCtx::<'_, Auth, Store, AccessLevel, Resource, Permission>::new_with_role(
@@ -226,7 +243,8 @@ where
                     institution: result.id.id.clone().unwrap(),
                 }),
             })
-            .await?;
+            .await
+            .extend()?;
         }
         Ok(result)
     }

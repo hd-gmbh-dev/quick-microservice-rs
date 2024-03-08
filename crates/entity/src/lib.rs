@@ -12,12 +12,19 @@ use std::sync::Arc;
 pub mod ctx;
 pub mod error;
 pub mod ids;
+pub mod list;
 pub mod model;
+pub mod utils;
 
 pub trait MutatePermissions {
     fn create() -> Self;
     fn update() -> Self;
     fn delete() -> Self;
+}
+
+pub trait QueryPermissions {
+    fn list() -> Self;
+    fn view() -> Self;
 }
 
 pub fn conflict<E>(err: E) -> async_graphql::Error

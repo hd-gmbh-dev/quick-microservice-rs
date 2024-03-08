@@ -3,12 +3,14 @@ use qm_entity::HasAccess;
 use qm_entity::HasRole;
 use qm_entity::IsAdmin;
 use qm_entity::MutatePermissions;
+use qm_entity::QueryPermissions;
 use qm_entity::UserAccessLevel;
 use qm_entity::UserId;
 pub use qm_kafka::producer::Producer;
 use qm_redis::Redis;
 
 use crate::cache::Cache;
+use crate::cache::CacheDB;
 use crate::groups::RelatedGroups;
 use crate::roles::RoleDB;
 use crate::schema::customer::CustomerDB;
@@ -17,6 +19,7 @@ use crate::schema::organization::OrganizationDB;
 use crate::schema::organization_unit::OrganizationUnitDB;
 use crate::schema::user::KeycloakClient;
 use crate::schema::user::UserDB;
+use crate::worker::CleanupTaskProducer;
 
 pub trait MutationEventProducer {
     fn mutation_event_producer(&self) -> Option<&Producer> {
@@ -25,9 +28,7 @@ pub trait MutationEventProducer {
 }
 
 pub trait InMemoryCache {
-    fn cache(&self) -> Option<&Cache> {
-        None
-    }
+    fn cache(&self) -> &Cache;
 }
 
 pub trait RedisClient {
@@ -54,7 +55,10 @@ pub trait RelatedStorage:
     + RedisClient
     + KeycloakClient
     + InMemoryCache
+    + CacheDB
     + MutationEventProducer
+    + CleanupTaskProducer
+    + Clone
     + Send
     + Sync
     + 'static
@@ -134,4 +138,4 @@ pub trait RelatedResource:
     + 'static
 {
 }
-pub trait RelatedPermission: MutatePermissions + Send + Sync + 'static {}
+pub trait RelatedPermission: MutatePermissions + QueryPermissions + Send + Sync + 'static {}

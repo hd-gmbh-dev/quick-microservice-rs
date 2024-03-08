@@ -1,4 +1,5 @@
 use async_graphql::{ComplexObject, InputObject, SimpleObject};
+use qm_entity::list::NewList;
 use serde::{Deserialize, Serialize};
 
 use qm_entity::error::{EntityError, EntityResult};
@@ -70,4 +71,20 @@ pub struct CustomerList {
     pub limit: Option<i64>,
     pub total: Option<i64>,
     pub page: Option<i64>,
+}
+
+impl NewList<Customer> for CustomerList {
+    fn new(
+        items: Vec<Customer>,
+        limit: Option<i64>,
+        total: Option<i64>,
+        page: Option<i64>,
+    ) -> Self {
+        Self {
+            items,
+            limit,
+            total,
+            page,
+        }
+    }
 }

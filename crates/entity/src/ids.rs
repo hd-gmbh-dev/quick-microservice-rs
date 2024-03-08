@@ -169,6 +169,12 @@ impl From<CustomerId> for EntityId {
     }
 }
 
+impl AsRef<ObjectId> for CustomerId {
+    fn as_ref(&self) -> &ObjectId {
+        &self.id
+    }
+}
+
 impl std::fmt::Display for CustomerId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.id.to_hex())
@@ -179,7 +185,7 @@ impl FromStr for CustomerId {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if s.len() != 48 {
+        if s.len() != 24 {
             anyhow::bail!("invalid length, CustomerId should have 24 characters");
         }
         Ok(Self {
@@ -754,6 +760,16 @@ pub struct StrictOrganizationId {
     #[serde(rename = "_id")]
     oid: Oid,
 }
+impl std::fmt::Display for StrictOrganizationId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}{}",
+            self.cid.as_ref().to_hex(),
+            self.oid.as_ref().to_hex()
+        )
+    }
+}
 impl AsRef<Cid> for StrictOrganizationId {
     fn as_ref(&self) -> &Cid {
         &self.cid
@@ -791,6 +807,27 @@ pub struct StrictOrganizationUnitId {
     #[graphql(flatten)]
     #[serde(rename = "_id")]
     uid: Uid,
+}
+
+impl std::fmt::Display for StrictOrganizationUnitId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if let Some(oid) = self.oid.as_ref() {
+            write!(
+                f,
+                "{}{}{}",
+                self.cid.as_ref().to_hex(),
+                oid.to_hex(),
+                self.uid.as_ref().to_hex()
+            )
+        } else {
+            write!(
+                f,
+                "{}{}",
+                self.cid.as_ref().to_hex(),
+                self.uid.as_ref().to_hex()
+            )
+        }
+    }
 }
 
 impl From<(ID, Option<ID>, ID)> for StrictOrganizationUnitId {
@@ -852,6 +889,18 @@ pub struct StrictInstitutionId {
     #[graphql(flatten)]
     #[serde(rename = "_id")]
     iid: Iid,
+}
+
+impl std::fmt::Display for StrictInstitutionId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}{}{}",
+            self.cid.as_ref().to_hex(),
+            self.oid.as_ref().to_hex(),
+            self.iid.as_ref().to_hex()
+        )
+    }
 }
 
 impl From<(ID, ID, ID)> for StrictInstitutionId {

@@ -21,6 +21,7 @@ tokio.workspace = true
 log.workspace = true
 prometheus-client.workspace = true
 deadpool-redis.workspace = true
+strum.workspace = true
 
 qm-mongodb.workspace = true
 qm-kafka.workspace = true

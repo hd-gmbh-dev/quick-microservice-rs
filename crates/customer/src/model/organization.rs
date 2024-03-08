@@ -1,4 +1,5 @@
-use async_graphql::{ComplexObject, InputObject, SimpleObject};
+use async_graphql::{ComplexObject, FieldResult, InputObject, SimpleObject};
+use qm_entity::list::NewList;
 use serde::{Deserialize, Serialize};
 
 use crate::model::UserInput;
@@ -22,6 +23,7 @@ pub struct UpdateOrganizationInput {
 #[derive(Default, Debug, Clone, SimpleObject, Serialize, Deserialize)]
 #[graphql(complex)]
 pub struct Organization {
+    #[graphql(skip)]
     #[serde(flatten)]
     pub id: EntityId,
     pub name: String,
@@ -39,8 +41,8 @@ pub struct OrganizationList {
 
 #[ComplexObject]
 impl Organization {
-    pub async fn cid(&self) -> Option<ID> {
-        self.id.cid.clone()
+    async fn id(&self) -> FieldResult<OrganizationId> {
+        Ok(self.id.clone().try_into()?)
     }
 }
 
@@ -79,5 +81,21 @@ impl<'a> TryInto<CustomerResourceId> for &'a Organization {
                 .ok_or(anyhow::anyhow!("cid is missing"))?,
             id: self.id.id.clone().ok_or(anyhow::anyhow!("id is missing"))?,
         })
+    }
+}
+
+impl NewList<Organization> for OrganizationList {
+    fn new(
+        items: Vec<Organization>,
+        limit: Option<i64>,
+        total: Option<i64>,
+        page: Option<i64>,
+    ) -> Self {
+        Self {
+            items,
+            limit,
+            total,
+            page,
+        }
     }
 }

@@ -15,8 +15,8 @@ use qm::{
         },
     },
     entity::{
-        err, FromGraphQLContext, HasAccess, HasRole, IsAdmin, MutatePermissions, UserAccessLevel,
-        UserId,
+        err, FromGraphQLContext, HasAccess, HasRole, IsAdmin, MutatePermissions, QueryPermissions,
+        UserAccessLevel, UserId,
     },
     keycloak::token::jwt::Claims,
     mongodb::bson::Uuid,
@@ -221,6 +221,16 @@ impl MutatePermissions for Permission {
 
     fn delete() -> Self {
         Permission::Delete
+    }
+}
+
+impl QueryPermissions for Permission {
+    fn list() -> Self {
+        Permission::List
+    }
+
+    fn view() -> Self {
+        Permission::View
     }
 }
 impl RelatedPermission for Permission {}
