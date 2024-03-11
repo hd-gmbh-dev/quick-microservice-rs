@@ -4,6 +4,7 @@ use async_graphql::{Context, ErrorExtensions, FieldResult};
 use error::EntityResult;
 use futures::stream::TryStreamExt;
 use ids::EntityId;
+use qm_mongodb::bson::Document;
 use qm_mongodb::bson::{doc, oid::ObjectId};
 use qm_mongodb::options::FindOptions;
 use serde::{de::DeserializeOwned, Serialize};
@@ -132,9 +133,10 @@ where
 
     pub async fn list(
         &self,
+        query: Option<Document>,
         filter: Option<ListFilter>,
     ) -> qm_mongodb::error::Result<ListResult<T>> {
-        let query = doc! {};
+        let query = query.unwrap_or(doc! {});
         let limit = filter
             .as_ref()
             .and_then(|filter| filter.limit.as_ref().copied())

@@ -14,11 +14,12 @@ use serde_json::Value;
 
 lazy_static::lazy_static! {
     static ref REALM_TEMPLATE: crate::RealmRepresentation = serde_json::from_str(include_str!("../templates/realm.json")).unwrap();
+    static ref APP_URL: String = std::env::var("APP_URL").unwrap_or_else(|_| "http://localhost:5173".to_string());
 }
 
 pub async fn create(keycloak: &Keycloak) -> anyhow::Result<()> {
     let realm = keycloak.config().realm();
-    let url = keycloak.public_url();
+    let url = APP_URL.as_str();
     let mut realm_representation = REALM_TEMPLATE.clone();
     realm_representation.realm = Some(realm.to_string());
     if let Some(client) = realm_representation

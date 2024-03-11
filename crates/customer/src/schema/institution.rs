@@ -1,18 +1,22 @@
+use std::sync::Arc;
+
 use async_graphql::ResultExt;
 use async_graphql::{Context, Object};
 
-use qm_entity::ctx::InstitutionFilter;
 use qm_entity::ctx::MutationContext;
 use qm_entity::ctx::OrganizationFilter;
+use qm_entity::ctx::{CustOrOrgFilter, CustomerFilter, InstitutionFilter};
 use qm_entity::err;
 use qm_entity::error::EntityResult;
-use qm_entity::ids::InstitutionId;
 use qm_entity::ids::OrganizationId;
+use qm_entity::ids::{Cid, Iid, InstitutionId, Oid, StrictInstitutionIds};
 use qm_entity::list::ListCtx;
 use qm_entity::model::ListFilter;
 use qm_entity::Create;
+use qm_mongodb::bson::{doc, Uuid};
 use qm_mongodb::DB;
 
+use crate::cleanup::{CleanupTask, CleanupTaskType};
 use crate::context::RelatedAccessLevel;
 use crate::context::RelatedAuth;
 use crate::context::RelatedPermission;
@@ -58,12 +62,27 @@ where
 {
     pub async fn list(
         &self,
+        cust_or_org_filter: Option<CustOrOrgFilter>,
         filter: Option<ListFilter>,
     ) -> async_graphql::FieldResult<InstitutionList> {
-        ListCtx::new(self.0.store.institutions())
-            .list(filter)
-            .await
-            .extend()
+        let mut ctx = ListCtx::new(self.0.store.institutions());
+        if let Some(cust_or_org_filter) = cust_or_org_filter {
+            let query = match cust_or_org_filter {
+                CustOrOrgFilter::Customer(CustomerFilter { customer }) => {
+                    doc! { "cid" : customer.as_ref() }
+                }
+                CustOrOrgFilter::Organization(OrganizationFilter {
+                    customer,
+                    organization,
+                }) => doc! { "cid" : customer.as_ref(), "oid": organization.as_ref() },
+            };
+            ctx = ctx.with_additional_query_params(query);
+        }
+        ctx.list(filter).await.extend()
+    }
+
+    pub async fn by_id(&self, id: InstitutionId) -> Option<Arc<Institution>> {
+        self.0.store.cache().customer().institution_by_id(&id).await
     }
 
     pub async fn create(&self, institution: InstitutionData) -> EntityResult<Institution> {
@@ -126,6 +145,49 @@ where
         }
         Ok(result)
     }
+
+    pub async fn remove(&self, ids: StrictInstitutionIds) -> EntityResult<u64> {
+        let db = self.0.store.as_ref();
+        let mut session = db.session().await?;
+        let docs = ids
+            .iter()
+            .map(|v| {
+                let cid: &Cid = v.as_ref();
+                let oid: &Oid = v.as_ref();
+                let iid: &Iid = v.as_ref();
+                doc! {"_id": **iid, "cid": **cid, "oid": **oid }
+            })
+            .collect::<Vec<_>>();
+        if !docs.is_empty() {
+            let result = self
+                .0
+                .store
+                .institutions()
+                .as_ref()
+                .delete_many_with_session(doc! {"$or": docs}, None, &mut session)
+                .await?;
+            self.0
+                .store
+                .cache()
+                .customer()
+                .reload_institutions(self.0.store, Some(self.0.store.redis().as_ref()))
+                .await?;
+            if result.deleted_count != 0 {
+                let id = Uuid::new();
+                self.0
+                    .store
+                    .cleanup_task_producer()
+                    .add_item(&CleanupTask {
+                        id: id.clone(),
+                        ty: CleanupTaskType::Institutions(ids),
+                    })
+                    .await?;
+                log::debug!("emit cleanup task {}", id.to_string());
+                return Ok(result.deleted_count);
+            }
+        }
+        Ok(0)
+    }
 }
 
 pub struct InstitutionQueryRoot<Auth, Store, AccessLevel, Resource, Permission> {
@@ -154,19 +216,25 @@ where
 {
     async fn institution_by_id(
         &self,
-        _ctx: &Context<'_>,
-        _id: InstitutionId,
-    ) -> async_graphql::FieldResult<Option<Institution>> {
-        // Ok(InstitutionCtx::<Auth, Store>::from_graphql(ctx)
-        //     .await?
-        //     .by_id(&id)
-        //     .await?)
-        unimplemented!()
+        ctx: &Context<'_>,
+        id: InstitutionId,
+    ) -> async_graphql::FieldResult<Option<Arc<Institution>>> {
+        Ok(Ctx(
+            AuthCtx::<'_, Auth, Store, AccessLevel, Resource, Permission>::new_with_role(
+                ctx,
+                (Resource::institution(), Permission::view()),
+            )
+            .await
+            .extend()?,
+        )
+        .by_id(id)
+        .await)
     }
 
     async fn institutions(
         &self,
         ctx: &Context<'_>,
+        context: Option<CustOrOrgFilter>,
         filter: Option<ListFilter>,
     ) -> async_graphql::FieldResult<InstitutionList> {
         Ctx(
@@ -176,7 +244,7 @@ where
             )
             .await?,
         )
-        .list(filter)
+        .list(context, filter)
         .await
         .extend()
     }
@@ -263,13 +331,18 @@ where
 
     async fn remove_institutions(
         &self,
-        _ctx: &Context<'_>,
-        _ids: Vec<InstitutionId>,
-    ) -> async_graphql::FieldResult<usize> {
-        // Ok(InstitutionCtx::<Auth, Store>::from_graphql(ctx)
-        //     .await?
-        //     .remove(&ids)
-        //     .await?)
-        unimplemented!()
+        ctx: &Context<'_>,
+        ids: StrictInstitutionIds,
+    ) -> async_graphql::FieldResult<u64> {
+        Ctx(
+            AuthCtx::<'_, Auth, Store, AccessLevel, Resource, Permission>::new_with_role(
+                ctx,
+                (Resource::institution(), Permission::delete()),
+            )
+            .await?,
+        )
+        .remove(ids)
+        .await
+        .extend()
     }
 }

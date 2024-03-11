@@ -1,12 +1,17 @@
-use async_graphql::{ComplexObject, FieldResult, InputObject, SimpleObject};
-use qm_entity::list::NewList;
-use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 
+use crate::cache::Cache;
 use crate::model::UserInput;
+use async_graphql::Context;
+use async_graphql::{ComplexObject, FieldResult, InputObject, SimpleObject};
 use qm_entity::error::{EntityError, EntityResult};
 use qm_entity::ids::{CustomerResourceId, EntityId, OrganizationId, ID};
+use qm_entity::list::NewList;
 use qm_entity::model::Modification;
 use qm_entity::{Create, UserId};
+use serde::{Deserialize, Serialize};
+
+use super::Customer;
 
 #[derive(Debug, InputObject)]
 pub struct CreateOrganizationInput {
@@ -43,6 +48,15 @@ pub struct OrganizationList {
 impl Organization {
     async fn id(&self) -> FieldResult<OrganizationId> {
         Ok(self.id.clone().try_into()?)
+    }
+
+    async fn customer(&self, ctx: &Context<'_>) -> Option<Arc<Customer>> {
+        if let Some((cache, id)) = ctx.data::<Cache>().ok().zip(self.id.cid.as_ref()) {
+            cache.customer().customer_by_id(id).await
+        } else {
+            log::warn!("qm::customer::Cache is not installed in schema context");
+            None
+        }
     }
 }
 

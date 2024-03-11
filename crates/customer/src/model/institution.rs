@@ -1,14 +1,20 @@
-use async_graphql::{ComplexObject, FieldResult, InputObject, SimpleObject};
+use std::sync::Arc;
+
+use async_graphql::{ComplexObject, Context, FieldResult, InputObject, SimpleObject};
 use qm_entity::list::NewList;
 use serde::{Deserialize, Serialize};
 
+use crate::cache::Cache;
 use crate::model::UserInput;
 use qm_entity::error::{EntityError, EntityResult};
 use qm_entity::ids::{
-    EntityId, InstitutionId, OrganizationId, OrganizationResourceId, StrictInstitutionId,
+    CustomerResourceId, EntityId, InstitutionId, OrganizationId, OrganizationResourceId,
+    StrictInstitutionId,
 };
 use qm_entity::model::Modification;
 use qm_entity::{Create, UserId};
+
+use super::{Customer, Organization};
 
 #[derive(Debug, InputObject)]
 pub struct CreateInstitutionInput {
@@ -55,6 +61,34 @@ pub struct InstitutionList {
 impl Institution {
     async fn id(&self) -> FieldResult<InstitutionId> {
         Ok(self.id.clone().try_into()?)
+    }
+
+    async fn customer(&self, ctx: &Context<'_>) -> Option<Arc<Customer>> {
+        if let Some((cache, id)) = ctx.data::<Cache>().ok().zip(self.id.cid.as_ref()) {
+            cache.customer().customer_by_id(id).await
+        } else {
+            log::warn!("qm::customer::Cache is not installed in schema context");
+            None
+        }
+    }
+
+    async fn organization(&self, ctx: &Context<'_>) -> Option<Arc<Organization>> {
+        if let Some((cache, (cid, oid))) = ctx
+            .data::<Cache>()
+            .ok()
+            .zip(self.id.cid.as_ref().zip(self.id.oid.as_ref()))
+        {
+            cache
+                .customer()
+                .organization_by_id(&CustomerResourceId {
+                    cid: cid.clone(),
+                    id: oid.clone(),
+                })
+                .await
+        } else {
+            log::warn!("qm::customer::Cache is not installed in schema context");
+            None
+        }
     }
 }
 

@@ -54,16 +54,18 @@ where
         graphql_context: &'ctx Context<'_>,
         (resource, permission): (Resource, Permission),
     ) -> FieldResult<Self> {
+        log::debug!("new with role {resource:?} -> {permission:?}");
         let result = Self::new(graphql_context).await?;
 
         if result.is_admin {
+            log::debug!("new with role {resource:?} -> {permission:?} resolved to admin");
             return Ok(result);
         }
 
         if !result.auth.has_role(&resource, &permission) {
             return err!(unauthorized(&result.auth)).extend();
         }
-
+        log::debug!("new with role {resource:?} -> {permission:?} resolved as non admin");
         Ok(result)
     }
 

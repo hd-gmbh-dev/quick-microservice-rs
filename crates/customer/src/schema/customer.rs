@@ -66,6 +66,10 @@ where
             .extend()
     }
 
+    pub async fn by_id(&self, id: CustomerId) -> Option<Arc<Customer>> {
+        self.0.store.cache().customer().customer_by_id(&id.id).await
+    }
+
     pub async fn create(&self, customer: CustomerData) -> EntityResult<Customer> {
         let name = customer.0.clone();
         let lock_key = format!("v1_customer_lock_{name}");
@@ -183,14 +187,19 @@ where
 {
     async fn customer_by_id(
         &self,
-        _ctx: &Context<'_>,
-        _id: CustomerId,
-    ) -> async_graphql::FieldResult<Option<Customer>> {
-        // CustomerCtx::<Auth, Store, Resource, Permission>::from_graphql(ctx)
-        //     .await?
-        //     .by_id(&id)
-        //     .await
-        unimplemented!()
+        ctx: &Context<'_>,
+        id: CustomerId,
+    ) -> async_graphql::FieldResult<Option<Arc<Customer>>> {
+        Ok(Ctx(
+            AuthCtx::<'_, Auth, Store, AccessLevel, Resource, Permission>::new_with_role(
+                ctx,
+                (Resource::customer(), Permission::view()),
+            )
+            .await
+            .extend()?,
+        )
+        .by_id(id)
+        .await)
     }
 
     async fn customers(

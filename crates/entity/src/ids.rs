@@ -250,7 +250,7 @@ impl FromStr for CustomerResourceId {
 }
 
 #[Scalar]
-impl ScalarType for CustomerResourceId {
+impl ScalarType for OrganizationId {
     fn parse(value: Value) -> InputValueResult<Self> {
         if let Value::String(value) = &value {
             // Parse the integer value
@@ -310,7 +310,7 @@ impl FromStr for OrganizationResourceId {
 }
 
 #[Scalar]
-impl ScalarType for OrganizationResourceId {
+impl ScalarType for InstitutionId {
     fn parse(value: Value) -> InputValueResult<Self> {
         if let Value::String(value) = &value {
             // Parse the integer value
@@ -662,6 +662,11 @@ impl AsRef<ID> for Cid {
         &self.cid
     }
 }
+impl<'a> AsRef<ObjectId> for &'a Cid {
+    fn as_ref(&self) -> &ObjectId {
+        self.cid.as_ref()
+    }
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize, InputObject, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Oid {
@@ -682,6 +687,11 @@ impl Deref for Oid {
 impl AsRef<ID> for Oid {
     fn as_ref(&self) -> &ID {
         &self.oid
+    }
+}
+impl<'a> AsRef<ObjectId> for &'a Oid {
+    fn as_ref(&self) -> &ObjectId {
+        self.oid.as_ref()
     }
 }
 
@@ -706,6 +716,11 @@ impl AsRef<ID> for Uid {
         &self.uid
     }
 }
+impl<'a> AsRef<ObjectId> for &'a Uid {
+    fn as_ref(&self) -> &ObjectId {
+        self.uid.as_ref()
+    }
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize, InputObject, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Iid {
@@ -726,6 +741,11 @@ impl Deref for Iid {
 impl AsRef<ID> for Iid {
     fn as_ref(&self) -> &ID {
         &self.iid
+    }
+}
+impl<'a> AsRef<ObjectId> for &'a Iid {
+    fn as_ref(&self) -> &ObjectId {
+        self.iid.as_ref()
     }
 }
 
@@ -762,12 +782,7 @@ pub struct StrictOrganizationId {
 }
 impl std::fmt::Display for StrictOrganizationId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}{}",
-            self.cid.as_ref().to_hex(),
-            self.oid.as_ref().to_hex()
-        )
+        write!(f, "{}{}", self.cid.to_hex(), self.oid.to_hex(),)
     }
 }
 impl AsRef<Cid> for StrictOrganizationId {
@@ -815,17 +830,12 @@ impl std::fmt::Display for StrictOrganizationUnitId {
             write!(
                 f,
                 "{}{}{}",
-                self.cid.as_ref().to_hex(),
+                self.cid.to_hex(),
                 oid.to_hex(),
-                self.uid.as_ref().to_hex()
+                self.uid.to_hex(),
             )
         } else {
-            write!(
-                f,
-                "{}{}",
-                self.cid.as_ref().to_hex(),
-                self.uid.as_ref().to_hex()
-            )
+            write!(f, "{}{}", self.cid.to_hex(), self.uid.to_hex(),)
         }
     }
 }
@@ -896,9 +906,9 @@ impl std::fmt::Display for StrictInstitutionId {
         write!(
             f,
             "{}{}{}",
-            self.cid.as_ref().to_hex(),
-            self.oid.as_ref().to_hex(),
-            self.iid.as_ref().to_hex()
+            self.cid.to_hex(),
+            self.oid.to_hex(),
+            self.iid.to_hex(),
         )
     }
 }

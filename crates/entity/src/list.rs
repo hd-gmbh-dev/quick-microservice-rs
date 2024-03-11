@@ -1,3 +1,4 @@
+use qm_mongodb::bson::Document;
 use serde::de::DeserializeOwned;
 
 use crate::{error::EntityResult, model::ListResult};
@@ -11,6 +12,7 @@ where
 
 pub struct ListCtx<T> {
     collection: crate::Collection<T>,
+    additional_query_params: Option<Document>,
 }
 
 impl<T> ListCtx<T>
@@ -18,10 +20,18 @@ where
     T: DeserializeOwned + Send + Sync + Unpin + 'static,
 {
     pub fn new(collection: crate::Collection<T>) -> Self {
-        Self { collection }
+        Self {
+            collection,
+            additional_query_params: None,
+        }
     }
 
-    pub async fn list<R>(&self, filter: Option<crate::model::ListFilter>) -> EntityResult<R>
+    pub fn with_additional_query_params(mut self, additional_query_params: Document) -> Self {
+        self.additional_query_params = Some(additional_query_params);
+        self
+    }
+
+    pub async fn list<R>(&mut self, filter: Option<crate::model::ListFilter>) -> EntityResult<R>
     where
         R: NewList<T>,
     {
@@ -30,7 +40,10 @@ where
             limit,
             total,
             page,
-        } = self.collection.list(filter).await?;
+        } = self
+            .collection
+            .list(self.additional_query_params.take(), filter)
+            .await?;
         Ok(R::new(items, limit, total, page))
     }
 }

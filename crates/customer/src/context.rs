@@ -133,9 +133,13 @@ pub trait RelatedResource:
     + OrganizationUnitResource
     + CustomerResource
     + UserResource
+    + std::fmt::Debug
     + Send
     + Sync
     + 'static
 {
 }
-pub trait RelatedPermission: MutatePermissions + QueryPermissions + Send + Sync + 'static {}
+pub trait RelatedPermission:
+    MutatePermissions + QueryPermissions + std::fmt::Debug + Send + Sync + 'static
+{
+}
