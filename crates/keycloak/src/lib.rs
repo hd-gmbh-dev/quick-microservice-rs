@@ -11,6 +11,7 @@
 //! Default username/password: `admin`/`Admin123`
 mod client;
 
+pub mod session;
 pub use client::*;
 pub mod config;
 pub mod realm;

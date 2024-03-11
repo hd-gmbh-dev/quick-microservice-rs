@@ -60,7 +60,7 @@ pub struct InstitutionList {
 #[ComplexObject]
 impl Institution {
     async fn id(&self) -> FieldResult<InstitutionId> {
-        Ok(self.id.clone().try_into()?)
+        Ok(self.id.clone().into())
     }
 
     async fn customer(&self, ctx: &Context<'_>) -> Option<Arc<Customer>> {

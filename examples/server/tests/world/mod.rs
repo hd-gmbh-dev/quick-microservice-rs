@@ -7,6 +7,7 @@ use std::fmt::{Debug, Formatter};
 
 use crate::world::graphql::GraphQLQueryBuilder;
 use async_graphql::Response;
+use qm::keycloak::session::KeycloakSessionClient;
 use qm_example_ctx::Storage;
 use qm_example_server::schema::Schema;
 
@@ -148,18 +149,12 @@ impl World {
     pub async fn switch_user(&mut self, username: String, password: String) -> anyhow::Result<()> {
         let Ctx { store, .. } = self.ctx.take().unwrap();
         let kc = store.keycloak().config();
-        let admin_session = qm::keycloak::KeycloakSession::acquire_custom_realm(
-            kc.address(),
-            &username,
-            &password,
-            kc.realm(),
-            "spa",
-            "password",
-            store.keycloak().http_client(),
-        )
-        .await?;
+        let session_client = KeycloakSessionClient::new(kc.address(), kc.realm(), "spa");
+        let session =
+            qm::keycloak::session::KeycloakSession::new(session_client, &username, &password, true)
+                .await?;
         let schema = qm_example_server::schema::SchemaBuilder::default()
-            .with_access_token(admin_session.access_token())
+            .with_access_token(session.access_token().await.as_ref())
             .build(store.clone());
         self.ctx = Some(Ctx {
             schema,

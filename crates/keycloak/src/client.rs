@@ -1,20 +1,13 @@
-use std::future::Future;
-use std::pin::Pin;
 use std::sync::Arc;
 
 pub use crate::config::Config as KeycloakConfig;
 
-use chrono::prelude::*;
+use crate::session::{KeycloakSession, KeycloakSessionClient};
 pub use keycloak::types::{
     ClientRepresentation, CredentialRepresentation, GroupRepresentation, RealmRepresentation,
     RoleRepresentation, UserRepresentation,
 };
 pub use keycloak::{KeycloakAdmin, KeycloakError, KeycloakTokenSupplier};
-use tokio::runtime::Builder;
-use tokio::sync::oneshot::error::RecvError;
-use tokio::sync::RwLock;
-use tokio::task::LocalSet;
-
 #[derive(Debug, serde::Deserialize, serde::Serialize)]
 pub struct ServerInfo {
     #[serde(default)]
@@ -27,164 +20,6 @@ pub struct RealmInfo {
     pub realm: Option<String>,
     #[serde(default)]
     pub public_key: Option<String>,
-}
-
-#[derive(Debug, serde::Deserialize, serde::Serialize)]
-pub struct ParsedAccessToken {
-    exp: usize,
-    //:1677048774,
-    iat: usize,
-    //:1677048714,
-    // auth_time: usize, //:1677047319,
-    jti: Option<String>,
-    //:"48ef7bc9-1a42-4e4f-b136-5fd74d4d6033",
-    iss: Option<String>,
-    //:"https://id.qm.local/realms/master",
-    sub: Option<String>,
-    //:"fe487690-8c65-4106-95a5-5b1dbb8e6bbd",
-    typ: Option<String>,
-    //:"Bearer",
-    azp: Option<String>,
-    //:"security-admin-console",
-    nonce: Option<String>,
-    //:"86e7e8a2-5af5-4fed-80e7-1da412e51070",
-    session_state: Option<String>,
-    //:"cdfaa367-5c30-4142-b31a-f770073e2051",
-    acr: Option<String>,
-    //:"0",
-    allowed: Option<Vec<String>>,
-    //origins":["https://keycloak.qm.local"],
-    scope: Option<String>,
-    //:"openid profile email",
-    sid: Option<String>,
-    //:"cdfaa367-5c30-4142-b31a-f770073e2051",
-    email_verified: bool,
-    //:false,
-    preferred_username: Option<String>, //:"admin"
-}
-
-#[derive(Debug, serde::Deserialize, serde::Serialize)]
-pub struct KeycloakSession {
-    access_token: String,
-    expires_in: usize,
-    #[serde(rename = "not-before-policy")]
-    not_before_policy: Option<usize>,
-    refresh_expires_in: Option<usize>,
-    refresh_token: Option<String>,
-    scope: String,
-    session_state: Option<String>,
-    token_type: String,
-    #[serde(skip)]
-    parsed_access_token: Option<ParsedAccessToken>,
-}
-
-impl KeycloakSession {
-    pub fn access_token(&self) -> &str {
-        &self.access_token
-    }
-
-    fn parse_access_token(mut token: KeycloakSession) -> KeycloakSession {
-        use base64::engine::{general_purpose::STANDARD_NO_PAD, Engine};
-        if let Some(parsed_access_token) = token
-            .access_token
-            .split('.')
-            .nth(1)
-            .and_then(|s| {
-                STANDARD_NO_PAD
-                    .decode(s)
-                    .map_err(|e| {
-                        log::error!("{e:#?}");
-                        e
-                    })
-                    .ok()
-            })
-            .and_then(|b| {
-                serde_json::from_slice::<ParsedAccessToken>(&b)
-                    .map_err(|e| {
-                        log::error!("{e:#?}");
-                        e
-                    })
-                    .ok()
-            })
-        {
-            token.parsed_access_token = Some(parsed_access_token);
-        }
-        token
-    }
-
-    pub async fn acquire(
-        url: &str,
-        username: &str,
-        password: &str,
-        client: &reqwest::Client,
-    ) -> Result<KeycloakSession, KeycloakError> {
-        Self::acquire_custom_realm(
-            url,
-            username,
-            password,
-            "master",
-            "admin-cli",
-            "password",
-            client,
-        )
-        .await
-        .map(KeycloakSession::parse_access_token)
-    }
-
-    pub async fn acquire_custom_realm(
-        url: &str,
-        username: &str,
-        password: &str,
-        realm: &str,
-        client_id: &str,
-        grant_type: &str,
-        client: &reqwest::Client,
-    ) -> Result<KeycloakSession, KeycloakError> {
-        let response = client
-            .post(&format!(
-                "{url}/realms/{realm}/protocol/openid-connect/token",
-            ))
-            .form(&serde_json::json!({
-                "username": username,
-                "password": password,
-                "client_id": client_id,
-                "grant_type": grant_type
-            }))
-            .send()
-            .await?;
-        Ok(error_check(response).await?.json().await?)
-    }
-
-    pub async fn refresh(
-        url: &str,
-        refresh_token: &str,
-        client: &reqwest::Client,
-    ) -> Result<KeycloakSession, KeycloakError> {
-        Self::refresh_custom_realm(url, "master", "admin-cli", refresh_token, client)
-            .await
-            .map(KeycloakSession::parse_access_token)
-    }
-
-    pub async fn refresh_custom_realm(
-        url: &str,
-        realm: &str,
-        client_id: &str,
-        refresh_token: &str,
-        client: &reqwest::Client,
-    ) -> Result<KeycloakSession, KeycloakError> {
-        let response = client
-            .post(&format!(
-                "{url}/realms/{realm}/protocol/openid-connect/token",
-            ))
-            .form(&serde_json::json!({
-                "grant_type": "refresh_token",
-                "refresh_token": refresh_token,
-                "client_id": client_id,
-            }))
-            .send()
-            .await?;
-        Ok(error_check(response).await?.json().await?)
-    }
 }
 
 async fn error_check(response: reqwest::Response) -> Result<reqwest::Response, KeycloakError> {
@@ -200,93 +35,13 @@ async fn error_check(response: reqwest::Response) -> Result<reqwest::Response, K
 
     Ok(response)
 }
-pub type InflightRequestFuture =
-    Pin<Box<dyn Future<Output = Result<(), RecvError>> + Send + Sync + 'static>>;
-#[derive(Clone)]
-pub struct AdminTokenSupplier {
-    username: Arc<String>,
-    password: Arc<String>,
-    token: Arc<RwLock<Option<KeycloakSession>>>,
-    token_future: Arc<RwLock<Option<InflightRequestFuture>>>,
-}
-
-impl AdminTokenSupplier {
-    pub async fn new(
-        url: &str,
-        username: &str,
-        password: &str,
-        client: &reqwest::Client,
-    ) -> anyhow::Result<Self> {
-        Ok(Self {
-            username: Arc::new(username.to_string()),
-            password: Arc::new(password.to_string()),
-            token: Arc::new(RwLock::new(Some(
-                KeycloakSession::acquire(url, username, password, client).await?,
-            ))),
-            token_future: Default::default(),
-        })
-    }
-
-    pub async fn refresh(
-        &self,
-        url: &str,
-        refresh_token: &str,
-        client: &reqwest::Client,
-    ) -> Result<(), KeycloakError> {
-        let (tx, rx) = tokio::sync::oneshot::channel();
-        self.token_future
-            .write()
-            .await
-            .replace(Box::pin(Box::new(rx)));
-        let next_token = match KeycloakSession::refresh(url, refresh_token, client).await {
-            Ok(next_token) => next_token,
-            Err(err) => {
-                if let KeycloakError::HttpFailure { status, .. } = &err {
-                    if *status == 400 {
-                        log::debug!(
-                            "refresh token expired try to acquire new token with credentials"
-                        );
-                        KeycloakSession::acquire(url, &self.username, &self.password, client)
-                            .await?
-                    } else {
-                        return Err(err);
-                    }
-                } else {
-                    return Err(err);
-                }
-            }
-        };
-        self.token.write().await.replace(next_token);
-        tx.send(()).ok();
-        Ok(())
-    }
-}
-
-#[async_trait::async_trait]
-impl KeycloakTokenSupplier for AdminTokenSupplier {
-    async fn get(&self, _url: &str) -> Result<String, KeycloakError> {
-        if let Some(token_future) = self.token_future.write().await.take() {
-            token_future.await.ok();
-        }
-        if let Some(token) = self.token.read().await.as_ref() {
-            log::debug!("Access Token:");
-            Ok(token.access_token.clone())
-        } else {
-            Err(KeycloakError::HttpFailure {
-                status: 401,
-                body: None,
-                text: "Unauthorized".into(),
-            })
-        }
-    }
-}
 
 struct Inner {
     url: Arc<str>,
     config: KeycloakConfig,
     client: reqwest::Client,
-    token_supplier: AdminTokenSupplier,
-    admin: KeycloakAdmin<AdminTokenSupplier>,
+    session: KeycloakSession,
+    admin: KeycloakAdmin<KeycloakSession>,
 }
 
 #[derive(Default)]
@@ -317,80 +72,17 @@ impl KeycloakBuilder {
         let username: Arc<str> = Arc::from(config.username().to_string());
         let password: Arc<str> = Arc::from(config.password().to_string());
         let client = reqwest::Client::new();
-        let token_supplier =
-            AdminTokenSupplier::new(url.as_ref(), username.as_ref(), password.as_ref(), &client)
+        let session_client = KeycloakSessionClient::new(config.address(), "master", "admin-cli");
+        let session =
+            KeycloakSession::new(session_client, &username, &password, refresh_token_enabled)
                 .await?;
-        let token_supplier_refresh = token_supplier.clone();
-        if refresh_token_enabled {
-            let refresh_url = url.to_string();
-            let refresh_client = client.clone();
-            let _refrest_passowrd = password.to_string();
-            let _refrest_username = username.to_string();
-            log::debug!("start token supplier");
-            std::thread::spawn(move || {
-                let rt = Builder::new_current_thread().enable_all().build().unwrap();
-                let local = LocalSet::new();
-                log::debug!("spawn local set");
-                local.spawn_local(async move {
-                    let url = refresh_url;
-                    let mut interval = tokio::time::interval(std::time::Duration::from_secs(5));
-                    log::debug!("loop forever");
-                    loop {
-                        interval.tick().await;
-                        let local: DateTime<Local> = Local::now();
-                        let mut used_refresh_token = None;
-                        {
-                            if let Some((
-                                (parsed_access_token, refresh_token),
-                                _refresh_expires_in,
-                            )) =
-                                token_supplier_refresh
-                                    .token
-                                    .read()
-                                    .await
-                                    .as_ref()
-                                    .and_then(|t| {
-                                        t.parsed_access_token
-                                            .as_ref()
-                                            .zip(t.refresh_token.as_ref())
-                                            .zip(t.refresh_expires_in)
-                                    })
-                            {
-                                let t = local.timestamp();
-                                let exp = parsed_access_token.exp as i64;
-                                let d = exp - t;
-                                log::debug!("Token expires in {d}");
-                                if d <= 30 {
-                                    used_refresh_token = Some(refresh_token.to_owned())
-                                }
-                            } else {
-                                log::debug!("unable to get parsed access token");
-                            }
-                        }
-                        if let Some(refresh_token) = used_refresh_token {
-                            log::debug!(
-                                "Token will be invalid in 30 sec, going to use refresh token"
-                            );
-                            if let Err(e) = token_supplier_refresh
-                                .refresh(&url, &refresh_token, &refresh_client)
-                                .await
-                            {
-                                log::error!("An error occured {e:#?}");
-                                std::process::exit(1);
-                            }
-                        }
-                    }
-                });
-                rt.block_on(local);
-            });
-        }
         Ok(Keycloak {
             inner: Arc::new(Inner {
                 url: url.clone(),
                 config,
                 client: client.clone(),
-                token_supplier: token_supplier.clone(),
-                admin: KeycloakAdmin::new(&url, token_supplier, client),
+                session: session.clone(),
+                admin: KeycloakAdmin::new(&url, session, client),
             }),
         })
     }
@@ -415,7 +107,7 @@ impl Keycloak {
     }
 
     pub fn public_url(&self) -> &str {
-        &self.inner.config.public_url()
+        self.inner.config.public_url()
     }
 
     pub fn config(&self) -> &KeycloakConfig {
@@ -533,7 +225,7 @@ impl Keycloak {
             .client
             .get(format!("{}admin/realms", &self.inner.url));
         let response = builder
-            .bearer_auth(self.inner.token_supplier.get(&self.inner.url).await?)
+            .bearer_auth(self.inner.session.get(&self.inner.url).await?)
             .send()
             .await?;
         Ok(error_check(response)

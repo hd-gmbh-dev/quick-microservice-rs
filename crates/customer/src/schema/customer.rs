@@ -149,7 +149,7 @@ where
                     .store
                     .cleanup_task_producer()
                     .add_item(&CleanupTask {
-                        id: id.clone(),
+                        id,
                         ty: CleanupTaskType::Customers(ids),
                     })
                     .await?;
