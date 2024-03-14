@@ -1,11 +1,12 @@
 [package]
 name = "qm-role-build"
 description = "Role builder from markdown tables"
-version.workspace = true
-edition.workspace = true
-authors.workspace = true
-rust-version.workspace = true
-license.workspace = true
+edition = "2021"
+rust-version = "1.75.0"
+version = "0.0.2"
+authors = ["Jürgen Seitz <juergen.seitz@h-d-gmbh.de>"]
+license = "MIT"
+repository = "https://github.com/hd-gmbh-dev/quick-microservice-rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
