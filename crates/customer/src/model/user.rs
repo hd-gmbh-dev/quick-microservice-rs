@@ -1,11 +1,16 @@
 use std::hash::{Hash, Hasher};
 
+use async_graphql::{ComplexObject, Context};
 use async_graphql::{Enum, InputObject, SimpleObject};
 use qm_entity::ctx::ContextFilterInput;
 
 use qm_entity::error::EntityError;
 use qm_entity::error::EntityResult;
-use qm_entity::ids::EntityId;
+use qm_entity::ids::{
+    CustomerId, CustomerResourceId, EntityId, InstitutionId, OrganizationId,
+    OrganizationResourceId, OrganizationUnitId,
+};
+use qm_entity::list::NewList;
 use qm_entity::model::Modification;
 use qm_entity::Create;
 use qm_entity::UserId;
@@ -34,6 +39,94 @@ impl From<ContextFilterInput> for Owner {
     }
 }
 
+impl Owner {
+    pub fn customer(&self) -> Option<CustomerId> {
+        match &self {
+            Owner::Customer(EntityId { cid: Some(cid), .. }) => {
+                Some(CustomerId { id: cid.clone() })
+            }
+            Owner::Organization(EntityId { cid: Some(cid), .. }) => {
+                Some(CustomerId { id: cid.clone() })
+            }
+            Owner::OrganizationUnit(EntityId { cid: Some(cid), .. }) => {
+                Some(CustomerId { id: cid.clone() })
+            }
+            Owner::Institution(EntityId { cid: Some(cid), .. }) => {
+                Some(CustomerId { id: cid.clone() })
+            }
+            _ => None,
+        }
+    }
+    pub fn organization(&self) -> Option<OrganizationId> {
+        match &self {
+            Owner::Organization(EntityId {
+                cid: Some(cid),
+                oid: Some(oid),
+                ..
+            }) => Some(OrganizationId {
+                cid: cid.clone(),
+                id: oid.clone(),
+            }),
+            Owner::OrganizationUnit(EntityId {
+                cid: Some(cid),
+                oid: Some(oid),
+                ..
+            }) => Some(OrganizationId {
+                cid: cid.clone(),
+                id: oid.clone(),
+            }),
+            Owner::Institution(EntityId {
+                cid: Some(cid),
+                oid: Some(oid),
+                ..
+            }) => Some(OrganizationId {
+                cid: cid.clone(),
+                id: oid.clone(),
+            }),
+            _ => None,
+        }
+    }
+    pub fn organization_unit(&self) -> Option<OrganizationUnitId> {
+        match &self {
+            Owner::OrganizationUnit(EntityId {
+                cid: Some(cid),
+                oid: Some(oid),
+                iid: Some(iid),
+                ..
+            }) => Some(OrganizationUnitId::Organization(OrganizationResourceId {
+                id: iid.clone(),
+                oid: oid.clone(),
+                cid: cid.clone(),
+            })),
+            Owner::OrganizationUnit(EntityId {
+                cid: Some(cid),
+                oid: None,
+                iid: Some(iid),
+                ..
+            }) => Some(OrganizationUnitId::Customer(CustomerResourceId {
+                id: iid.clone(),
+                cid: cid.clone(),
+            })),
+            _ => None,
+        }
+    }
+    pub fn institution(&self) -> Option<InstitutionId> {
+        match &self {
+            Owner::Institution(EntityId {
+                cid: Some(cid),
+                oid: Some(oid),
+                iid: Some(iid),
+                ..
+            }) => Some(InstitutionId {
+                cid: cid.clone(),
+                oid: oid.clone(),
+                id: iid.clone(),
+            }),
+            _ => None,
+        }
+    }
+}
+
 #[derive(serde::Deserialize, serde::Serialize, Debug, Clone, Enum, Copy, Eq, PartialEq)]
 pub enum RequiredUserAction {
     #[graphql(name = "UPDATE_PASSWORD")]
@@ -50,6 +143,10 @@ impl std::fmt::Display for RequiredUserAction {
     }
 }
 use std::collections::HashMap;
+
+use crate::cache::Cache;
+
+use super::{Customer, Institution, Organization, OrganizationUnit};
 fn get_attribute(
     attributes: Option<&HashMap<String, serde_json::Value>>,
     key: &'static str,
@@ -71,7 +168,7 @@ fn get_attribute(
 
 #[derive(Default, serde::Deserialize, serde::Serialize, Debug, Clone, InputObject)]
 #[serde(rename_all = "camelCase")]
-pub struct UserInput {
+pub struct CreateUserInput {
     pub username: String,
     pub firstname: String,
     pub lastname: String,
@@ -89,7 +186,7 @@ pub struct UserInput {
 #[serde(rename_all = "camelCase")]
 pub struct UserDetails {
     #[serde(rename = "_id")]
-    #[graphql(skip)]
+    #[graphql(name = "id")]
     pub user_id: Arc<Uuid>,
     pub firstname: Arc<str>,
     pub lastname: Arc<str>,
@@ -103,7 +200,7 @@ pub struct UserDetails {
 
 #[derive(serde::Deserialize, serde::Serialize, Debug, Clone, SimpleObject)]
 #[serde(rename_all = "camelCase")]
-// #[graphql(complex)]
+#[graphql(complex)]
 pub struct User {
     #[graphql(skip)]
     pub owner: Owner,
@@ -122,6 +219,45 @@ pub struct User {
     pub created: Modification,
     #[graphql(skip)]
     pub modified: Option<Modification>,
+}
+
+#[ComplexObject]
+impl User {
+    async fn customer(&self, ctx: &Context<'_>) -> Option<Arc<Customer>> {
+        if let Some((cache, id)) = ctx.data::<Cache>().ok().zip(self.owner.customer()) {
+            cache.customer().customer_by_id(id.as_ref()).await
+        } else {
+            log::warn!("qm::customer::Cache is not installed in schema context");
+            None
+        }
+    }
+
+    async fn organization(&self, ctx: &Context<'_>) -> Option<Arc<Organization>> {
+        if let Some((cache, id)) = ctx.data::<Cache>().ok().zip(self.owner.organization()) {
+            cache.customer().organization_by_id(&id).await
+        } else {
+            log::warn!("qm::customer::Cache is not installed in schema context");
+            None
+        }
+    }
+
+    async fn institution(&self, ctx: &Context<'_>) -> Option<Arc<Institution>> {
+        if let Some((cache, id)) = ctx.data::<Cache>().ok().zip(self.owner.institution()) {
+            cache.customer().institution_by_id(&id).await
+        } else {
+            log::warn!("qm::customer::Cache is not installed in schema context");
+            None
+        }
+    }
+
+    async fn organization_unit(&self, ctx: &Context<'_>) -> Option<Arc<OrganizationUnit>> {
+        if let Some((cache, id)) = ctx.data::<Cache>().ok().zip(self.owner.organization_unit()) {
+            cache.customer().organization_unit_by_id(&id).await
+        } else {
+            log::warn!("qm::customer::Cache is not installed in schema context");
+            None
+        }
+    }
 }
 
 impl AsMut<EntityId> for User {
@@ -255,12 +391,21 @@ pub struct UserList {
     pub page: Option<i64>,
 }
 
-#[derive(serde::Deserialize, serde::Serialize, Debug, Clone, InputObject)]
-pub struct CreateUserInput {
-    #[serde(flatten)]
-    #[graphql(flatten)]
-    pub user: UserInput,
+#[derive(Debug)]
+pub struct CreateUserPayload {
+    pub user: CreateUserInput,
     pub group: String,
     pub access: String,
     pub context: ContextFilterInput,
+}
+
+impl NewList<User> for UserList {
+    fn new(items: Vec<User>, limit: Option<i64>, total: Option<i64>, page: Option<i64>) -> Self {
+        Self {
+            items,
+            limit,
+            total,
+            page,
+        }
+    }
 }

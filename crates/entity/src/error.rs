@@ -1,5 +1,6 @@
 use crate::UserId;
 use async_graphql::ErrorExtensions;
+use qm_keycloak::KeycloakError;
 use qm_mongodb::bson::Uuid;
 use thiserror::Error;
 
@@ -15,6 +16,9 @@ pub enum EntityError {
     /// Keycloak request failure.
     #[error(transparent)]
     KeycloakRequest(#[from] reqwest::Error),
+    /// Keycloak error
+    #[error(transparent)]
+    KeycloakError(#[from] KeycloakError),
     /// A unexpected error occured.
     #[error(transparent)]
     UnexpectedError(#[from] anyhow::Error),
@@ -38,6 +42,9 @@ pub enum EntityError {
     /// not found by field.
     #[error("the resource {0} with {1} '{2}' was not found")]
     NotFoundByField(String, String, String),
+    /// not allowed
+    #[error("the feature '{0}' is not enabled")]
+    NotAllowed(String),
     /// bad request.
     #[error("{1}")]
     BadRequest(String, String),
@@ -88,6 +95,10 @@ impl EntityError {
         Self::BadRequest(err_type.into(), err_msg.into())
     }
 
+    pub fn not_allowed(err_msg: impl Into<String>) -> Self {
+        Self::NotAllowed(err_msg.into())
+    }
+
     pub fn internal() -> Self {
         Self::Internal
     }
@@ -107,6 +118,7 @@ impl ErrorExtensions for EntityError {
                 e.set("details", fields.clone());
             }
             EntityError::Unauthorized(_) => e.set("code", 401),
+            EntityError::NotAllowed(_) => e.set("code", 405),
             EntityError::Forbidden => e.set("code", 403),
             EntityError::Internal => e.set("code", 500),
             EntityError::BadRequest(ty, _) => {

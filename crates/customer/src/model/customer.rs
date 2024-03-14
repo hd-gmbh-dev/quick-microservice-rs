@@ -8,14 +8,14 @@ use qm_entity::ids::EntityId;
 use qm_entity::model::Modification;
 use qm_entity::{Create, UserId};
 
-use super::UserInput;
+use super::CreateUserInput;
 
 pub struct CustomerData(pub String);
 
 #[derive(Debug, InputObject)]
 pub struct CreateCustomerInput {
     pub name: String,
-    pub initial_user: Option<UserInput>,
+    pub initial_user: Option<CreateUserInput>,
 }
 
 #[derive(Debug, InputObject)]

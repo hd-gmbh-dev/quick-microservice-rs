@@ -18,9 +18,10 @@ use crate::cleanup::CleanupTaskType;
 use crate::context::RelatedAccessLevel;
 use crate::context::RelatedStorage;
 use crate::context::{RelatedAuth, RelatedPermission, RelatedResource};
+use crate::groups::RelatedBuiltInGroup;
 use crate::marker::Marker;
 use crate::model::CreateCustomerInput;
-use crate::model::CreateUserInput;
+use crate::model::CreateUserPayload;
 use crate::model::Customer;
 use crate::model::{CustomerData, CustomerList, UpdateCustomerInput};
 use crate::roles;
@@ -161,12 +162,12 @@ where
     }
 }
 
-pub struct CustomerQueryRoot<Auth, Store, AccessLevel, Resource, Permission> {
-    _marker: Marker<Auth, Store, AccessLevel, Resource, Permission>,
+pub struct CustomerQueryRoot<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup> {
+    _marker: Marker<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup>,
 }
 
-impl<Auth, Store, AccessLevel, Resource, Permission> Default
-    for CustomerQueryRoot<Auth, Store, AccessLevel, Resource, Permission>
+impl<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup> Default
+    for CustomerQueryRoot<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup>
 {
     fn default() -> Self {
         Self {
@@ -176,14 +177,15 @@ impl<Auth, Store, AccessLevel, Resource, Permission> Default
 }
 
 #[Object]
-impl<Auth, Store, AccessLevel, Resource, Permission>
-    CustomerQueryRoot<Auth, Store, AccessLevel, Resource, Permission>
+impl<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup>
+    CustomerQueryRoot<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup>
 where
     Auth: RelatedAuth<AccessLevel, Resource, Permission>,
     Store: RelatedStorage,
     AccessLevel: RelatedAccessLevel,
     Resource: RelatedResource,
     Permission: RelatedPermission,
+    BuiltInGroup: RelatedBuiltInGroup,
 {
     async fn customer_by_id(
         &self,
@@ -220,12 +222,12 @@ where
     }
 }
 
-pub struct CustomerMutationRoot<Auth, Store, AccessLevel, Resource, Permission> {
-    _marker: Marker<Auth, Store, AccessLevel, Resource, Permission>,
+pub struct CustomerMutationRoot<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup> {
+    _marker: Marker<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup>,
 }
 
-impl<Auth, Store, AccessLevel, Resource, Permission> Default
-    for CustomerMutationRoot<Auth, Store, AccessLevel, Resource, Permission>
+impl<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup> Default
+    for CustomerMutationRoot<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup>
 {
     fn default() -> Self {
         Self {
@@ -235,14 +237,15 @@ impl<Auth, Store, AccessLevel, Resource, Permission> Default
 }
 
 #[Object]
-impl<Auth, Store, AccessLevel, Resource, Permission>
-    CustomerMutationRoot<Auth, Store, AccessLevel, Resource, Permission>
+impl<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup>
+    CustomerMutationRoot<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup>
 where
     Auth: RelatedAuth<AccessLevel, Resource, Permission>,
     Store: RelatedStorage,
     AccessLevel: RelatedAccessLevel,
     Resource: RelatedResource,
     Permission: RelatedPermission,
+    BuiltInGroup: RelatedBuiltInGroup,
 {
     async fn create_customer(
         &self,
@@ -268,7 +271,7 @@ where
                 )
                 .await?,
             )
-            .create(CreateUserInput {
+            .create(CreateUserPayload {
                 access: qm_role::Access::new(AccessLevel::customer())
                     .with_fmt_id(result.id.as_customer_id().as_ref())
                     .to_string(),

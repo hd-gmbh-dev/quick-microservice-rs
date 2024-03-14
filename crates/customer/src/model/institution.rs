@@ -5,7 +5,7 @@ use qm_entity::list::NewList;
 use serde::{Deserialize, Serialize};
 
 use crate::cache::Cache;
-use crate::model::UserInput;
+use crate::model::CreateUserInput;
 use qm_entity::error::{EntityError, EntityResult};
 use qm_entity::ids::{
     CustomerResourceId, EntityId, InstitutionId, OrganizationId, OrganizationResourceId,
@@ -19,7 +19,7 @@ use super::{Customer, Organization};
 #[derive(Debug, InputObject)]
 pub struct CreateInstitutionInput {
     pub name: String,
-    pub initial_user: Option<UserInput>,
+    pub initial_user: Option<CreateUserInput>,
 }
 
 #[derive(Debug, InputObject)]

@@ -22,9 +22,10 @@ use crate::context::RelatedAuth;
 use crate::context::RelatedPermission;
 use crate::context::RelatedResource;
 use crate::context::RelatedStorage;
+use crate::groups::RelatedBuiltInGroup;
 use crate::marker::Marker;
 use crate::model::CreateInstitutionInput;
-use crate::model::CreateUserInput;
+use crate::model::CreateUserPayload;
 use crate::model::Institution;
 use crate::model::{InstitutionData, InstitutionList, UpdateInstitutionInput};
 use crate::roles;
@@ -190,12 +191,12 @@ where
     }
 }
 
-pub struct InstitutionQueryRoot<Auth, Store, AccessLevel, Resource, Permission> {
-    _marker: Marker<Auth, Store, AccessLevel, Resource, Permission>,
+pub struct InstitutionQueryRoot<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup> {
+    _marker: Marker<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup>,
 }
 
-impl<Auth, Store, AccessLevel, Resource, Permission> Default
-    for InstitutionQueryRoot<Auth, Store, AccessLevel, Resource, Permission>
+impl<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup> Default
+    for InstitutionQueryRoot<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup>
 {
     fn default() -> Self {
         Self {
@@ -205,14 +206,15 @@ impl<Auth, Store, AccessLevel, Resource, Permission> Default
 }
 
 #[Object]
-impl<Auth, Store, AccessLevel, Resource, Permission>
-    InstitutionQueryRoot<Auth, Store, AccessLevel, Resource, Permission>
+impl<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup>
+    InstitutionQueryRoot<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup>
 where
     Auth: RelatedAuth<AccessLevel, Resource, Permission>,
     Store: RelatedStorage,
     AccessLevel: RelatedAccessLevel,
     Resource: RelatedResource,
     Permission: RelatedPermission,
+    BuiltInGroup: RelatedBuiltInGroup,
 {
     async fn institution_by_id(
         &self,
@@ -250,12 +252,12 @@ where
     }
 }
 
-pub struct InstitutionMutationRoot<Auth, Store, AccessLevel, Resource, Permission> {
-    _marker: Marker<Auth, Store, AccessLevel, Resource, Permission>,
+pub struct InstitutionMutationRoot<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup> {
+    _marker: Marker<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup>,
 }
 
-impl<Auth, Store, AccessLevel, Resource, Permission> Default
-    for InstitutionMutationRoot<Auth, Store, AccessLevel, Resource, Permission>
+impl<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup> Default
+    for InstitutionMutationRoot<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup>
 {
     fn default() -> Self {
         Self {
@@ -265,14 +267,15 @@ impl<Auth, Store, AccessLevel, Resource, Permission> Default
 }
 
 #[Object]
-impl<Auth, Store, AccessLevel, Resource, Permission>
-    InstitutionMutationRoot<Auth, Store, AccessLevel, Resource, Permission>
+impl<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup>
+    InstitutionMutationRoot<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup>
 where
     Auth: RelatedAuth<AccessLevel, Resource, Permission>,
     Store: RelatedStorage,
     AccessLevel: RelatedAccessLevel,
     Resource: RelatedResource,
     Permission: RelatedPermission,
+    BuiltInGroup: RelatedBuiltInGroup,
 {
     async fn create_institution(
         &self,
@@ -299,7 +302,7 @@ where
                 )
                 .await?,
             )
-            .create(CreateUserInput {
+            .create(CreateUserPayload {
                 access: qm_role::Access::new(AccessLevel::institution())
                     .with_fmt_id(result.id.as_institution_id().as_ref())
                     .to_string(),

@@ -1,8 +1,13 @@
-use async_graphql::{ErrorExtensions, FieldResult, ResultExt};
+use async_graphql::{Context, ErrorExtensions, FieldResult, Object, ResultExt};
+use qm_entity::ctx::ContextFilterInput;
+use qm_entity::list::ListCtx;
+use qm_entity::model::ListFilter;
+use qm_role::Access;
 use std::collections::HashMap;
 use std::sync::Arc;
 
 use qm_entity::error::EntityError;
+use qm_entity::error::EntityResult;
 use qm_entity::{err, Create};
 use qm_keycloak::CredentialRepresentation;
 use qm_keycloak::Keycloak;
@@ -11,9 +16,11 @@ use qm_keycloak::UserRepresentation;
 use qm_mongodb::bson::Uuid;
 use qm_mongodb::DB;
 
-use crate::model::CreateUserInput;
+use crate::config::SchemaConfig;
+use crate::groups::RelatedBuiltInGroup;
+use crate::marker::Marker;
 use crate::model::User;
-use crate::model::UserInput;
+use crate::model::{CreateUserInput, CreateUserPayload, UserList};
 use crate::model::{RequiredUserAction, UserData, UserDetails};
 use crate::schema::auth::AuthCtx;
 use crate::schema::RelatedAccessLevel;
@@ -75,7 +82,7 @@ fn set_attributes(attributes: HashMap<&str, Option<String>>, u: &mut UserReprese
 pub async fn create_keycloak_user(
     realm: &str,
     keycloak: &Keycloak,
-    user: UserInput,
+    user: CreateUserInput,
 ) -> FieldResult<UserRepresentation> {
     let username = user.username;
     let email = Some(user.email);
@@ -228,8 +235,30 @@ where
     Resource: RelatedResource,
     Permission: RelatedPermission,
 {
-    pub async fn create(&self, input: CreateUserInput) -> FieldResult<Arc<User>> {
-        let CreateUserInput {
+    pub async fn list(
+        &self,
+        context: Option<ContextFilterInput>,
+        filter: Option<ListFilter>,
+    ) -> async_graphql::FieldResult<UserList> {
+        let mut ctx = ListCtx::new(self.0.store.users());
+        if let Some(_context) = context {
+            // let query = match context {
+            //     _ => {
+            //         unimplemented!()
+            //     }
+            // };
+            // ctx = ctx.with_additional_query_params(query);
+            unimplemented!()
+        }
+        ctx.list(filter).await.extend()
+    }
+
+    pub async fn by_id(&self, id: Uuid) -> Option<Arc<User>> {
+        self.0.store.cache().user().db_user_by_uid(&id).await
+    }
+
+    pub async fn create(&self, input: CreateUserPayload) -> FieldResult<Arc<User>> {
+        let CreateUserPayload {
             user: mut user_input,
             access,
             group,
@@ -321,5 +350,183 @@ where
             .new_user(self.0.store.redis().as_ref(), k_user, db_user.clone())
             .await?;
         Ok(db_user)
+    }
+
+    pub async fn remove(&self, ids: Arc<[Arc<Uuid>]>) -> EntityResult<u64> {
+        let keycloak = self.0.store.keycloak();
+        let mut user_ids = Vec::default();
+        for id in ids.iter() {
+            let user_id = id.as_ref().to_string();
+            match keycloak
+                .remove_user(keycloak.config().realm(), &user_id)
+                .await
+            {
+                Ok(_) => user_ids.push(user_id),
+                Err(err) => {
+                    log::error!("{err:#?}");
+                }
+            }
+        }
+        if !user_ids.is_empty() {
+            self.0.store.users().remove_all("_id", &user_ids).await?;
+        }
+        Ok(0)
+    }
+}
+
+pub struct UserQueryRoot<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup> {
+    _marker: Marker<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup>,
+}
+
+impl<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup> Default
+    for UserQueryRoot<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup>
+{
+    fn default() -> Self {
+        Self {
+            _marker: std::marker::PhantomData,
+        }
+    }
+}
+
+#[Object]
+impl<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup>
+    UserQueryRoot<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup>
+where
+    Auth: RelatedAuth<AccessLevel, Resource, Permission>,
+    Store: RelatedStorage,
+    AccessLevel: RelatedAccessLevel,
+    Resource: RelatedResource,
+    Permission: RelatedPermission,
+    BuiltInGroup: RelatedBuiltInGroup,
+{
+    async fn user_by_id(
+        &self,
+        ctx: &Context<'_>,
+        id: Uuid,
+    ) -> async_graphql::FieldResult<Option<Arc<User>>> {
+        Ok(Ctx(
+            AuthCtx::<'_, Auth, Store, AccessLevel, Resource, Permission>::new_with_role(
+                ctx,
+                (Resource::user(), Permission::view()),
+            )
+            .await
+            .extend()?,
+        )
+        .by_id(id)
+        .await)
+    }
+
+    async fn users(
+        &self,
+        ctx: &Context<'_>,
+        context: Option<ContextFilterInput>,
+        filter: Option<ListFilter>,
+    ) -> async_graphql::FieldResult<UserList> {
+        Ctx(
+            AuthCtx::<'_, Auth, Store, AccessLevel, Resource, Permission>::new_with_role(
+                ctx,
+                (Resource::user(), Permission::list()),
+            )
+            .await?,
+        )
+        .list(context, filter)
+        .await
+        .extend()
+    }
+}
+
+pub struct UserMutationRoot<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup> {
+    _marker: Marker<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup>,
+}
+
+impl<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup> Default
+    for UserMutationRoot<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup>
+{
+    fn default() -> Self {
+        Self {
+            _marker: std::marker::PhantomData,
+        }
+    }
+}
+
+#[Object]
+impl<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup>
+    UserMutationRoot<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup>
+where
+    Auth: RelatedAuth<AccessLevel, Resource, Permission>,
+    Store: RelatedStorage,
+    AccessLevel: RelatedAccessLevel,
+    Resource: RelatedResource,
+    Permission: RelatedPermission,
+    BuiltInGroup: RelatedBuiltInGroup,
+{
+    async fn create_user(
+        &self,
+        ctx: &Context<'_>,
+        access_level: AccessLevel,
+        built_in_group: Option<BuiltInGroup>,
+        custom_group: Option<String>, // TODO: implement custom_groups in Cache and schema
+        input: CreateUserInput,
+        context: ContextFilterInput,
+    ) -> async_graphql::FieldResult<Arc<User>> {
+        if access_level.is_admin() && !SchemaConfig::new(ctx).allow_multiple_admin_users() {
+            return err!(not_allowed("creating multiple admin users").extend());
+        }
+        let auth_ctx =
+            AuthCtx::<'_, Auth, Store, AccessLevel, Resource, Permission>::new_with_role(
+                ctx,
+                (Resource::user(), Permission::create()),
+            )
+            .await?;
+        let access_level_u32 = access_level.as_number();
+        let access = Access::new(access_level).with_fmt_id(Some(&context));
+        if auth_ctx.auth.as_number() < access_level_u32
+            || (auth_ctx.auth.as_number() == access_level_u32 && !auth_ctx.auth.has_access(&access))
+        {
+            return err!(unauthorized(&auth_ctx.auth).extend());
+        }
+        Ctx(auth_ctx)
+            .create(CreateUserPayload {
+                access: access.to_string(),
+                user: input,
+                group: custom_group.unwrap_or_else(|| {
+                    built_in_group
+                        .map(|v| v.as_ref().to_string())
+                        .unwrap_or_default()
+                }),
+                context,
+            })
+            .await
+            .extend()
+    }
+
+    async fn update_user(
+        &self,
+        _ctx: &Context<'_>,
+        _input: String,
+    ) -> async_graphql::FieldResult<Option<Arc<User>>> {
+        // Ok(InstitutionCtx::<Auth, Store>::from_graphql(ctx)
+        //     .await?
+        //     .update(&input)
+        //     .await?)
+        unimplemented!()
+    }
+
+    async fn remove_users(
+        &self,
+        ctx: &Context<'_>,
+        ids: Arc<[Arc<Uuid>]>,
+    ) -> async_graphql::FieldResult<u64> {
+        // TODO: check if user is allowed to remove users by owner field in customer cache
+        Ctx(
+            AuthCtx::<'_, Auth, Store, AccessLevel, Resource, Permission>::new_with_role(
+                ctx,
+                (Resource::user(), Permission::delete()),
+            )
+            .await?,
+        )
+        .remove(ids)
+        .await
+        .extend()
     }
 }

@@ -17,9 +17,10 @@ use crate::context::RelatedAuth;
 use crate::context::RelatedPermission;
 use crate::context::RelatedResource;
 use crate::context::RelatedStorage;
+use crate::groups::RelatedBuiltInGroup;
 use crate::marker::Marker;
 use crate::model::CreateOrganizationUnitInput;
-use crate::model::CreateUserInput;
+use crate::model::CreateUserPayload;
 use crate::model::OrganizationUnit;
 use crate::model::{OrganizationUnitData, OrganizationUnitList, UpdateOrganizationUnitInput};
 use crate::roles;
@@ -130,12 +131,12 @@ where
     }
 }
 
-pub struct OrganizationUnitQueryRoot<Auth, Store, AccessLevel, Resource, Permission> {
-    _marker: Marker<Auth, Store, AccessLevel, Resource, Permission>,
+pub struct OrganizationUnitQueryRoot<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup> {
+    _marker: Marker<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup>,
 }
 
-impl<Auth, Store, AccessLevel, Resource, Permission> Default
-    for OrganizationUnitQueryRoot<Auth, Store, AccessLevel, Resource, Permission>
+impl<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup> Default
+    for OrganizationUnitQueryRoot<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup>
 {
     fn default() -> Self {
         Self {
@@ -145,14 +146,15 @@ impl<Auth, Store, AccessLevel, Resource, Permission> Default
 }
 
 #[Object]
-impl<Auth, Store, AccessLevel, Resource, Permission>
-    OrganizationUnitQueryRoot<Auth, Store, AccessLevel, Resource, Permission>
+impl<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup>
+    OrganizationUnitQueryRoot<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup>
 where
     Auth: RelatedAuth<AccessLevel, Resource, Permission>,
     Store: RelatedStorage,
     AccessLevel: RelatedAccessLevel,
     Resource: RelatedResource,
     Permission: RelatedPermission,
+    BuiltInGroup: RelatedBuiltInGroup,
 {
     async fn organization_unit_by_id(
         &self,
@@ -184,12 +186,19 @@ where
     }
 }
 
-pub struct OrganizationUnitMutationRoot<Auth, Store, AccessLevel, Resource, Permission> {
-    _marker: Marker<Auth, Store, AccessLevel, Resource, Permission>,
+pub struct OrganizationUnitMutationRoot<
+    Auth,
+    Store,
+    AccessLevel,
+    Resource,
+    Permission,
+    BuiltInGroup,
+> {
+    _marker: Marker<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup>,
 }
 
-impl<Auth, Store, AccessLevel, Resource, Permission> Default
-    for OrganizationUnitMutationRoot<Auth, Store, AccessLevel, Resource, Permission>
+impl<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup> Default
+    for OrganizationUnitMutationRoot<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup>
 {
     fn default() -> Self {
         Self {
@@ -199,14 +208,15 @@ impl<Auth, Store, AccessLevel, Resource, Permission> Default
 }
 
 #[Object]
-impl<Auth, Store, AccessLevel, Resource, Permission>
-    OrganizationUnitMutationRoot<Auth, Store, AccessLevel, Resource, Permission>
+impl<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup>
+    OrganizationUnitMutationRoot<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup>
 where
     Auth: RelatedAuth<AccessLevel, Resource, Permission>,
     Store: RelatedStorage,
     AccessLevel: RelatedAccessLevel,
     Resource: RelatedResource,
     Permission: RelatedPermission,
+    BuiltInGroup: RelatedBuiltInGroup,
 {
     async fn create_organization_unit(
         &self,
@@ -260,7 +270,7 @@ where
                 )
                 .await?,
             )
-            .create(CreateUserInput {
+            .create(CreateUserPayload {
                 access: qm_role::Access::new(AccessLevel::organization_unit())
                     .with_fmt_id(result.id.as_organization_unit_id().as_ref())
                     .to_string(),

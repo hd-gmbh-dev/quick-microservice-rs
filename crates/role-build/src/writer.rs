@@ -1,4 +1,7 @@
-use std::{collections::BTreeMap, path::Path};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    path::Path,
+};
 
 use crate::parser::ParseResult;
 
@@ -40,7 +43,7 @@ impl Writer<std::fs::File> {
 const ENUM_DERIVE: &'static str =
     "#[derive(Clone, Debug, Copy, EnumString, EnumIter, AsRefStr, Ord, PartialOrd, Eq, PartialEq)]";
 const ENUM_DERIVE_ACCESS_LEVELS: &'static str =
-    "#[derive(Clone, Debug, Copy, EnumString, AsRefStr, Eq, PartialEq)]";
+    "#[derive(Clone, Debug, Copy, EnumString, async_graphql::Enum, AsRefStr, Ord, PartialOrd, Eq, PartialEq)]";
 
 impl<W> Writer<W>
 where
@@ -131,12 +134,14 @@ where
         self.write_line(0, "}")?;
         self.write_line(0, "")?;
 
+        let mut group_names = BTreeSet::new();
         let mut fn_names = vec![];
         for role_mapping in role_mappings {
             if let Some((user_group_name, access_level)) = user_group_name_mappings
                 .get(&role_mapping.user_group)
                 .zip(access_level_mappings.get(&role_mapping.user_group))
             {
+                group_names.insert(user_group_name.as_ref());
                 let fn_name =
                     inflector::cases::snakecase::to_snake_case(role_mapping.user_group.as_ref());
                 self.write_line(0, &format!("pub fn {fn_name}_group() -> qm::role::Group<AccessLevel, Resource, Permission> {}", "{"))?;
@@ -188,6 +193,39 @@ where
         self.write_line(2, "}")?;
         self.write_line(1, "}")?;
         self.write_line(1, "map")?;
+        self.write_line(0, "}")?;
+
+        self.write_line(0, "")?;
+        self.write_line(
+            0,
+            &format!(
+                "pub const BUILT_IN_GROUPS: [&'static str; {}] = [",
+                group_names.len()
+            ),
+        )?;
+        for group_name in group_names.iter() {
+            self.write_line(1, &format!("\"{group_name}\","))?;
+        }
+        self.write_line(0, "];")?;
+        self.write_line(0, "")?;
+        self.write_line(0, ENUM_DERIVE_ACCESS_LEVELS)?;
+        self.write_line(0, "pub enum BuiltInGroup {")?;
+        for group_name in group_names.iter() {
+            self.write_line(
+                1,
+                &format!(
+                    "#[strum(serialize = \"{}\")]",
+                    inflector::cases::snakecase::to_snake_case(group_name.as_ref())
+                ),
+            )?;
+            self.write_line(
+                1,
+                &format!(
+                    "{},",
+                    inflector::cases::classcase::to_class_case(group_name.as_ref())
+                ),
+            )?;
+        }
         self.write_line(0, "}")?;
 
         Ok(WriteResult { _w: self.w })

@@ -151,6 +151,45 @@ pub enum ContextFilterInput {
     Institution(InstitutionFilter),
 }
 
+impl std::fmt::Display for ContextFilterInput {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Customer(CustomerFilter { customer }) => write!(f, "{}", customer.to_hex()),
+            Self::Organization(OrganizationFilter {
+                customer,
+                organization,
+            }) => write!(f, "{}{}", customer.to_hex(), organization.to_hex()),
+            Self::OrganizationUnit(OrganizationUnitFilter {
+                customer,
+                organization: Some(organization),
+                organization_unit,
+            }) => write!(
+                f,
+                "{}{}{}",
+                customer.to_hex(),
+                organization.to_hex(),
+                organization_unit.to_hex()
+            ),
+            Self::OrganizationUnit(OrganizationUnitFilter {
+                customer,
+                organization: None,
+                organization_unit,
+            }) => write!(f, "{}{}", customer.to_hex(), organization_unit.to_hex()),
+            Self::Institution(InstitutionFilter {
+                customer,
+                organization,
+                institution,
+            }) => write!(
+                f,
+                "{}{}{}",
+                customer.to_hex(),
+                organization.to_hex(),
+                institution.to_hex()
+            ),
+        }
+    }
+}
+
 impl ContextFilterInput {
     pub fn cid(&self) -> &ObjectId {
         match self {

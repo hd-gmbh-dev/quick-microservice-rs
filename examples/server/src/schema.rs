@@ -6,7 +6,7 @@ use qm::{
 };
 
 use qm_example_auth::{
-    roles::{AccessLevel, Permission, Resource},
+    roles::{AccessLevel, BuiltInGroup, Permission, Resource},
     Authorization,
 };
 use qm_example_ctx::Storage;
@@ -59,13 +59,13 @@ impl DomainMutationRoot {
 
 #[derive(MergedObject, Default)]
 pub struct QueryRoot(
-    QmCustomerQueryRoot<Authorization, Storage, AccessLevel, Resource, Permission>,
+    QmCustomerQueryRoot<Authorization, Storage, AccessLevel, Resource, Permission, BuiltInGroup>,
     DomainQueryRoot,
 );
 
 #[derive(MergedObject, Default)]
 pub struct MutationRoot(
-    QmCustomerMutationRoot<Authorization, Storage, AccessLevel, Resource, Permission>,
+    QmCustomerMutationRoot<Authorization, Storage, AccessLevel, Resource, Permission, BuiltInGroup>,
     DomainMutationRoot,
 );
 

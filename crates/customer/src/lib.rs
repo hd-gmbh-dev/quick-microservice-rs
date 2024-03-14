@@ -1,5 +1,6 @@
 pub mod cache;
 pub mod cleanup;
+pub mod config;
 pub mod context;
 pub mod groups;
 pub mod marker;

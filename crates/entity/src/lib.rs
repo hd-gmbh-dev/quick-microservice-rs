@@ -7,6 +7,7 @@ use ids::EntityId;
 use qm_mongodb::bson::Document;
 use qm_mongodb::bson::{doc, oid::ObjectId};
 use qm_mongodb::options::FindOptions;
+use qm_mongodb::results::DeleteResult;
 use serde::{de::DeserializeOwned, Serialize};
 use std::sync::Arc;
 
@@ -77,8 +78,8 @@ pub trait UserId {
     fn user_id(&self) -> Option<&qm_mongodb::bson::Uuid>;
 }
 
-pub trait UserAccessLevel {
-    fn user_access_level(&self) -> Option<&impl Ord>;
+pub trait AsNumber {
+    fn as_number(&self) -> u32;
 }
 
 // pub struct EntityCtx<C> {
@@ -112,6 +113,16 @@ where
 
     pub async fn by_field(&self, field: &str, value: &str) -> qm_mongodb::error::Result<Option<T>> {
         self.as_ref().find_one(doc! { field: value }, None).await
+    }
+
+    pub async fn remove_all(
+        &self,
+        field: &str,
+        values: &[String],
+    ) -> qm_mongodb::error::Result<DeleteResult> {
+        self.as_ref()
+            .delete_many(doc! { field: { "$in": values } }, None)
+            .await
     }
 
     pub async fn by_field_with_customer_filter(

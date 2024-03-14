@@ -73,7 +73,7 @@ impl AsRef<Producer> for CleanupProducer {
 
 pub struct CleanupWorkerCtx<Auth, Store, AccessLevel, Resource, Permission> {
     pub store: Store,
-    _marker: Marker<Auth, Store, AccessLevel, Resource, Permission>,
+    _marker: Marker<Auth, Store, AccessLevel, Resource, Permission, ()>,
 }
 
 impl<Auth, Store, AccessLevel, Resource, Permission>

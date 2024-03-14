@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use crate::cache::Cache;
-use crate::model::UserInput;
+use crate::model::CreateUserInput;
 use async_graphql::Context;
 use async_graphql::{ComplexObject, FieldResult, InputObject, SimpleObject};
 use qm_entity::error::{EntityError, EntityResult};
@@ -16,7 +16,7 @@ use super::Customer;
 #[derive(Debug, InputObject)]
 pub struct CreateOrganizationInput {
     pub name: String,
-    pub initial_user: Option<UserInput>,
+    pub initial_user: Option<CreateUserInput>,
 }
 
 #[derive(Debug, InputObject)]

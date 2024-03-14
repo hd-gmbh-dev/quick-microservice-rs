@@ -21,9 +21,10 @@ use crate::context::RelatedAuth;
 use crate::context::RelatedPermission;
 use crate::context::RelatedResource;
 use crate::context::RelatedStorage;
+use crate::groups::RelatedBuiltInGroup;
 use crate::marker::Marker;
 use crate::model::CreateOrganizationInput;
-use crate::model::CreateUserInput;
+use crate::model::CreateUserPayload;
 use crate::model::Organization;
 use crate::model::{OrganizationData, OrganizationList, UpdateOrganizationInput};
 use crate::roles;
@@ -183,12 +184,12 @@ where
     }
 }
 
-pub struct OrganizationQueryRoot<Auth, Store, AccessLevel, Resource, Permission> {
-    _marker: Marker<Auth, Store, AccessLevel, Resource, Permission>,
+pub struct OrganizationQueryRoot<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup> {
+    _marker: Marker<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup>,
 }
 
-impl<Auth, Store, AccessLevel, Resource, Permission> Default
-    for OrganizationQueryRoot<Auth, Store, AccessLevel, Resource, Permission>
+impl<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup> Default
+    for OrganizationQueryRoot<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup>
 {
     fn default() -> Self {
         Self {
@@ -198,14 +199,15 @@ impl<Auth, Store, AccessLevel, Resource, Permission> Default
 }
 
 #[Object]
-impl<Auth, Store, AccessLevel, Resource, Permission>
-    OrganizationQueryRoot<Auth, Store, AccessLevel, Resource, Permission>
+impl<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup>
+    OrganizationQueryRoot<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup>
 where
     Auth: RelatedAuth<AccessLevel, Resource, Permission>,
     Store: RelatedStorage,
     AccessLevel: RelatedAccessLevel,
     Resource: RelatedResource,
     Permission: RelatedPermission,
+    BuiltInGroup: RelatedBuiltInGroup,
 {
     async fn organization_by_id(
         &self,
@@ -243,12 +245,12 @@ where
     }
 }
 
-pub struct OrganizationMutationRoot<Auth, Store, AccessLevel, Resource, Permission> {
-    _marker: Marker<Auth, Store, AccessLevel, Resource, Permission>,
+pub struct OrganizationMutationRoot<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup> {
+    _marker: Marker<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup>,
 }
 
-impl<Auth, Store, AccessLevel, Resource, Permission> Default
-    for OrganizationMutationRoot<Auth, Store, AccessLevel, Resource, Permission>
+impl<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup> Default
+    for OrganizationMutationRoot<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup>
 {
     fn default() -> Self {
         Self {
@@ -258,14 +260,15 @@ impl<Auth, Store, AccessLevel, Resource, Permission> Default
 }
 
 #[Object]
-impl<Auth, Store, AccessLevel, Resource, Permission>
-    OrganizationMutationRoot<Auth, Store, AccessLevel, Resource, Permission>
+impl<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup>
+    OrganizationMutationRoot<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup>
 where
     Auth: RelatedAuth<AccessLevel, Resource, Permission>,
     Store: RelatedStorage,
     AccessLevel: RelatedAccessLevel,
     Resource: RelatedResource,
     Permission: RelatedPermission,
+    BuiltInGroup: RelatedBuiltInGroup,
 {
     async fn create_organization(
         &self,
@@ -292,7 +295,7 @@ where
                 )
                 .await?,
             )
-            .create(CreateUserInput {
+            .create(CreateUserPayload {
                 access: qm_role::Access::new(AccessLevel::organization())
                     .with_fmt_id(result.id.as_organization_id().as_ref())
                     .to_string(),

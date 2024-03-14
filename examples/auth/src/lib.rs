@@ -11,28 +11,29 @@ use qm::{
         },
         groups::{
             CreateCustomerOwnerGroup, CreateInstitutionOwnerGroup, CreateOrganizationOwnerGroup,
-            CreateOrganizationUnitOwnerGroup, RelatedGroups,
+            CreateOrganizationUnitOwnerGroup, RelatedBuiltInGroup, RelatedGroups,
         },
     },
     entity::{
-        err, FromGraphQLContext, HasAccess, HasRole, IsAdmin, MutatePermissions, QueryPermissions,
-        UserAccessLevel, UserId,
+        err, AsNumber, FromGraphQLContext, HasAccess, HasRole, IsAdmin, MutatePermissions,
+        QueryPermissions, UserId,
     },
     keycloak::token::jwt::Claims,
     mongodb::bson::Uuid,
 };
 use qm_example_ctx::Storage;
+use roles::BuiltInGroup;
 
 pub mod roles;
-use crate::roles::{AccessLevel, Permission, Resource};
+use crate::roles::{AccessLevel, Permission, Resource, BUILT_IN_GROUPS};
 
 pub type AuthContainer = qm::role::AuthContainer<Authorization>;
 pub type Access = qm::role::Access<AccessLevel>;
 pub type Role = qm::role::Role<Resource, Permission>;
 pub type Group = qm::role::Group<AccessLevel, Resource, Permission>;
 
-impl AccessLevel {
-    fn as_u32(&self) -> u32 {
+impl AsNumber for AccessLevel {
+    fn as_number(&self) -> u32 {
         match self {
             Self::Admin => u32::MAX,
             Self::Customer => u32::MAX - 1,
@@ -40,16 +41,6 @@ impl AccessLevel {
             // Self::OrganizationUnit => u32::MAX -3,
             Self::Institution => u32::MAX - 3,
         }
-    }
-}
-impl PartialOrd for AccessLevel {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        self.as_u32().partial_cmp(&other.as_u32())
-    }
-}
-impl Ord for AccessLevel {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.partial_cmp(other).unwrap()
     }
 }
 
@@ -116,6 +107,12 @@ impl IsAdmin for Authorization {
     }
 }
 
+impl IsAdmin for AccessLevel {
+    fn is_admin(&self) -> bool {
+        matches!(self, AccessLevel::Admin)
+    }
+}
+
 impl UserId for Authorization {
     fn user_id(&self) -> Option<&Uuid> {
         self.inner.user_id.as_ref()
@@ -154,9 +151,13 @@ impl CreateInstitutionOwnerGroup<AccessLevel, Resource, Permission> for Authoriz
     }
 }
 
-impl UserAccessLevel for Authorization {
-    fn user_access_level(&self) -> Option<&impl Ord> {
-        self.inner.access.as_ref()
+impl AsNumber for Authorization {
+    fn as_number(&self) -> u32 {
+        self.inner
+            .access
+            .as_ref()
+            .map(|v| v.ty().as_number())
+            .unwrap_or(0)
     }
 }
 
@@ -239,6 +240,13 @@ impl HasAccess<AccessLevel> for Authorization {
         self.inner.access.as_ref().map(|v| a == v).unwrap_or(false)
     }
 }
+
 impl UserContext<AccessLevel, Resource, Permission> for Authorization {}
-impl RelatedGroups<AccessLevel, Resource, Permission> for Authorization {}
+impl RelatedGroups<AccessLevel, Resource, Permission> for Authorization {
+    fn built_in_groups() -> &'static [&'static str] {
+        &BUILT_IN_GROUPS
+    }
+}
 impl RelatedAuth<AccessLevel, Resource, Permission> for Authorization {}
+
+impl RelatedBuiltInGroup for BuiltInGroup {}

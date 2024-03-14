@@ -1,10 +1,10 @@
+use qm_entity::AsNumber;
 use qm_entity::FromGraphQLContext;
 use qm_entity::HasAccess;
 use qm_entity::HasRole;
 use qm_entity::IsAdmin;
 use qm_entity::MutatePermissions;
 use qm_entity::QueryPermissions;
-use qm_entity::UserAccessLevel;
 use qm_entity::UserId;
 pub use qm_kafka::producer::Producer;
 use qm_redis::Redis;
@@ -66,18 +66,18 @@ pub trait RelatedStorage:
 }
 
 pub trait UserContext<A, R, P>:
-    IsAdmin + HasRole<R, P> + HasAccess<A> + UserAccessLevel + UserId + Send + Sync + 'static
+    IsAdmin + HasRole<R, P> + HasAccess<A> + AsNumber + UserId + Send + Sync + 'static
 {
 }
 
-pub trait AdminContext: IsAdmin + UserAccessLevel + UserId + Send + Sync + 'static {}
+pub trait AdminContext: IsAdmin + AsNumber + UserId + Send + Sync + 'static {}
 
 pub trait RelatedAuth<A, R, P>:
     RelatedGroups<A, R, P>
     + FromGraphQLContext
     + IsAdmin
     + UserContext<A, R, P>
-    + UserAccessLevel
+    + AsNumber
     + UserId
     + Send
     + Sync
@@ -99,12 +99,14 @@ pub trait CustomerAccess {
 }
 
 pub trait RelatedAccessLevel:
-    OrganizationAccess
+    IsAdmin
+    + OrganizationAccess
     + InstitutionAccess
     + OrganizationUnitAccess
     + CustomerAccess
+    + async_graphql::InputType
     + AsRef<str>
-    + Ord
+    + AsNumber
     + Send
     + Sync
     + 'static

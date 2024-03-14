@@ -41,6 +41,10 @@ impl<T> Access<T> {
         }
         self
     }
+
+    pub fn ty(&self) -> &T {
+        &self.ty
+    }
 }
 
 impl<T> std::fmt::Display for Access<T>

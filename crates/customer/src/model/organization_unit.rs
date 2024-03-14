@@ -7,13 +7,13 @@ use qm_entity::{Create, UserId};
 use async_graphql::{ComplexObject, FieldResult, InputObject, SimpleObject};
 use serde::{Deserialize, Serialize};
 
-use crate::model::UserInput;
+use crate::model::CreateUserInput;
 use qm_entity::model::Modification;
 
 #[derive(Debug, InputObject)]
 pub struct CreateOrganizationUnitInput {
     pub name: String,
-    pub initial_user: Option<UserInput>,
+    pub initial_user: Option<CreateUserInput>,
     pub members: Vec<MemberId>,
 }
 

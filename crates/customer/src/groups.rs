@@ -20,4 +20,10 @@ pub trait RelatedGroups<A, R, P>:
     + CreateInstitutionOwnerGroup<A, R, P>
     + CreateOrganizationUnitOwnerGroup<A, R, P>
 {
+    fn built_in_groups() -> &'static [&'static str];
+}
+
+pub trait RelatedBuiltInGroup:
+    AsRef<str> + async_graphql::InputType + Send + Sync + 'static
+{
 }
