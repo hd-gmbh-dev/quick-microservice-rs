@@ -1,9 +1,77 @@
+
+[workspace]
+resolver = "2"
+members = [
+  "crates/*",
+  "examples/*",
+]
+
+[workspace.package]
+edition = "2021"
+version = "0.0.1"
+rust-version = "1.75.0"
+authors = ["Jürgen Seitz <juergen.seitz@h-d-gmbh.de>"]
+license = "MIT"
+repository = "https://github.com/hd-gmbh-dev/quick-microservice-rs"
+
+[workspace.dependencies]
+anyhow = "1.0.79"
+async-trait = "0.1.77"
+axum = "0.7.4"
+tynm = "0.1.8"
+base64 = "0.22.0"
+constcat = "0.5.0"
+chrono = { version="0.4.31", features = ["serde"] }
+futures = "0.3.30"
+tokio = { version = "1.35.1", features = ["full"] }
+tower-http = { version = "0.5.0", features = ["cors"] }
+thiserror = "1.0.56"
+envy = "0.4.2"
+reqwest = "0.11.23"
+jsonwebtoken = "9.2.0"
+serde = { version = "1.0.195", features = ["derive", "rc"] }
+serde_json = "1.0.111"
+keycloak = "21.0.102"
+mongodb = "2.8.0"
+lazy_static = "1.4.0"
+log = "0.4"
+strum = { version = "0.26", features = ["derive"] }
+redis = { version = "0.24.0", features = ["tokio-comp"] }
+deadpool-redis = "0.14.0"
+uuid = { version = "1.6.1", features = ["v4", "v7"]}
+glob = "0.3.1"
+async-graphql-axum = "7.0.1"
+async-graphql = { version = "7.0.1", features = [
+    "bson",
+    "chrono",
+    "chrono-tz",
+    "uuid",
+    "graphiql",
+] }
+prometheus-client = "0.22.1"
+rdkafka = { version = "0.36.0" }
+
+qm-entity = { path = "crates/entity" }
+qm-entity-derive = { path = "crates/entity-derive" }
+qm-customer = { path = "crates/customer" }
+qm-server = { path = "crates/server" }
+qm-mongodb = { path = "crates/mongodb" }
+qm-redis = { path = "crates/redis" }
+qm-s3 = { path = "crates/s3" }
+qm-kafka = { path = "crates/kafka" }
+qm-keycloak = { path = "crates/keycloak" }
+qm-role = { path = "crates/role" }
+qm-role-build = { path = "crates/role-build" }
+qm-utils = { path = "crates/utils" }
+qm-utils-derive = { path = "crates/utils-derive" }
+qm = { path = ".", default-features = false }
+
 [package]
 name = "qm"
 description = "Utilities for quick microservices in Rust"
 edition = "2021"
 rust-version = "1.75.0"
-version = "0.0.2"
+version.workspace = true
 authors = ["Jürgen Seitz <juergen.seitz@h-d-gmbh.de>"]
 license = "MIT"
 repository = "https://github.com/hd-gmbh-dev/quick-microservice-rs"
@@ -49,68 +117,3 @@ role = ["qm-role"]
 role-build = ["qm-role-build"]
 utils = ["qm-utils"]
 
-[workspace]
-resolver = "2"
-members = [
-  "crates/*",
-  "examples/*",
-]
-
-[workspace.package]
-edition = "2021"
-rust-version = "1.75.0"
-authors = ["Jürgen Seitz <juergen.seitz@h-d-gmbh.de>"]
-license = "MIT"
-repository = "https://github.com/hd-gmbh-dev/quick-microservice-rs"
-
-[workspace.dependencies]
-anyhow = "1.0.79"
-async-trait = "0.1.77"
-axum = "0.7.4"
-tynm = "0.1.8"
-base64 = "0.22.0"
-constcat = "0.5.0"
-chrono = { version="0.4.31", features = ["serde"] }
-futures = "0.3.30"
-tokio = { version = "1.35.1", features = ["full"] }
-tower-http = { version = "0.5.0", features = ["cors"] }
-thiserror = "1.0.56"
-envy = "0.4.2"
-reqwest = "0.11.23"
-jsonwebtoken = "9.2.0"
-serde = { version = "1.0.195", features = ["derive", "rc"] }
-serde_json = "1.0.111"
-keycloak = "21.0.102"
-mongodb = "2.8.0"
-lazy_static = "1.4.0"
-log = "0.4"
-strum = { version = "0.26", features = ["derive"] }
-redis = { version = "0.24.0", features = ["tokio-comp"] }
-deadpool-redis = "0.14.0"
-uuid = { version = "1.6.1", features = ["v4", "v7"]}
-glob = "0.3.1"
-async-graphql-axum = "7.0.1"
-async-graphql = { version = "7.0.1", features = [
-    "bson",
-    "chrono",
-    "chrono-tz",
-    "uuid",
-    "graphiql",
-] }
-prometheus-client = "0.22.1"
-rdkafka = { version = "0.36.0" }
-
-qm-entity = { path = "crates/entity", version="0.0.2" }
-qm-entity-derive = { path = "crates/entity-derive", version="0.0.2" }
-qm-customer = { path = "crates/customer", version="0.0.2" }
-qm-server = { path = "crates/server", version="0.0.2" }
-qm-mongodb = { path = "crates/mongodb", version="0.0.2" }
-qm-redis = { path = "crates/redis", version="0.0.2" }
-qm-s3 = { path = "crates/s3", version="0.0.2" }
-qm-kafka = { path = "crates/kafka", version="0.0.2" }
-qm-keycloak = { path = "crates/keycloak", version="0.0.2" }
-qm-role = { path = "crates/role", version="0.0.2" }
-qm-role-build = { path = "crates/role-build", version="0.0.2" }
-qm-utils = { path = "crates/utils", version="0.0.2" }
-qm-utils-derive = { path = "crates/utils-derive", version = "0.0.2" }
-qm = { path = ".", default-features = false, version="0.0.2" }
