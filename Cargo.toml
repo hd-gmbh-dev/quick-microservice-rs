@@ -112,4 +112,5 @@ qm-keycloak = { path = "crates/keycloak", version="0.0.2" }
 qm-role = { path = "crates/role", version="0.0.2" }
 qm-role-build = { path = "crates/role-build", version="0.0.2" }
 qm-utils = { path = "crates/utils", version="0.0.2" }
+qm-utils-derive = { path = "crates/utils-derive", version = "0.0.2" }
 qm = { path = ".", default-features = false, version="0.0.2" }

@@ -11,4 +11,4 @@ repository = "https://github.com/hd-gmbh-dev/quick-microservice-rs"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-qm-utils-derive = { path = "../utils-derive" }
+qm-utils-derive.workspace = true
