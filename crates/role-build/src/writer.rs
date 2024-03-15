@@ -199,7 +199,7 @@ where
         self.write_line(
             0,
             &format!(
-                "pub const BUILT_IN_GROUPS: [&'static str; {}] = [",
+                "pub const BUILT_IN_GROUPS: [&str; {}] = [",
                 group_names.len()
             ),
         )?;

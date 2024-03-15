@@ -8,7 +8,7 @@ members = [
 
 [workspace.package]
 edition = "2021"
-version = "0.0.4"
+version = "0.0.5"
 rust-version = "1.75.0"
 authors = ["Jürgen Seitz <juergen.seitz@h-d-gmbh.de>"]
 license = "MIT"
@@ -51,20 +51,20 @@ async-graphql = { version = "7.0.1", features = [
 prometheus-client = "0.22.1"
 rdkafka = { version = "0.36.0" }
 
-qm-entity = { path = "crates/entity", version = "0.0.4" }
-qm-entity-derive = { path = "crates/entity-derive", version = "0.0.4" }
-qm-customer = { path = "crates/customer", version = "0.0.4" }
-qm-server = { path = "crates/server", version = "0.0.4" }
-qm-mongodb = { path = "crates/mongodb", version = "0.0.4" }
-qm-redis = { path = "crates/redis", version = "0.0.4" }
-qm-s3 = { path = "crates/s3", version = "0.0.4" }
-qm-kafka = { path = "crates/kafka", version = "0.0.4" }
-qm-keycloak = { path = "crates/keycloak", version = "0.0.4" }
-qm-role = { path = "crates/role", version = "0.0.4" }
-qm-role-build = { path = "crates/role-build", version = "0.0.4" }
-qm-utils = { path = "crates/utils", version = "0.0.4" }
-qm-utils-derive = { path = "crates/utils-derive", version = "0.0.4" }
-qm = { path = ".", default-features = false, version = "0.0.4" }
+qm-entity = { path = "crates/entity", version = "0.0.5" }
+qm-entity-derive = { path = "crates/entity-derive", version = "0.0.5" }
+qm-customer = { path = "crates/customer", version = "0.0.5" }
+qm-server = { path = "crates/server", version = "0.0.5" }
+qm-mongodb = { path = "crates/mongodb", version = "0.0.5" }
+qm-redis = { path = "crates/redis", version = "0.0.5" }
+qm-s3 = { path = "crates/s3", version = "0.0.5" }
+qm-kafka = { path = "crates/kafka", version = "0.0.5" }
+qm-keycloak = { path = "crates/keycloak", version = "0.0.5" }
+qm-role = { path = "crates/role", version = "0.0.5" }
+qm-role-build = { path = "crates/role-build", version = "0.0.5" }
+qm-utils = { path = "crates/utils", version = "0.0.5" }
+qm-utils-derive = { path = "crates/utils-derive", version = "0.0.5" }
+qm = { path = ".", default-features = false, version = "0.0.5" }
 
 [package]
 name = "qm"
