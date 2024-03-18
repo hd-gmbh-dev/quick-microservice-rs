@@ -5,6 +5,7 @@ use qm_entity::HasRole;
 use qm_entity::IsAdmin;
 use qm_entity::MutatePermissions;
 use qm_entity::QueryPermissions;
+use qm_entity::SessionAccess;
 use qm_entity::UserId;
 pub use qm_kafka::producer::Producer;
 use qm_redis::Redis;
@@ -79,6 +80,7 @@ pub trait RelatedAuth<A, R, P>:
     + UserContext<A, R, P>
     + AsNumber
     + UserId
+    + SessionAccess<A>
     + Send
     + Sync
     + 'static
@@ -105,6 +107,7 @@ pub trait RelatedAccessLevel:
     + OrganizationUnitAccess
     + CustomerAccess
     + async_graphql::InputType
+    + Eq
     + AsRef<str>
     + AsNumber
     + Send

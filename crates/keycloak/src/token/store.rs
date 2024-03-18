@@ -93,7 +93,7 @@ impl JwtStore {
                 let realm = u.next().ok_or(anyhow::anyhow!("Invalid token"))?;
                 return self.get_jwt_from_realm(realm, token_header).await;
             } else {
-                return Err(anyhow::anyhow!("Invalid token - issuer does not match"));
+                return Err(anyhow::anyhow!("Invalid token - issuer does not match - public_url '{public_url}' issuer url '{issuer_url}'"));
             }
         }
         Err(anyhow::anyhow!("Invalid token"))

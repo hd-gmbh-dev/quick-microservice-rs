@@ -149,8 +149,18 @@ impl UserCache {
         })
     }
 
+    pub fn channel(&self) -> &str {
+        &self.inner.channel
+    }
+
     pub fn users_total(&self) -> &Gauge<f64, AtomicU64> {
         &self.inner.users_total
+    }
+    pub fn roles_total(&self) -> &Gauge<f64, AtomicU64> {
+        &self.inner.roles_total
+    }
+    pub fn groups_total(&self) -> &Gauge<f64, AtomicU64> {
+        &self.inner.groups_total
     }
 
     pub async fn db_user_by_id(&self, id: &Uuid) -> anyhow::Result<Option<Arc<User>>> {

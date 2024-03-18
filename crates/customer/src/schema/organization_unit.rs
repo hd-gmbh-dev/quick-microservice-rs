@@ -3,7 +3,6 @@ use async_graphql::{Context, Object};
 
 use qm_entity::ctx::CustOrOrgFilter;
 use qm_entity::ctx::MutationContext;
-use qm_entity::ctx::OrganizationUnitFilter;
 use qm_entity::err;
 use qm_entity::error::EntityResult;
 use qm_entity::ids::OrganizationUnitId;
@@ -95,8 +94,9 @@ where
                         .organization_units()
                         .save(organization_unit.create(&self.0.auth)?)
                         .await?;
+                    let id = result.as_id();
                     let access = qm_role::Access::new(AccessLevel::organization_unit())
-                        .with_fmt_id(result.id.as_organization_unit_id().as_ref())
+                        .with_fmt_id(Some(&id))
                         .to_string();
                     let roles =
                         roles::ensure(self.0.store.keycloak(), Some(access).into_iter()).await?;
@@ -263,6 +263,7 @@ where
             }
         };
         if let Some(user) = input.initial_user {
+            let id = result.as_id();
             crate::schema::user::Ctx(
                 AuthCtx::<'_, Auth, Store, AccessLevel, Resource, Permission>::new_with_role(
                     ctx,
@@ -272,17 +273,11 @@ where
             )
             .create(CreateUserPayload {
                 access: qm_role::Access::new(AccessLevel::organization_unit())
-                    .with_fmt_id(result.id.as_organization_unit_id().as_ref())
+                    .with_fmt_id(Some(&id))
                     .to_string(),
                 user,
                 group: Auth::create_organization_unit_owner_group().name,
-                context: qm_entity::ctx::ContextFilterInput::OrganizationUnit(
-                    OrganizationUnitFilter {
-                        customer: result.id.cid.clone().unwrap(),
-                        organization: result.id.oid.clone(),
-                        organization_unit: result.id.id.clone().unwrap(),
-                    },
-                ),
+                context: qm_entity::ctx::ContextFilterInput::OrganizationUnit(id.into()),
             })
             .await
             .extend()?;

@@ -16,7 +16,7 @@ use qm::{
     },
     entity::{
         err, AsNumber, FromGraphQLContext, HasAccess, HasRole, IsAdmin, MutatePermissions,
-        QueryPermissions, UserId,
+        QueryPermissions, SessionAccess, UserId,
     },
     keycloak::token::jwt::Claims,
     mongodb::bson::Uuid,
@@ -245,6 +245,11 @@ impl UserContext<AccessLevel, Resource, Permission> for Authorization {}
 impl RelatedGroups<AccessLevel, Resource, Permission> for Authorization {
     fn built_in_groups() -> &'static [&'static str] {
         &BUILT_IN_GROUPS
+    }
+}
+impl SessionAccess<AccessLevel> for Authorization {
+    fn session_access(&self) -> Option<&qm::role::Access<AccessLevel>> {
+        self.inner.access.as_ref()
     }
 }
 impl RelatedAuth<AccessLevel, Resource, Permission> for Authorization {}

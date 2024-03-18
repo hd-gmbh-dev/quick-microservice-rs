@@ -12,7 +12,7 @@ where
 
 pub struct ListCtx<T> {
     collection: crate::Collection<T>,
-    additional_query_params: Option<Document>,
+    query: Option<Document>,
 }
 
 impl<T> ListCtx<T>
@@ -22,12 +22,12 @@ where
     pub fn new(collection: crate::Collection<T>) -> Self {
         Self {
             collection,
-            additional_query_params: None,
+            query: None,
         }
     }
 
-    pub fn with_additional_query_params(mut self, additional_query_params: Document) -> Self {
-        self.additional_query_params = Some(additional_query_params);
+    pub fn with_query(mut self, query: Document) -> Self {
+        self.query = Some(query);
         self
     }
 
@@ -40,10 +40,7 @@ where
             limit,
             total,
             page,
-        } = self
-            .collection
-            .list(self.additional_query_params.take(), filter)
-            .await?;
+        } = self.collection.list(self.query.take(), filter).await?;
         Ok(R::new(items, limit, total, page))
     }
 }

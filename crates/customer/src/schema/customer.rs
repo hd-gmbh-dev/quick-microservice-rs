@@ -86,8 +86,9 @@ where
                         .customers()
                         .save(customer.create(&self.0.auth)?)
                         .await?;
+                    let id = result.as_id();
                     let access = qm_role::Access::new(AccessLevel::customer())
-                        .with_fmt_id(result.id.as_customer_id().as_ref())
+                        .with_fmt_id(Some(&id))
                         .to_string();
                     let roles =
                         roles::ensure(self.0.store.keycloak(), Some(access).into_iter()).await?;
@@ -262,7 +263,7 @@ where
         .create(CustomerData(input.name))
         .await
         .extend()?;
-
+        let id = result.as_id();
         if let Some(user) = input.initial_user {
             crate::schema::user::Ctx(
                 AuthCtx::<'_, Auth, Store, AccessLevel, Resource, Permission>::new_with_role(
@@ -273,12 +274,12 @@ where
             )
             .create(CreateUserPayload {
                 access: qm_role::Access::new(AccessLevel::customer())
-                    .with_fmt_id(result.id.as_customer_id().as_ref())
+                    .with_fmt_id(Some(&id))
                     .to_string(),
                 user,
                 group: Auth::create_customer_owner_group().name,
                 context: qm_entity::ctx::ContextFilterInput::Customer(CustomerFilter {
-                    customer: result.id.id.clone().unwrap(),
+                    customer: id.id,
                 }),
             })
             .await

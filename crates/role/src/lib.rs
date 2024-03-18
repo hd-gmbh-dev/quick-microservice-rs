@@ -45,6 +45,10 @@ impl<T> Access<T> {
     pub fn ty(&self) -> &T {
         &self.ty
     }
+
+    pub fn id(&self) -> Option<&str> {
+        self.id.as_deref()
+    }
 }
 
 impl<T> std::fmt::Display for Access<T>

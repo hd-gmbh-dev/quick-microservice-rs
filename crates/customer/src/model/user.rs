@@ -6,10 +6,7 @@ use qm_entity::ctx::ContextFilterInput;
 
 use qm_entity::error::EntityError;
 use qm_entity::error::EntityResult;
-use qm_entity::ids::{
-    CustomerId, CustomerResourceId, EntityId, InstitutionId, OrganizationId,
-    OrganizationResourceId, OrganizationUnitId,
-};
+use qm_entity::ids::ID;
 use qm_entity::list::NewList;
 use qm_entity::model::Modification;
 use qm_entity::Create;
@@ -18,114 +15,6 @@ use qm_keycloak::UserRepresentation;
 use qm_mongodb::bson::Uuid;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-
-#[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
-#[serde(tag = "ty", content = "entityId")]
-pub enum Owner {
-    Customer(EntityId),
-    Organization(EntityId),
-    Institution(EntityId),
-    OrganizationUnit(EntityId),
-}
-
-impl From<ContextFilterInput> for Owner {
-    fn from(value: ContextFilterInput) -> Self {
-        match value {
-            ContextFilterInput::Customer(v) => Owner::Customer(v.into()),
-            ContextFilterInput::Organization(v) => Owner::Organization(v.into()),
-            ContextFilterInput::Institution(v) => Owner::Institution(v.into()),
-            ContextFilterInput::OrganizationUnit(v) => Owner::OrganizationUnit(v.into()),
-        }
-    }
-}
-
-impl Owner {
-    pub fn customer(&self) -> Option<CustomerId> {
-        match &self {
-            Owner::Customer(EntityId { cid: Some(cid), .. }) => {
-                Some(CustomerId { id: cid.clone() })
-            }
-            Owner::Organization(EntityId { cid: Some(cid), .. }) => {
-                Some(CustomerId { id: cid.clone() })
-            }
-            Owner::OrganizationUnit(EntityId { cid: Some(cid), .. }) => {
-                Some(CustomerId { id: cid.clone() })
-            }
-            Owner::Institution(EntityId { cid: Some(cid), .. }) => {
-                Some(CustomerId { id: cid.clone() })
-            }
-            _ => None,
-        }
-    }
-    pub fn organization(&self) -> Option<OrganizationId> {
-        match &self {
-            Owner::Organization(EntityId {
-                cid: Some(cid),
-                oid: Some(oid),
-                ..
-            }) => Some(OrganizationId {
-                cid: cid.clone(),
-                id: oid.clone(),
-            }),
-            Owner::OrganizationUnit(EntityId {
-                cid: Some(cid),
-                oid: Some(oid),
-                ..
-            }) => Some(OrganizationId {
-                cid: cid.clone(),
-                id: oid.clone(),
-            }),
-            Owner::Institution(EntityId {
-                cid: Some(cid),
-                oid: Some(oid),
-                ..
-            }) => Some(OrganizationId {
-                cid: cid.clone(),
-                id: oid.clone(),
-            }),
-            _ => None,
-        }
-    }
-    pub fn organization_unit(&self) -> Option<OrganizationUnitId> {
-        match &self {
-            Owner::OrganizationUnit(EntityId {
-                cid: Some(cid),
-                oid: Some(oid),
-                iid: Some(iid),
-                ..
-            }) => Some(OrganizationUnitId::Organization(OrganizationResourceId {
-                id: iid.clone(),
-                oid: oid.clone(),
-                cid: cid.clone(),
-            })),
-            Owner::OrganizationUnit(EntityId {
-                cid: Some(cid),
-                oid: None,
-                iid: Some(iid),
-                ..
-            }) => Some(OrganizationUnitId::Customer(CustomerResourceId {
-                id: iid.clone(),
-                cid: cid.clone(),
-            })),
-            _ => None,
-        }
-    }
-    pub fn institution(&self) -> Option<InstitutionId> {
-        match &self {
-            Owner::Institution(EntityId {
-                cid: Some(cid),
-                oid: Some(oid),
-                iid: Some(iid),
-                ..
-            }) => Some(InstitutionId {
-                cid: cid.clone(),
-                oid: oid.clone(),
-                id: iid.clone(),
-            }),
-            _ => None,
-        }
-    }
-}
 
 #[derive(serde::Deserialize, serde::Serialize, Debug, Clone, Enum, Copy, Eq, PartialEq)]
 pub enum RequiredUserAction {
@@ -146,7 +35,7 @@ use std::collections::HashMap;
 
 use crate::cache::Cache;
 
-use super::{Customer, Institution, Organization, OrganizationUnit};
+use super::{Customer, Institution, Organization, OrganizationUnit, Owner};
 fn get_attribute(
     attributes: Option<&HashMap<String, serde_json::Value>>,
     key: &'static str,
@@ -202,6 +91,9 @@ pub struct UserDetails {
 #[serde(rename_all = "camelCase")]
 #[graphql(complex)]
 pub struct User {
+    #[serde(skip)]
+    #[graphql(skip)]
+    pub id: Option<ID>,
     #[graphql(skip)]
     pub owner: Owner,
     #[serde(default)]
@@ -224,50 +116,65 @@ pub struct User {
 #[ComplexObject]
 impl User {
     async fn customer(&self, ctx: &Context<'_>) -> Option<Arc<Customer>> {
-        if let Some((cache, id)) = ctx.data::<Cache>().ok().zip(self.owner.customer()) {
+        let cache = ctx.data::<Cache>().ok();
+        if cache.is_none() {
+            log::warn!("qm::customer::Cache is not installed in schema context");
+            return None;
+        }
+        let cache = cache.unwrap();
+        if let Some(id) = self.owner.customer() {
             cache.customer().customer_by_id(id.as_ref()).await
         } else {
-            log::warn!("qm::customer::Cache is not installed in schema context");
             None
         }
     }
 
     async fn organization(&self, ctx: &Context<'_>) -> Option<Arc<Organization>> {
-        if let Some((cache, id)) = ctx.data::<Cache>().ok().zip(self.owner.organization()) {
+        let cache = ctx.data::<Cache>().ok();
+        if cache.is_none() {
+            log::warn!("qm::customer::Cache is not installed in schema context");
+            return None;
+        }
+        let cache = cache.unwrap();
+        if let Some(id) = self.owner.organization() {
             cache.customer().organization_by_id(&id).await
         } else {
-            log::warn!("qm::customer::Cache is not installed in schema context");
             None
         }
     }
 
     async fn institution(&self, ctx: &Context<'_>) -> Option<Arc<Institution>> {
-        if let Some((cache, id)) = ctx.data::<Cache>().ok().zip(self.owner.institution()) {
+        let cache = ctx.data::<Cache>().ok();
+        if cache.is_none() {
+            log::warn!("qm::customer::Cache is not installed in schema context");
+            return None;
+        }
+        let cache = cache.unwrap();
+        if let Some(id) = self.owner.institution() {
             cache.customer().institution_by_id(&id).await
         } else {
-            log::warn!("qm::customer::Cache is not installed in schema context");
             None
         }
     }
 
     async fn organization_unit(&self, ctx: &Context<'_>) -> Option<Arc<OrganizationUnit>> {
-        if let Some((cache, id)) = ctx.data::<Cache>().ok().zip(self.owner.organization_unit()) {
+        let cache = ctx.data::<Cache>().ok();
+        if cache.is_none() {
+            log::warn!("qm::customer::Cache is not installed in schema context");
+            return None;
+        }
+        let cache = cache.unwrap();
+        if let Some(id) = self.owner.organization_unit() {
             cache.customer().organization_unit_by_id(&id).await
         } else {
-            log::warn!("qm::customer::Cache is not installed in schema context");
             None
         }
     }
 }
 
-impl AsMut<EntityId> for User {
-    fn as_mut(&mut self) -> &mut EntityId {
-        match &mut self.owner {
-            Owner::Customer(v) => v,
-            Owner::Organization(v) => v,
-            Owner::Institution(v) => v,
-            Owner::OrganizationUnit(v) => v,
-        }
+impl AsMut<Option<ID>> for User {
+    fn as_mut(&mut self) -> &mut Option<ID> {
+        &mut self.id
     }
 }
 
@@ -285,6 +192,7 @@ where
     fn create(self, c: &C) -> EntityResult<User> {
         let user_id = c.user_id().ok_or(EntityError::Forbidden)?.to_owned();
         Ok(User {
+            id: None,
             owner: self.owner,
             groups: self.groups,
             access: self.access,

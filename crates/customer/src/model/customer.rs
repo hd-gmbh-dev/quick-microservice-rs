@@ -3,8 +3,7 @@ use qm_entity::list::NewList;
 use serde::{Deserialize, Serialize};
 
 use qm_entity::error::{EntityError, EntityResult};
-use qm_entity::ids::CustomerId;
-use qm_entity::ids::EntityId;
+use qm_entity::ids::{CustomerId, ID};
 use qm_entity::model::Modification;
 use qm_entity::{Create, UserId};
 
@@ -28,24 +27,33 @@ pub struct UpdateCustomerInput {
 #[graphql(complex)]
 pub struct Customer {
     #[graphql(skip)]
-    #[serde(flatten)]
-    pub id: EntityId,
+    #[serde(rename = "_id", skip_serializing_if = "Option::is_none")]
+    pub id: Option<ID>,
     pub name: String,
     pub created: Modification,
     pub modified: Option<Modification>,
 }
 
-#[ComplexObject]
 impl Customer {
-    async fn id(&self) -> CustomerId {
+    pub fn as_id(&self) -> CustomerId {
         CustomerId {
-            id: self.id.id.clone().unwrap(),
+            id: self
+                .id
+                .clone()
+                .unwrap_or_else(|| panic!("customer '{}' is invalid, id missing", &self.name)),
         }
     }
 }
 
-impl AsMut<EntityId> for Customer {
-    fn as_mut(&mut self) -> &mut EntityId {
+#[ComplexObject]
+impl Customer {
+    async fn id(&self) -> CustomerId {
+        self.as_id()
+    }
+}
+
+impl AsMut<Option<ID>> for Customer {
+    fn as_mut(&mut self) -> &mut Option<ID> {
         &mut self.id
     }
 }
@@ -57,7 +65,7 @@ where
     fn create(self, c: &C) -> EntityResult<Customer> {
         let user_id = c.user_id().ok_or(EntityError::Forbidden)?.to_owned();
         Ok(Customer {
-            id: EntityId::default(),
+            id: None,
             name: self.0,
             created: Modification::new(user_id),
             modified: None,

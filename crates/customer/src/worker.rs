@@ -210,7 +210,7 @@ where
         &query,
         |v| {
             Ok(vec![qm_role::Access::new(AccessLevel::organization_unit())
-                .with_fmt_id(v.id.as_organization_unit_id().as_ref())
+                .with_fmt_id(Some(&v.as_id()))
                 .to_string()])
         },
     )
@@ -222,7 +222,7 @@ where
         &query,
         |v| {
             Ok(vec![qm_role::Access::new(AccessLevel::organization())
-                .with_fmt_id(v.id.as_organization_id().as_ref())
+                .with_fmt_id(Some(&v.as_id()))
                 .to_string()])
         },
     )
@@ -234,7 +234,7 @@ where
         &query,
         |v| {
             Ok(vec![qm_role::Access::new(AccessLevel::institution())
-                .with_fmt_id(v.id.as_institution_id().as_ref())
+                .with_fmt_id(Some(&v.as_id()))
                 .to_string()])
         },
     )
@@ -339,7 +339,7 @@ where
         &query,
         |v| {
             Ok(vec![qm_role::Access::new(AccessLevel::organization_unit())
-                .with_fmt_id(v.id.as_organization_unit_id().as_ref())
+                .with_fmt_id(Some(&v.as_id()))
                 .to_string()])
         },
     )

@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-use glob::Pattern;
 use serde_json::Value;
 
 use crate::validation::context::ValidationContext as Ctx;
@@ -50,7 +49,7 @@ async fn check_realm_settings(
     }
     // login_theme must be `qm`
     if let Some(theme) = &rep.login_theme {
-        if theme != "qm" {
+        if theme != ctx.keycloak().config().theme() {
             add_error(
                 realm_errors::REALM_LOGIN_THEME_INVALID_ID,
                 realm_errors::REALM_LOGIN_THEME_INVALID_KEY,
@@ -290,10 +289,9 @@ async fn check_client(
         }
         // redirect_uris must contain a pattern matching the configured value
         if let Some(urls) = &client.redirect_uris {
-            if !urls
-                .iter()
-                .any(|url| Pattern::new(url).unwrap().matches(ctx.cfg().public_url()))
-            {
+            if !urls.iter().all(|url| {
+                url == ctx.cfg().public_url() || url.replace("*", "") == ctx.cfg().public_url()
+            }) {
                 log::info!(
                     "[{}]: Expected the 'redirect_uris' values '{:?}' to contain a pattern that matches '{}'",
                     realm,

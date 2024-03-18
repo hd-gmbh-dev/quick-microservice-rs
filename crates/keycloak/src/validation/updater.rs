@@ -77,7 +77,7 @@ async fn update_realm_settings(
         }
         realm_errors::REALM_LOGIN_THEME_INVALID_ID | realm_errors::REALM_LOGIN_THEME_MISSING_ID => {
             log::trace!("Setting 'login_theme' for realm '{}'", realm);
-            rep.login_theme = Some("qm".to_string());
+            rep.login_theme = Some(ctx.cfg().keycloak().theme().to_string());
         }
         realm_errors::REALM_PASSWORD_POLICY_LENGTH_ID => {
             log::trace!(
@@ -327,6 +327,8 @@ async fn update_client_settings(
                 | realm_errors::CLIENTS_CLIENT_REDIRECT_URIS_MISSING_ID => {
                     log::trace!("Adding 'redirect_uris' for configured value for client 'spa' in realm '{}'", realm);
                     if let Some(uris) = rep.redirect_uris.as_mut() {
+                        uris.clear();
+                        uris.push(format!("{}", ctx.cfg().public_url()));
                         uris.push(format!("{}*", ctx.cfg().public_url()));
                     } else {
                         rep.redirect_uris = Some(vec![format!("{}*", ctx.cfg().public_url())]);

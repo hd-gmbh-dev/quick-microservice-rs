@@ -14,7 +14,7 @@ use serde_json::Value;
 
 lazy_static::lazy_static! {
     static ref REALM_TEMPLATE: crate::RealmRepresentation = serde_json::from_str(include_str!("../templates/realm.json")).unwrap();
-    static ref APP_URL: String = std::env::var("APP_URL").unwrap_or_else(|_| "http://localhost:5173".to_string());
+    static ref APP_URL: String = std::env::var("SERVER_APP_URL").unwrap_or_else(|_| "http://localhost:5173".to_string());
 }
 
 pub async fn create(keycloak: &Keycloak) -> anyhow::Result<()> {
@@ -29,7 +29,11 @@ pub async fn create(keycloak: &Keycloak) -> anyhow::Result<()> {
     {
         client.redirect_uris = Some(vec![format!(
             "{}*",
-            &url.rsplit_once(':').map(|(l, _)| l).unwrap_or(url)
+            if url.chars().filter(|c| c == &':').count() > 1 {
+                url.rsplit_once(':').map(|(l, _)| l).unwrap_or(url)
+            } else {
+                &url
+            }
         )]);
         client.base_url = Some(format!("{}/", &url));
         client.root_url = Some(format!("{}/", &url));
@@ -59,7 +63,7 @@ where
     P: AsRef<str>,
 {
     let realm = keycloak.config().realm();
-    let url = keycloak.public_url();
+    let url = APP_URL.as_str();
     let keycloak_config = keycloak.config();
     let ctx = ValidationContext {
         config: &Config {

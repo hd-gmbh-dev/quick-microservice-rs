@@ -3,9 +3,8 @@ use std::sync::Arc;
 use async_graphql::ResultExt;
 use async_graphql::{Context, Object};
 
-use qm_entity::ctx::CustomerFilter;
 use qm_entity::ctx::MutationContext;
-use qm_entity::ctx::OrganizationFilter;
+use qm_entity::ctx::{ContextFilterInput, CustomerFilter};
 use qm_entity::err;
 use qm_entity::error::EntityResult;
 use qm_entity::ids::{Cid, Oid, OrganizationId, StrictOrganizationIds};
@@ -65,13 +64,16 @@ where
         customer_filter: Option<CustomerFilter>,
         filter: Option<ListFilter>,
     ) -> async_graphql::FieldResult<OrganizationList> {
-        let mut ctx = ListCtx::new(self.0.store.organizations());
-        if let Some(CustomerFilter { customer }) = customer_filter {
-            ctx = ctx.with_additional_query_params(doc! {
-                "cid": customer.as_ref()
-            })
-        }
-        ctx.list(filter).await.extend()
+        ListCtx::new(self.0.store.organizations())
+            .with_query(
+                self.0
+                    .build_context_query(customer_filter.map(ContextFilterInput::Customer).as_ref())
+                    .await
+                    .extend()?,
+            )
+            .list(filter)
+            .await
+            .extend()
     }
 
     pub async fn by_id(&self, id: OrganizationId) -> Option<Arc<Organization>> {
@@ -105,8 +107,9 @@ where
                         .organizations()
                         .save(organization.create(&self.0.auth)?)
                         .await?;
+                    let id = result.as_id();
                     let access = qm_role::Access::new(AccessLevel::organization())
-                        .with_fmt_id(result.id.as_organization_id().as_ref())
+                        .with_fmt_id(Some(&id))
                         .to_string();
                     let roles =
                         roles::ensure(self.0.store.keycloak(), Some(access).into_iter()).await?;
@@ -149,7 +152,7 @@ where
             .map(|v| {
                 let cid: &Cid = v.as_ref();
                 let oid: &Oid = v.as_ref();
-                doc! {"_id": **oid, "cid": **cid }
+                doc! {"_id": **oid, "owner.entityId.cid": **cid }
             })
             .collect::<Vec<_>>();
         if !docs.is_empty() {
@@ -288,6 +291,7 @@ where
         .await
         .extend()?;
         if let Some(user) = input.initial_user {
+            let id = result.as_id();
             crate::schema::user::Ctx(
                 AuthCtx::<'_, Auth, Store, AccessLevel, Resource, Permission>::new_with_role(
                     ctx,
@@ -297,14 +301,11 @@ where
             )
             .create(CreateUserPayload {
                 access: qm_role::Access::new(AccessLevel::organization())
-                    .with_fmt_id(result.id.as_organization_id().as_ref())
+                    .with_fmt_id(Some(&id))
                     .to_string(),
                 user,
                 group: Auth::create_organization_owner_group().name,
-                context: qm_entity::ctx::ContextFilterInput::Organization(OrganizationFilter {
-                    customer: result.id.cid.clone().unwrap(),
-                    organization: result.id.id.clone().unwrap(),
-                }),
+                context: qm_entity::ctx::ContextFilterInput::Organization(id.into()),
             })
             .await
             .extend()?;

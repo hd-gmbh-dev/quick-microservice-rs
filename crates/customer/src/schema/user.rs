@@ -240,17 +240,16 @@ where
         context: Option<ContextFilterInput>,
         filter: Option<ListFilter>,
     ) -> async_graphql::FieldResult<UserList> {
-        let mut ctx = ListCtx::new(self.0.store.users());
-        if let Some(_context) = context {
-            // let query = match context {
-            //     _ => {
-            //         unimplemented!()
-            //     }
-            // };
-            // ctx = ctx.with_additional_query_params(query);
-            unimplemented!()
-        }
-        ctx.list(filter).await.extend()
+        ListCtx::new(self.0.store.users())
+            .with_query(
+                self.0
+                    .build_context_query(context.as_ref())
+                    .await
+                    .extend()?,
+            )
+            .list(filter)
+            .await
+            .extend()
     }
 
     pub async fn by_id(&self, id: Uuid) -> Option<Arc<User>> {
@@ -368,7 +367,14 @@ where
             }
         }
         if !user_ids.is_empty() {
-            self.0.store.users().remove_all("_id", &user_ids).await?;
+            let result = self.0.store.users().remove_all("_id", &user_ids).await?;
+            self.0
+                .store
+                .cache()
+                .user()
+                .reload_users(keycloak, self.0.store, Some(self.0.store.redis().as_ref()))
+                .await?;
+            return Ok(result.deleted_count);
         }
         Ok(0)
     }

@@ -69,7 +69,6 @@ impl<W: 'static> cucumber::Writer<W> for CustomWriter {
                 _ => {}
             },
             Err(e) => println!("Error: {e}"),
-            _ => {}
         }
     }
 }

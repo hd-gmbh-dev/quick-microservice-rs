@@ -11,7 +11,7 @@ use qm_entity::model::Modification;
 use qm_entity::{Create, UserId};
 use serde::{Deserialize, Serialize};
 
-use super::Customer;
+use super::{Customer, Owner};
 
 #[derive(Debug, InputObject)]
 pub struct CreateOrganizationInput {
@@ -25,12 +25,14 @@ pub struct UpdateOrganizationInput {
     pub name: Option<String>,
 }
 
-#[derive(Default, Debug, Clone, SimpleObject, Serialize, Deserialize)]
+#[derive(Debug, Clone, SimpleObject, Serialize, Deserialize)]
 #[graphql(complex)]
 pub struct Organization {
     #[graphql(skip)]
-    #[serde(flatten)]
-    pub id: EntityId,
+    #[serde(rename = "_id", skip_serializing_if = "Option::is_none")]
+    pub id: Option<ID>,
+    #[graphql(skip)]
+    pub owner: Owner,
     pub name: String,
     pub created: Modification,
     pub modified: Option<Modification>,
@@ -44,24 +46,42 @@ pub struct OrganizationList {
     pub page: Option<i64>,
 }
 
+impl Organization {
+    pub fn as_id(&self) -> OrganizationId {
+        self.owner
+            .customer()
+            .zip(self.id.clone())
+            .map(|(customer_id, id)| OrganizationId {
+                cid: customer_id.id,
+                id,
+            })
+            .unwrap_or_else(|| panic!("organization '{}' is invalid", &self.name))
+    }
+}
+
 #[ComplexObject]
 impl Organization {
-    async fn id(&self) -> FieldResult<OrganizationId> {
-        Ok(self.id.clone().into())
+    pub async fn id(&self) -> FieldResult<OrganizationId> {
+        Ok(self.as_id())
     }
 
     async fn customer(&self, ctx: &Context<'_>) -> Option<Arc<Customer>> {
-        if let Some((cache, id)) = ctx.data::<Cache>().ok().zip(self.id.cid.as_ref()) {
-            cache.customer().customer_by_id(id).await
-        } else {
+        let cache = ctx.data::<Cache>().ok();
+        if cache.is_none() {
             log::warn!("qm::customer::Cache is not installed in schema context");
+            return None;
+        }
+        let cache = cache.unwrap();
+        if let Some(id) = self.owner.customer() {
+            cache.customer().customer_by_id(id.as_ref()).await
+        } else {
             None
         }
     }
 }
 
-impl AsMut<EntityId> for Organization {
-    fn as_mut(&mut self) -> &mut EntityId {
+impl AsMut<Option<ID>> for Organization {
+    fn as_mut(&mut self) -> &mut Option<ID> {
         &mut self.id
     }
 }
@@ -75,7 +95,8 @@ where
     fn create(self, c: &C) -> EntityResult<Organization> {
         let user_id = c.user_id().ok_or(EntityError::Forbidden)?.to_owned();
         Ok(Organization {
-            id: EntityId::default().with_customer(self.0),
+            id: None,
+            owner: Owner::Customer(EntityId::default().with_customer(self.0)),
             name: self.1,
             created: Modification::new(user_id),
             modified: None,
@@ -87,14 +108,7 @@ impl<'a> TryInto<CustomerResourceId> for &'a Organization {
     type Error = anyhow::Error;
 
     fn try_into(self) -> Result<CustomerResourceId, Self::Error> {
-        Ok(CustomerResourceId {
-            cid: self
-                .id
-                .cid
-                .clone()
-                .ok_or(anyhow::anyhow!("cid is missing"))?,
-            id: self.id.id.clone().ok_or(anyhow::anyhow!("id is missing"))?,
-        })
+        Ok(self.as_id())
     }
 }
 

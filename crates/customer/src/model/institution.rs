@@ -8,13 +8,12 @@ use crate::cache::Cache;
 use crate::model::CreateUserInput;
 use qm_entity::error::{EntityError, EntityResult};
 use qm_entity::ids::{
-    CustomerResourceId, EntityId, InstitutionId, OrganizationId, OrganizationResourceId,
-    StrictInstitutionId,
+    EntityId, InstitutionId, OrganizationId, OrganizationResourceId, StrictInstitutionId, ID,
 };
 use qm_entity::model::Modification;
 use qm_entity::{Create, UserId};
 
-use super::{Customer, Organization};
+use super::{Customer, Organization, Owner};
 
 #[derive(Debug, InputObject)]
 pub struct CreateInstitutionInput {
@@ -28,13 +27,15 @@ pub struct UpdateInstitutionInput {
     pub name: Option<String>,
 }
 
-#[derive(Default, Debug, Clone, SimpleObject, Serialize, Deserialize)]
+#[derive(Debug, Clone, SimpleObject, Serialize, Deserialize)]
 #[graphql(complex)]
 pub struct Institution {
     #[graphql(skip)]
-    #[serde(flatten)]
-    pub id: EntityId,
+    #[serde(rename = "_id", skip_serializing_if = "Option::is_none")]
+    pub id: Option<ID>,
     pub name: String,
+    #[graphql(skip)]
+    pub owner: Owner,
     pub created: Modification,
     pub modified: Option<Modification>,
 }
@@ -42,10 +43,8 @@ pub struct Institution {
 impl TryInto<StrictInstitutionId> for Institution {
     type Error = anyhow::Error;
     fn try_into(self) -> Result<StrictInstitutionId, Self::Error> {
-        let cid = self.id.cid.ok_or(anyhow::anyhow!("'cid' is required"))?;
-        let oid = self.id.oid.ok_or(anyhow::anyhow!("'oid' is required"))?;
-        let id = self.id.id.ok_or(anyhow::anyhow!("'id' is required"))?;
-        Ok((cid, oid, id).into())
+        let rid = self.as_id();
+        Ok((rid.cid, rid.oid, rid.id).into())
     }
 }
 
@@ -57,43 +56,57 @@ pub struct InstitutionList {
     pub page: Option<i64>,
 }
 
+impl Institution {
+    pub fn as_id(&self) -> InstitutionId {
+        self.owner
+            .organization()
+            .zip(self.id.clone())
+            .map(|(rid, id)| InstitutionId {
+                cid: rid.cid,
+                oid: rid.id,
+                id,
+            })
+            .unwrap_or_else(|| panic!("institution '{}' is invalid", &self.name))
+    }
+}
+
 #[ComplexObject]
 impl Institution {
     async fn id(&self) -> FieldResult<InstitutionId> {
-        Ok(self.id.clone().into())
+        Ok(self.as_id())
     }
 
     async fn customer(&self, ctx: &Context<'_>) -> Option<Arc<Customer>> {
-        if let Some((cache, id)) = ctx.data::<Cache>().ok().zip(self.id.cid.as_ref()) {
-            cache.customer().customer_by_id(id).await
-        } else {
+        let cache = ctx.data::<Cache>().ok();
+        if cache.is_none() {
             log::warn!("qm::customer::Cache is not installed in schema context");
+            return None;
+        }
+        let cache = cache.unwrap();
+        if let Some(id) = self.owner.customer() {
+            cache.customer().customer_by_id(&id.id).await
+        } else {
             None
         }
     }
 
     async fn organization(&self, ctx: &Context<'_>) -> Option<Arc<Organization>> {
-        if let Some((cache, (cid, oid))) = ctx
-            .data::<Cache>()
-            .ok()
-            .zip(self.id.cid.as_ref().zip(self.id.oid.as_ref()))
-        {
-            cache
-                .customer()
-                .organization_by_id(&CustomerResourceId {
-                    cid: cid.clone(),
-                    id: oid.clone(),
-                })
-                .await
-        } else {
+        let cache = ctx.data::<Cache>().ok();
+        if cache.is_none() {
             log::warn!("qm::customer::Cache is not installed in schema context");
+            return None;
+        }
+        let cache = cache.unwrap();
+        if let Some(v) = self.owner.organization() {
+            cache.customer().organization_by_id(&v).await
+        } else {
             None
         }
     }
 }
 
-impl AsMut<EntityId> for Institution {
-    fn as_mut(&mut self) -> &mut EntityId {
+impl AsMut<Option<ID>> for Institution {
+    fn as_mut(&mut self) -> &mut Option<ID> {
         &mut self.id
     }
 }
@@ -107,11 +120,12 @@ where
     fn create(self, c: &C) -> EntityResult<Institution> {
         let user_id = c.user_id().ok_or(EntityError::Forbidden)?.to_owned();
         Ok(Institution {
-            id: EntityId {
+            id: None,
+            owner: Owner::Organization(EntityId {
                 cid: Some(self.0.cid),
                 oid: Some(self.0.id),
                 ..Default::default()
-            },
+            }),
             name: self.1,
             created: Modification::new(user_id),
             modified: None,
@@ -123,19 +137,7 @@ impl<'a> TryInto<OrganizationResourceId> for &'a Institution {
     type Error = anyhow::Error;
 
     fn try_into(self) -> Result<OrganizationResourceId, Self::Error> {
-        Ok(OrganizationResourceId {
-            cid: self
-                .id
-                .cid
-                .clone()
-                .ok_or(anyhow::anyhow!("cid is missing"))?,
-            oid: self
-                .id
-                .oid
-                .clone()
-                .ok_or(anyhow::anyhow!("oid is missing"))?,
-            id: self.id.id.clone().ok_or(anyhow::anyhow!("id is missing"))?,
-        })
+        Ok(self.as_id())
     }
 }
 

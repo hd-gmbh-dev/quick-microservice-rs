@@ -46,9 +46,7 @@ async fn load_customers(db: &impl CustomerDB) -> anyhow::Result<CustomerMap> {
         .try_collect()
         .await?;
     Ok(BTreeMap::from_iter(
-        items
-            .into_iter()
-            .map(|c| (c.id.id.as_ref().unwrap().clone(), Arc::new(c))),
+        items.into_iter().map(|c| (c.as_id().id, Arc::new(c))),
     ))
 }
 
@@ -155,6 +153,10 @@ impl CustomerCache {
         })
     }
 
+    pub fn channel(&self) -> &str {
+        &self.inner.channel
+    }
+
     pub fn customers_total(&self) -> &Gauge<f64, AtomicU64> {
         &self.inner.customers_total
     }
@@ -171,33 +173,33 @@ impl CustomerCache {
         &self.inner.institutions_total
     }
 
-    pub async fn institutions_by_customer_id(
-        &self,
-        id: &ObjectId,
-    ) -> Vec<(OrganizationResourceId, Arc<Institution>)> {
-        self.inner
-            .institutions
-            .read()
-            .await
-            .iter()
-            .filter(|i| i.1.id.cid.as_deref() == Some(id))
-            .map(|(id, v)| (id.clone(), v.clone()))
-            .collect()
-    }
+    // pub async fn institutions_by_customer_id(
+    //     &self,
+    //     id: &ObjectId,
+    // ) -> Vec<(OrganizationResourceId, Arc<Institution>)> {
+    //     self.inner
+    //         .institutions
+    //         .read()
+    //         .await
+    //         .iter()
+    //         .filter(|i| i.1.id.cid.as_deref() == Some(id))
+    //         .map(|(id, v)| (id.clone(), v.clone()))
+    //         .collect()
+    // }
 
-    pub async fn organization_by_customer_id(
-        &self,
-        id: &ObjectId,
-    ) -> Vec<(Arc<ObjectId>, Arc<Organization>)> {
-        self.inner
-            .organizations
-            .read()
-            .await
-            .iter()
-            .filter(|i| i.1.id.cid.as_deref() == Some(id))
-            .map(|(_, v)| (v.id.id.clone().unwrap(), v.clone()))
-            .collect()
-    }
+    // pub async fn organization_by_customer_id(
+    //     &self,
+    //     id: &ObjectId,
+    // ) -> Vec<(Arc<ObjectId>, Arc<Organization>)> {
+    //     self.inner
+    //         .organizations
+    //         .read()
+    //         .await
+    //         .iter()
+    //         .filter(|i| i.1.id.cid.as_deref() == Some(id))
+    //         .map(|(_, v)| (v.id.id.clone().unwrap(), v.clone()))
+    //         .collect()
+    // }
 
     pub async fn customer_by_id(&self, id: &ObjectId) -> Option<Arc<Customer>> {
         self.inner.customers.read().await.get(id).cloned()
@@ -214,31 +216,31 @@ impl CustomerCache {
         self.inner.organization_units.read().await.get(id).cloned()
     }
 
-    pub async fn customer_by_organization(
-        &self,
-        organization: &Organization,
-    ) -> Option<Arc<Customer>> {
-        self.inner
-            .customers
-            .read()
-            .await
-            .iter()
-            .find(|(_, c)| c.id.id.as_deref() == organization.id.cid.as_deref())
-            .map(|(_, c)| c.clone())
-    }
+    // pub async fn customer_by_organization(
+    //     &self,
+    //     organization: &Organization,
+    // ) -> Option<Arc<Customer>> {
+    //     self.inner
+    //         .customers
+    //         .read()
+    //         .await
+    //         .iter()
+    //         .find(|(_, c)| c.id.id.as_deref() == organization.id.cid.as_deref())
+    //         .map(|(_, c)| c.clone())
+    // }
 
-    pub async fn organization_by_institution(
-        &self,
-        institution: &Institution,
-    ) -> Option<Arc<Organization>> {
-        self.inner
-            .organizations
-            .read()
-            .await
-            .iter()
-            .find(|(_, o)| o.id.id.as_deref() == institution.id.oid.as_deref())
-            .map(|(_, o)| o.clone())
-    }
+    // pub async fn organization_by_institution(
+    //     &self,
+    //     institution: &Institution,
+    // ) -> Option<Arc<Organization>> {
+    //     self.inner
+    //         .organizations
+    //         .read()
+    //         .await
+    //         .iter()
+    //         .find(|(_, o)| o.id.id.as_deref() == institution.id.oid.as_deref())
+    //         .map(|(_, o)| o.clone())
+    // }
 
     pub async fn institution_by_member_id(&self, id: &MemberId) -> Option<Arc<Institution>> {
         self.inner
@@ -448,7 +450,7 @@ impl CustomerCache {
         redis: &deadpool_redis::Pool,
         customer: Customer,
     ) -> anyhow::Result<()> {
-        let id = customer.id.id.as_ref().cloned().unwrap();
+        let id = customer.as_id().id;
         let value = Arc::new(customer);
         self.load_customers(id.clone(), value.clone()).await;
         let publisher = self.inner.id.clone();

@@ -1,9 +1,9 @@
+use crate::ids::ID;
 use crate::model::ListFilter;
 use crate::model::ListResult;
 use async_graphql::{Context, ErrorExtensions, FieldResult};
 use error::EntityResult;
 use futures::stream::TryStreamExt;
-use ids::EntityId;
 use qm_mongodb::bson::Document;
 use qm_mongodb::bson::{doc, oid::ObjectId};
 use qm_mongodb::options::FindOptions;
@@ -78,19 +78,13 @@ pub trait UserId {
     fn user_id(&self) -> Option<&qm_mongodb::bson::Uuid>;
 }
 
+pub trait SessionAccess<A> {
+    fn session_access(&self) -> Option<&qm_role::Access<A>>;
+}
+
 pub trait AsNumber {
     fn as_number(&self) -> u32;
 }
-
-// pub struct EntityCtx<C> {
-//     c: C,
-// }
-
-// impl<C> EntityCtx<C> {
-//     fn new(c: C) -> Self {
-//         Self { c }
-//     }
-// }
 
 pub struct Collection<T>(pub qm_mongodb::Collection<T>);
 impl<T> AsRef<qm_mongodb::Collection<T>> for Collection<T> {
@@ -134,7 +128,7 @@ where
         self.as_ref()
             .find_one(
                 doc! {
-                    "cid": &cid,
+                    "owner.entityId.cid": &cid,
                     field: value
                 },
                 None,
@@ -176,12 +170,12 @@ where
 
 impl<T> Collection<T>
 where
-    T: Serialize + Send + Sync + Unpin + AsMut<EntityId>,
+    T: Serialize + Send + Sync + Unpin + AsMut<Option<ID>>,
 {
     pub async fn save(&self, mut value: T) -> qm_mongodb::error::Result<T> {
         let id: qm_mongodb::bson::Bson = self.as_ref().insert_one(&value, None).await?.inserted_id;
         if let qm_mongodb::bson::Bson::ObjectId(cid) = id {
-            value.as_mut().id = Some(Arc::new(cid));
+            *value.as_mut() = Some(Arc::new(cid));
         }
         Ok(value)
     }

@@ -35,6 +35,15 @@ pub struct OrganizationFilter {
     pub organization: ID,
 }
 
+impl From<CustomerResourceId> for OrganizationFilter {
+    fn from(value: CustomerResourceId) -> Self {
+        OrganizationFilter {
+            customer: value.cid,
+            organization: value.id,
+        }
+    }
+}
+
 impl From<OrganizationFilter> for CustomerResourceId {
     fn from(value: OrganizationFilter) -> Self {
         Self {
@@ -61,6 +70,23 @@ pub struct OrganizationUnitFilter {
     pub customer: ID,
     pub organization: Option<ID>,
     pub organization_unit: ID,
+}
+
+impl From<OrganizationUnitId> for OrganizationUnitFilter {
+    fn from(value: OrganizationUnitId) -> Self {
+        match value {
+            OrganizationUnitId::Customer(v) => OrganizationUnitFilter {
+                customer: v.cid,
+                organization: None,
+                organization_unit: v.id,
+            },
+            OrganizationUnitId::Organization(v) => OrganizationUnitFilter {
+                customer: v.cid,
+                organization: Some(v.oid),
+                organization_unit: v.id,
+            },
+        }
+    }
 }
 
 impl From<OrganizationUnitFilter> for OrganizationUnitId {
@@ -98,6 +124,16 @@ pub struct InstitutionFilter {
     pub customer: ID,
     pub organization: ID,
     pub institution: ID,
+}
+
+impl From<OrganizationResourceId> for InstitutionFilter {
+    fn from(value: OrganizationResourceId) -> Self {
+        InstitutionFilter {
+            customer: value.cid,
+            organization: value.oid,
+            institution: value.id,
+        }
+    }
 }
 
 impl From<InstitutionFilter> for OrganizationResourceId {
