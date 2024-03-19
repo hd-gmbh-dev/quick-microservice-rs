@@ -141,14 +141,10 @@ async fn remove_users(
     session: &mut ClientSession,
     query: &Document,
 ) -> anyhow::Result<u64> {
-    let mut q = doc! {};
-    for (k, v) in query.clone().into_iter() {
-        q.insert(&format!("owner.entityId.{k}"), v);
-    }
     let result = db
         .users()
         .as_ref()
-        .delete_many_with_session(q, None, session)
+        .delete_many_with_session(query.clone(), None, session)
         .await?;
     Ok(result.deleted_count)
 }
@@ -199,7 +195,7 @@ where
     }
     let ids: Vec<_> = cids.iter().map(|v| (v.as_ref())).collect();
     let query = doc! {
-        "cid": {
+        "owner.entityId.cid": {
             "$in": &ids
         }
     };
@@ -311,10 +307,10 @@ where
     let cids = select_ids::<StrictOrganizationId, Cid>(strict_oids);
     let oids = select_ids::<StrictOrganizationId, Oid>(strict_oids);
     let query = doc! {
-        "cid": {
+        "owner.entityId.cid": {
             "$in": &cids
         },
-        "oid": {
+        "owner.entityId.oid": {
             "$in": &oids
         }
     };
@@ -331,6 +327,11 @@ where
     .await?;
     for id in institution_ids.iter() {
         update_organization_units(store, &mut session, id).await?;
+        roles.insert(
+            qm_role::Access::new(AccessLevel::institution())
+                .with_fmt_id(Some(&id))
+                .to_string(),
+        );
     }
     extend_roles::<OrganizationUnit>(
         worker_ctx.ctx().store.organization_units().as_ref(),
@@ -424,13 +425,13 @@ where
     let iids = select_ids::<StrictInstitutionId, Iid>(strict_iids);
 
     let query = doc! {
-        "cid": {
+        "owner.entityId.cid": {
             "$in": &cids
         },
-        "oid": {
+        "owner.entityId.oid": {
             "$in": &oids
         },
-        "iid": {
+        "owner.entityId.iid": {
             "$in": &iids
         }
     };
@@ -523,10 +524,10 @@ where
         );
     }
     let cids = select_ids::<StrictOrganizationUnitId, Cid>(strict_uids);
-    let oids = select_ids::<StrictOrganizationUnitId, Uid>(strict_uids);
+    let iids = select_ids::<StrictOrganizationUnitId, Uid>(strict_uids);
     let query = doc! {
-        "cid": &cids,
-        "oid": &oids,
+        "owner.entityId.cid": &cids,
+        "owner.entityId.iid": &iids,
     };
     remove_users(store, &mut session, &query).await?;
     log::debug!("cleanup roles");

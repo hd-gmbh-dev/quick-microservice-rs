@@ -413,6 +413,23 @@ pub enum OrganizationUnitId {
     Organization(OrganizationResourceId),
 }
 
+impl From<StrictOrganizationUnitId> for OrganizationUnitId {
+    fn from(value: StrictOrganizationUnitId) -> Self {
+        if let Some(oid) = value.oid {
+            OrganizationUnitId::Organization(OrganizationResourceId {
+                cid: value.cid.cid,
+                oid: oid.oid,
+                id: value.uid.uid,
+            })
+        } else {
+            OrganizationUnitId::Customer(CustomerResourceId {
+                cid: value.cid.cid,
+                id: value.uid.uid,
+            })
+        }
+    }
+}
+
 impl TryFrom<EntityId> for OrganizationUnitId {
     type Error = anyhow::Error;
 

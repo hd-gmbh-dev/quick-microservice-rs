@@ -23,7 +23,7 @@ use crate::marker::Marker;
 use crate::model::CreateCustomerInput;
 use crate::model::CreateUserPayload;
 use crate::model::Customer;
-use crate::model::{CustomerData, CustomerList, UpdateCustomerInput};
+use crate::model::{CustomerData, CustomerList};
 use crate::roles;
 use crate::schema::auth::AuthCtx;
 
@@ -188,22 +188,22 @@ where
     Permission: RelatedPermission,
     BuiltInGroup: RelatedBuiltInGroup,
 {
-    async fn customer_by_id(
-        &self,
-        ctx: &Context<'_>,
-        id: CustomerId,
-    ) -> async_graphql::FieldResult<Option<Arc<Customer>>> {
-        Ok(Ctx(
-            AuthCtx::<'_, Auth, Store, AccessLevel, Resource, Permission>::new_with_role(
-                ctx,
-                (Resource::customer(), Permission::view()),
-            )
-            .await
-            .extend()?,
-        )
-        .by_id(id)
-        .await)
-    }
+    // async fn customer_by_id(
+    //     &self,
+    //     ctx: &Context<'_>,
+    //     id: CustomerId,
+    // ) -> async_graphql::FieldResult<Option<Arc<Customer>>> {
+    //     Ok(Ctx(
+    //         AuthCtx::<'_, Auth, Store, AccessLevel, Resource, Permission>::new_with_role(
+    //             ctx,
+    //             (Resource::customer(), Permission::view()),
+    //         )
+    //         .await
+    //         .extend()?,
+    //     )
+    //     .by_id(id)
+    //     .await)
+    // }
 
     async fn customers(
         &self,
@@ -288,17 +288,23 @@ where
         Ok(result)
     }
 
-    async fn update_customer(
-        &self,
-        _ctx: &Context<'_>,
-        _input: UpdateCustomerInput,
-    ) -> async_graphql::FieldResult<Customer> {
-        // Ok(CustomerCtx::<Auth, Store, Resource, Permission>::from_graphql(ctx)
-        //     .await?
-        //     .update(&input)
-        //     .await?)
-        unimplemented!()
-    }
+    // async fn update_customer(
+    //     &self,
+    //     ctx: &Context<'_>,
+    //     context: CustomerFilter,
+    //     input: UpdateCustomerInput,
+    // ) -> async_graphql::FieldResult<Customer> {
+    //     Ctx(
+    //         AuthCtx::<'_, Auth, Store, AccessLevel, Resource, Permission>::new_with_role(
+    //             ctx,
+    //             (Resource::customer(), Permission::update()),
+    //         )
+    //         .await?,
+    //     )
+    //     .update(context, input)
+    //     .await
+    //     .extend()
+    // }
 
     async fn remove_customers(
         &self,

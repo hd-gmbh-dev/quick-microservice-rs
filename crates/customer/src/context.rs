@@ -84,6 +84,9 @@ pub trait RelatedAuth<A, R, P>:
     + Send
     + Sync
     + 'static
+where
+    R: std::fmt::Debug,
+    P: std::fmt::Debug,
 {
 }
 

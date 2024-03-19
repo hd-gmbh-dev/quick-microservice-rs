@@ -57,7 +57,7 @@ where
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if let Some(id) = &self.id {
-            write!(f, "{}:access_{id}", self.ty.as_ref())
+            write!(f, "{}:access@{id}", self.ty.as_ref())
         } else {
             write!(f, "{}:access", self.ty.as_ref())
         }
@@ -94,19 +94,31 @@ where
     }
 }
 
-#[derive(Ord, PartialOrd, Eq, PartialEq)]
-pub struct Role<R, P> {
+#[derive(Debug, Ord, PartialOrd, Eq, PartialEq)]
+pub struct Role<R, P>
+where
+    R: std::fmt::Debug,
+    P: std::fmt::Debug,
+{
     ty: R,
     permission: Option<P>,
 }
 
-impl<R, P> Role<R, P> {
+impl<R, P> Role<R, P>
+where
+    R: std::fmt::Debug,
+    P: std::fmt::Debug,
+{
     pub fn new(ty: R, permission: Option<P>) -> Self {
         Self { ty, permission }
     }
 }
 
-impl<R, P> From<(R, P)> for Role<R, P> {
+impl<R, P> From<(R, P)> for Role<R, P>
+where
+    R: std::fmt::Debug,
+    P: std::fmt::Debug,
+{
     fn from(value: (R, P)) -> Self {
         Self {
             ty: value.0,
@@ -117,8 +129,8 @@ impl<R, P> From<(R, P)> for Role<R, P> {
 
 impl<R, P> FromStr for Role<R, P>
 where
-    R: FromStr<Err = anyhow::Error>,
-    P: FromStr<Err = anyhow::Error>,
+    R: FromStr<Err = anyhow::Error> + std::fmt::Debug,
+    P: FromStr<Err = anyhow::Error> + std::fmt::Debug,
 {
     type Err = anyhow::Error;
 
@@ -144,8 +156,8 @@ where
 
 impl<R, P> std::fmt::Display for Role<R, P>
 where
-    R: AsRef<str>,
-    P: AsRef<str>,
+    R: AsRef<str> + std::fmt::Debug,
+    P: AsRef<str> + std::fmt::Debug,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if let Some(permission) = &self.permission {
@@ -157,7 +169,11 @@ where
 }
 
 #[derive(Ord, PartialOrd, Eq, PartialEq)]
-pub enum AccessOrRole<A, R, P> {
+pub enum AccessOrRole<A, R, P>
+where
+    R: std::fmt::Debug,
+    P: std::fmt::Debug,
+{
     Access(Access<A>),
     Role(Role<R, P>),
 }
@@ -165,12 +181,12 @@ pub enum AccessOrRole<A, R, P> {
 impl<A, R, P> FromStr for AccessOrRole<A, R, P>
 where
     A: FromStr<Err = strum::ParseError>,
-    R: FromStr<Err = strum::ParseError>,
-    P: FromStr<Err = strum::ParseError>,
+    R: FromStr<Err = strum::ParseError> + std::fmt::Debug,
+    P: FromStr<Err = strum::ParseError> + std::fmt::Debug,
 {
     type Err = anyhow::Error;
     fn from_str(v: &str) -> Result<Self, Self::Err> {
-        let mut s = v.split("_");
+        let mut s = v.split("@");
         if let Some((access, id)) = s.next().zip(s.next()) {
             if let Some((access, method)) = access.split_once(":") {
                 if method == "access" {
@@ -198,12 +214,20 @@ where
     }
 }
 
-pub struct ParseResult<A, R, P> {
+pub struct ParseResult<A, R, P>
+where
+    R: std::fmt::Debug,
+    P: std::fmt::Debug,
+{
     pub access: BTreeSet<Access<A>>,
     pub roles: BTreeSet<Role<R, P>>,
 }
 
-impl<A, R, P> Default for ParseResult<A, R, P> {
+impl<A, R, P> Default for ParseResult<A, R, P>
+where
+    R: std::fmt::Debug,
+    P: std::fmt::Debug,
+{
     fn default() -> Self {
         Self {
             access: BTreeSet::default(),
@@ -215,8 +239,8 @@ impl<A, R, P> Default for ParseResult<A, R, P> {
 pub fn parse<A, R, P>(roles: &[Arc<str>]) -> ParseResult<A, R, P>
 where
     A: Ord + FromStr<Err = strum::ParseError>,
-    R: Ord + FromStr<Err = strum::ParseError>,
-    P: Ord + FromStr<Err = strum::ParseError>,
+    R: Ord + FromStr<Err = strum::ParseError> + std::fmt::Debug,
+    P: Ord + FromStr<Err = strum::ParseError> + std::fmt::Debug,
 {
     roles
         .iter()
@@ -235,13 +259,21 @@ where
         })
 }
 
-pub struct Group<A, R, P> {
+pub struct Group<A, R, P>
+where
+    R: std::fmt::Debug,
+    P: std::fmt::Debug,
+{
     pub name: String,
     resource_roles: Vec<Role<R, P>>,
     access_level: A,
 }
 
-impl<A, R, P> Group<A, R, P> {
+impl<A, R, P> Group<A, R, P>
+where
+    R: std::fmt::Debug,
+    P: std::fmt::Debug,
+{
     pub fn new(name: String, access_level: A, resource_roles: Vec<Role<R, P>>) -> Self {
         Self {
             name,
@@ -254,6 +286,8 @@ impl<A, R, P> Group<A, R, P> {
 impl<A, R, P> Group<A, R, P>
 where
     A: Copy,
+    R: std::fmt::Debug,
+    P: std::fmt::Debug,
 {
     pub fn access_role(&self) -> Access<A> {
         Access::new(*&self.access_level)
@@ -263,8 +297,8 @@ where
 impl<A, R, P> Group<A, R, P>
 where
     A: AsRef<str>,
-    R: AsRef<str>,
-    P: AsRef<str>,
+    R: AsRef<str> + std::fmt::Debug,
+    P: AsRef<str> + std::fmt::Debug,
 {
     pub fn resources(&self) -> Vec<String> {
         self.resource_roles.iter().map(|r| r.to_string()).collect()

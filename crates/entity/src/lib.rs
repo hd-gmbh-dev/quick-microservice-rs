@@ -4,7 +4,9 @@ use crate::model::ListResult;
 use async_graphql::{Context, ErrorExtensions, FieldResult};
 use error::EntityResult;
 use futures::stream::TryStreamExt;
+
 use qm_mongodb::bson::Document;
+use qm_mongodb::bson::Uuid;
 use qm_mongodb::bson::{doc, oid::ObjectId};
 use qm_mongodb::options::FindOptions;
 use qm_mongodb::results::DeleteResult;
@@ -109,10 +111,20 @@ where
         self.as_ref().find_one(doc! { field: value }, None).await
     }
 
-    pub async fn remove_all(
+    pub async fn remove_all_by_strings(
         &self,
         field: &str,
         values: &[String],
+    ) -> qm_mongodb::error::Result<DeleteResult> {
+        self.as_ref()
+            .delete_many(doc! { field: { "$in": values } }, None)
+            .await
+    }
+
+    pub async fn remove_all_by_uuids(
+        &self,
+        field: &str,
+        values: &[&Uuid],
     ) -> qm_mongodb::error::Result<DeleteResult> {
         self.as_ref()
             .delete_many(doc! { field: { "$in": values } }, None)
@@ -141,7 +153,7 @@ where
         query: Option<Document>,
         filter: Option<ListFilter>,
     ) -> qm_mongodb::error::Result<ListResult<T>> {
-        let query = query.unwrap_or(doc! {});
+        let query = query.unwrap_or_default();
         let limit = filter
             .as_ref()
             .and_then(|filter| filter.limit.as_ref().copied())
@@ -196,5 +208,11 @@ pub mod __private {
 macro_rules! err {
     ($($arg:tt)*) => {
         $crate::__private::Err($crate::__private::EntityError::$($arg)*)
+    };
+}
+#[macro_export]
+macro_rules! exerr {
+    ($($arg:tt)*) => {
+        $crate::__private::Err($crate::__private::EntityError::$($arg)*.extend())
     };
 }

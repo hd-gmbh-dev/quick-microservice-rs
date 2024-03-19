@@ -59,8 +59,8 @@ pub async fn configure_realm<A, R, P>(
 ) -> anyhow::Result<()>
 where
     A: AsRef<str>,
-    R: AsRef<str>,
-    P: AsRef<str>,
+    R: AsRef<str> + std::fmt::Debug,
+    P: AsRef<str> + std::fmt::Debug,
 {
     let realm = keycloak.config().realm();
     let url = APP_URL.as_str();
@@ -250,7 +250,11 @@ pub async fn ensure_groups<A, R, P>(
     realm: &str,
     keycloak: &Keycloak,
     group_map: &BTreeMap<String, Group<A, R, P>>,
-) -> anyhow::Result<BTreeMap<String, GroupRepresentation>> {
+) -> anyhow::Result<BTreeMap<String, GroupRepresentation>>
+where
+    R: std::fmt::Debug,
+    P: std::fmt::Debug,
+{
     let mut groups: BTreeMap<String, GroupRepresentation> = BTreeMap::new();
     for (name, _) in group_map.iter() {
         let s = name
@@ -344,8 +348,8 @@ pub async fn ensure_group_role_mappings<A, R, P>(
 ) -> anyhow::Result<()>
 where
     A: AsRef<str>,
-    R: AsRef<str>,
-    P: AsRef<str>,
+    R: AsRef<str> + std::fmt::Debug,
+    P: AsRef<str> + std::fmt::Debug,
 {
     for (path, group) in group_map {
         if let Some(group_rep) = groups.get(path) {
@@ -377,8 +381,8 @@ pub async fn ensure_groups_with_roles<A, R, P>(
 ) -> anyhow::Result<BTreeMap<String, GroupRepresentation>>
 where
     A: AsRef<str>,
-    R: AsRef<str>,
-    P: AsRef<str>,
+    R: AsRef<str> + std::fmt::Debug,
+    P: AsRef<str> + std::fmt::Debug,
 {
     let mut group_map = BTreeMap::new();
     let mut role_set = BTreeSet::new();
@@ -440,8 +444,8 @@ pub async fn ensure_admin_user<A, R, P>(
 ) -> anyhow::Result<UserRepresentation>
 where
     A: AsRef<str>,
-    R: AsRef<str>,
-    P: AsRef<str>,
+    R: AsRef<str> + std::fmt::Debug,
+    P: AsRef<str> + std::fmt::Debug,
 {
     log::info!("ensure admin user");
     let admin_user = keycloak

@@ -18,10 +18,10 @@ pub struct CustomerFilter {
     pub customer: ID,
 }
 
-impl Into<EntityId> for CustomerFilter {
-    fn into(self) -> EntityId {
+impl From<CustomerFilter> for EntityId {
+    fn from(val: CustomerFilter) -> Self {
         EntityId {
-            cid: Some(self.customer),
+            cid: Some(val.customer),
             ..Default::default()
         }
     }
@@ -53,11 +53,11 @@ impl From<OrganizationFilter> for CustomerResourceId {
     }
 }
 
-impl Into<EntityId> for OrganizationFilter {
-    fn into(self) -> EntityId {
+impl From<OrganizationFilter> for EntityId {
+    fn from(val: OrganizationFilter) -> Self {
         EntityId {
-            cid: Some(self.customer),
-            oid: Some(self.organization),
+            cid: Some(val.customer),
+            oid: Some(val.organization),
             ..Default::default()
         }
     }
@@ -106,12 +106,12 @@ impl From<OrganizationUnitFilter> for OrganizationUnitId {
     }
 }
 
-impl Into<EntityId> for OrganizationUnitFilter {
-    fn into(self) -> EntityId {
+impl From<OrganizationUnitFilter> for EntityId {
+    fn from(val: OrganizationUnitFilter) -> Self {
         EntityId {
-            cid: Some(self.customer),
-            oid: self.organization,
-            iid: Some(self.organization_unit),
+            cid: Some(val.customer),
+            oid: val.organization,
+            iid: Some(val.organization_unit),
             ..Default::default()
         }
     }
@@ -146,12 +146,12 @@ impl From<InstitutionFilter> for OrganizationResourceId {
     }
 }
 
-impl Into<EntityId> for InstitutionFilter {
-    fn into(self) -> EntityId {
+impl From<InstitutionFilter> for EntityId {
+    fn from(val: InstitutionFilter) -> Self {
         EntityId {
-            cid: Some(self.customer),
-            oid: Some(self.organization),
-            iid: Some(self.institution),
+            cid: Some(val.customer),
+            oid: Some(val.organization),
+            iid: Some(val.institution),
             ..Default::default()
         }
     }
@@ -185,6 +185,15 @@ pub enum ContextFilterInput {
     OrganizationUnit(OrganizationUnitFilter),
     #[graphql(name = "institutionFilter")]
     Institution(InstitutionFilter),
+}
+
+impl From<CustOrOrgFilter> for ContextFilterInput {
+    fn from(value: CustOrOrgFilter) -> Self {
+        match value {
+            CustOrOrgFilter::Customer(v) => ContextFilterInput::Customer(v),
+            CustOrOrgFilter::Organization(v) => ContextFilterInput::Organization(v),
+        }
+    }
 }
 
 impl std::fmt::Display for ContextFilterInput {

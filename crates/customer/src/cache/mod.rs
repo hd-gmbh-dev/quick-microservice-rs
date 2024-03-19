@@ -8,7 +8,10 @@ pub mod user;
 use customer::CustomerCache;
 use user::UserCache;
 
-use crate::context::RelatedStorage;
+use crate::{
+    context::RelatedStorage,
+    model::{Customer, Institution, Organization, OrganizationUnit, Owner},
+};
 
 use self::{customer::CustomerCacheDB, user::UserCacheDB};
 
@@ -48,6 +51,35 @@ impl Cache {
         self.user().reload_groups(keycloak, None).await?;
         self.user().reload_roles(db, None).await?;
         Ok(())
+    }
+
+    pub async fn customer_by_owner(&self, owner: &Owner) -> Option<Arc<Customer>> {
+        if let Some(id) = owner.customer() {
+            self.customer().customer_by_id(id.as_ref()).await
+        } else {
+            None
+        }
+    }
+    pub async fn organization_by_owner(&self, owner: &Owner) -> Option<Arc<Organization>> {
+        if let Some(id) = owner.organization() {
+            self.customer().organization_by_id(&id).await
+        } else {
+            None
+        }
+    }
+    pub async fn institution_by_owner(&self, owner: &Owner) -> Option<Arc<Institution>> {
+        if let Some(id) = owner.institution() {
+            self.customer().institution_by_id(&id).await
+        } else {
+            None
+        }
+    }
+    pub async fn organization_unit_by_owner(&self, owner: &Owner) -> Option<Arc<OrganizationUnit>> {
+        if let Some(id) = owner.organization_unit() {
+            self.customer().organization_unit_by_id(&id).await
+        } else {
+            None
+        }
     }
 }
 

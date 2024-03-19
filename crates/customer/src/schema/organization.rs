@@ -1,16 +1,17 @@
 use std::sync::Arc;
 
+use async_graphql::ErrorExtensions;
 use async_graphql::ResultExt;
 use async_graphql::{Context, Object};
 
 use qm_entity::ctx::MutationContext;
 use qm_entity::ctx::{ContextFilterInput, CustomerFilter};
-use qm_entity::err;
 use qm_entity::error::EntityResult;
 use qm_entity::ids::{Cid, Oid, OrganizationId, StrictOrganizationIds};
 use qm_entity::list::ListCtx;
 use qm_entity::model::ListFilter;
 use qm_entity::Create;
+use qm_entity::{err, exerr};
 use qm_mongodb::bson::{doc, Uuid};
 use qm_mongodb::DB;
 
@@ -25,7 +26,7 @@ use crate::marker::Marker;
 use crate::model::CreateOrganizationInput;
 use crate::model::CreateUserPayload;
 use crate::model::Organization;
-use crate::model::{OrganizationData, OrganizationList, UpdateOrganizationInput};
+use crate::model::{OrganizationData, OrganizationList};
 use crate::roles;
 use crate::schema::auth::AuthCtx;
 
@@ -313,32 +314,45 @@ where
         Ok(result)
     }
 
-    async fn update_organization(
-        &self,
-        _ctx: &Context<'_>,
-        _input: UpdateOrganizationInput,
-    ) -> async_graphql::FieldResult<Organization> {
-        // Ok(OrganizationCtx::<Auth, Store>::from_graphql(ctx)
-        //     .await?
-        //     .update(&input)
-        //     .await?)
-        unimplemented!()
-    }
+    // async fn update_organization(
+    //     &self,
+    //     ctx: &Context<'_>,
+    //     context: OrganizationFilter,
+    //     input: UpdateOrganizationInput,
+    // ) -> async_graphql::FieldResult<Organization> {
+    //     Ctx(
+    //         AuthCtx::<'_, Auth, Store, AccessLevel, Resource, Permission>::new_with_role(
+    //             ctx,
+    //             (Resource::organization(), Permission::update()),
+    //         )
+    //         .await?,
+    //     )
+    //     .update(context, input)
+    //     .await
+    //     .extend()
+    // }
 
     async fn remove_organizations(
         &self,
         ctx: &Context<'_>,
         ids: StrictOrganizationIds,
     ) -> async_graphql::FieldResult<u64> {
-        Ctx(
+        let auth_ctx =
             AuthCtx::<'_, Auth, Store, AccessLevel, Resource, Permission>::new_with_role(
                 ctx,
-                (Resource::organization(), Permission::delete()),
+                (Resource::institution(), Permission::delete()),
             )
-            .await?,
-        )
-        .remove(ids)
-        .await
-        .extend()
+            .await?;
+        let cache = auth_ctx.store.cache();
+        for id in ids.iter() {
+            let id = id.clone().into();
+            let v = cache.customer().organization_by_id(&id).await;
+            if let Some(v) = v {
+                auth_ctx.can_mutate(&v.owner).await.extend()?;
+            } else {
+                return exerr!(not_found_by_id::<Organization>(id.to_string()));
+            }
+        }
+        Ctx(auth_ctx).remove(ids).await.extend()
     }
 }

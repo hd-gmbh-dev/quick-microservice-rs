@@ -4,7 +4,10 @@ use async_graphql::ResultExt;
 use qm_entity::ctx::ContextFilterInput;
 use qm_entity::ctx::OrganizationFilter;
 use qm_entity::error::EntityResult;
+
 use qm_entity::ids::CustomerResourceId;
+use qm_entity::ids::InstitutionId;
+use qm_entity::ids::OrganizationId;
 use qm_entity::ids::OrganizationResourceId;
 use qm_mongodb::bson::doc;
 use qm_mongodb::bson::oid::ObjectId;
@@ -26,6 +29,8 @@ use crate::context::RelatedStorage;
 use crate::marker::ArpMarker;
 use crate::model::Customer;
 use crate::model::Organization;
+use crate::model::OrganizationUnit;
+use crate::model::Owner;
 
 enum Lvl {
     Customer,
@@ -275,21 +280,30 @@ where
                                 .map(|v| {
                                     doc! {
                                         "ty": "Institution",
-                                        "entityId.cid": v.cid.as_ref(),
-                                        "entityId.oid": v.oid.as_ref(),
-                                        "entityId.iid": v.iid.as_ref(),
+                                        "entityId": {
+                                            "cid": v.cid.as_ref(),
+                                            "oid": v.oid.as_ref(),
+                                            "iid": v.iid.as_ref(),
+                                        }
                                     }
                                 })
                                 .collect();
-                            let mut unit = doc! {
-                                "ty": "OrganizationUnit",
-                                "entityId.cid": v.customer.as_ref(),
-                                "entityId.iid": v.organization_unit.as_ref(),
+                            let entity_id = if let Some(oid) = v.organization.as_ref() {
+                                doc! {
+                                    "cid": v.customer.as_ref(),
+                                    "oid": oid.as_ref(),
+                                    "iid": v.organization_unit.as_ref(),
+                                }
+                            } else {
+                                doc! {
+                                    "cid": v.customer.as_ref(),
+                                    "iid": v.organization_unit.as_ref(),
+                                }
                             };
-                            if let Some(oid) = v.organization.as_ref() {
-                                unit.insert("entityId.oid", oid.as_ref());
-                            }
-                            docs.push(unit);
+                            docs.push(doc! {
+                                "ty": "OrganizationUnit",
+                                "entityId": entity_id
+                            });
                             Ok(doc! {
                                 "owner": {
                                     "$in": &docs,
@@ -347,17 +361,21 @@ where
                                 .map(|v| {
                                     doc! {
                                         "ty": "Institution",
-                                        "entityId.cid": v.cid.as_ref(),
-                                        "entityId.oid": v.oid.as_ref(),
-                                        "entityId.iid": v.iid.as_ref(),
+                                        "entityId": {
+                                            "cid": v.cid.as_ref(),
+                                            "oid": v.oid.as_ref(),
+                                            "iid": v.iid.as_ref(),
+                                        }
                                     }
                                 })
                                 .collect();
                             docs.push(doc! {
                                 "ty": "OrganizationUnit",
-                                "entityId.cid": v.customer.as_ref(),
-                                "entityId.oid": &oid,
-                                "entityId.iid": v.organization_unit.as_ref(),
+                                "entityId": {
+                                    "cid": v.customer.as_ref(),
+                                    "oid": &oid,
+                                    "iid": v.organization_unit.as_ref(),
+                                }
                             });
                             Ok(doc! {
                                 "owner": {
@@ -421,16 +439,20 @@ where
                         .map(|v| {
                             doc! {
                                 "ty": "Institution",
-                                "entityId.cid": v.cid.as_ref(),
-                                "entityId.oid": v.oid.as_ref(),
-                                "entityId.iid": v.iid.as_ref(),
+                                "entityId": {
+                                    "cid": v.cid.as_ref(),
+                                    "oid": v.oid.as_ref(),
+                                    "iid": v.iid.as_ref(),
+                                }
                             }
                         })
                         .collect();
                     docs.push(doc! {
                         "ty": "OrganizationUnit",
-                        "entityId.cid": rid.cid.as_ref(),
-                        "entityId.iid": rid.id.as_ref(),
+                        "entityId": {
+                            "cid": rid.cid.as_ref(),
+                            "iid": rid.id.as_ref(),
+                        }
                     });
                     Ok(doc! {
                         "owner": {
@@ -454,17 +476,21 @@ where
                         .map(|v| {
                             doc! {
                                 "ty": "Institution",
-                                "entityId.cid": v.cid.as_ref(),
-                                "entityId.oid": v.oid.as_ref(),
-                                "entityId.iid": v.iid.as_ref(),
+                                "entityId": {
+                                    "cid": v.cid.as_ref(),
+                                    "oid": v.oid.as_ref(),
+                                    "iid": v.iid.as_ref(),
+                                }
                             }
                         })
                         .collect();
                     docs.push(doc! {
                         "ty": "OrganizationUnit",
-                        "entityId.cid": rid.cid.as_ref(),
-                        "entityId.oid": rid.oid.as_ref(),
-                        "entityId.iid": rid.id.as_ref(),
+                        "entityId": {
+                            "cid": rid.cid.as_ref(),
+                            "oid": rid.oid.as_ref(),
+                            "iid": rid.id.as_ref(),
+                        }
                     });
                     Ok(doc! {
                         "owner": {
@@ -494,6 +520,181 @@ where
                     err!(unauthorized(&self.auth))
                 }
             }
+            Lvl::None => err!(unauthorized(&self.auth)),
+        }
+    }
+
+    pub async fn can_mutate(&self, owner: &Owner) -> EntityResult<()> {
+        if self.is_admin {
+            return Ok(());
+        }
+        match self.lvl() {
+            Lvl::Customer => match owner {
+                Owner::Customer(v)
+                | Owner::Organization(v)
+                | Owner::Institution(v)
+                | Owner::OrganizationUnit(v) => {
+                    let cid = v.cid.as_ref().ok_or(EntityError::bad_request(
+                        "Owner",
+                        "owner does not have 'cid'",
+                    ))?;
+                    let customer_access = self.auth.has_access(
+                        &qm_role::Access::new(AccessLevel::customer())
+                            .with_id(Arc::from(cid.to_hex().to_string())),
+                    );
+                    if !customer_access {
+                        return err!(unauthorized(&self.auth));
+                    }
+                    Ok(())
+                }
+            },
+            Lvl::Organization => match owner {
+                Owner::Customer(_) => {
+                    err!(unauthorized(&self.auth))
+                }
+                Owner::Organization(v) | Owner::Institution(v) | Owner::OrganizationUnit(v) => {
+                    let cid = v.cid.as_ref().ok_or(EntityError::bad_request(
+                        "Owner",
+                        "owner does not have 'cid'",
+                    ))?;
+                    let oid = v.oid.as_ref().ok_or(EntityError::bad_request(
+                        "Owner",
+                        "owner does not have 'oid'",
+                    ))?;
+                    let organization_access = self.auth.has_access(
+                        &qm_role::Access::new(AccessLevel::organization()).with_fmt_id(Some(
+                            &OrganizationId {
+                                cid: cid.clone(),
+                                id: oid.clone(),
+                            },
+                        )),
+                    );
+                    if !organization_access {
+                        return err!(unauthorized(&self.auth));
+                    }
+                    Ok(())
+                }
+            },
+            Lvl::OrganizationUnit => match owner {
+                Owner::Customer(_) | Owner::Organization(_) => {
+                    err!(unauthorized(&self.auth))
+                }
+                Owner::OrganizationUnit(v) => {
+                    let cid = v.cid.as_ref().ok_or(EntityError::bad_request(
+                        "Owner",
+                        "owner does not have 'cid'",
+                    ))?;
+                    let iid = v.iid.as_ref().ok_or(EntityError::bad_request(
+                        "Owner",
+                        "owner does not have 'iid'",
+                    ))?;
+                    let organization_unit_access = if let Some(oid) = v.oid.as_ref() {
+                        self.auth.has_access(
+                            &qm_role::Access::new(AccessLevel::organization_unit()).with_fmt_id(
+                                Some(&OrganizationUnitId::Organization(OrganizationResourceId {
+                                    cid: cid.clone(),
+                                    oid: oid.clone(),
+                                    id: iid.clone(),
+                                })),
+                            ),
+                        )
+                    } else {
+                        self.auth.has_access(
+                            &qm_role::Access::new(AccessLevel::organization_unit()).with_fmt_id(
+                                Some(&OrganizationUnitId::Customer(CustomerResourceId {
+                                    cid: cid.clone(),
+                                    id: iid.clone(),
+                                })),
+                            ),
+                        )
+                    };
+                    if !organization_unit_access {
+                        return err!(unauthorized(&self.auth));
+                    }
+                    Ok(())
+                }
+                Owner::Institution(v) => {
+                    let cid = v.cid.as_ref().ok_or(EntityError::bad_request(
+                        "Owner",
+                        "owner does not have 'cid'",
+                    ))?;
+                    let oid = v.oid.as_ref().ok_or(EntityError::bad_request(
+                        "Owner",
+                        "owner does not have 'oid'",
+                    ))?;
+                    let iid = v.iid.as_ref().ok_or(EntityError::bad_request(
+                        "Owner",
+                        "owner does not have 'iid'",
+                    ))?;
+
+                    let id = self
+                        .auth
+                        .session_access()
+                        .ok_or(EntityError::internal())?
+                        .id()
+                        .ok_or(EntityError::internal())?;
+
+                    let l = id.len();
+                    let organization_unit_id = if l == 48 {
+                        let rid = CustomerResourceId::from_str(id)?;
+                        Some(OrganizationUnitId::Customer(rid.clone()))
+                    } else if l == 72 {
+                        let rid = OrganizationResourceId::from_str(id)?;
+                        Some(OrganizationUnitId::Organization(rid.clone()))
+                    } else {
+                        None
+                    }
+                    .ok_or(EntityError::internal())?;
+                    let organization_unit = self
+                        .store
+                        .cache()
+                        .customer()
+                        .organization_unit_by_id(&organization_unit_id)
+                        .await
+                        .ok_or(EntityError::not_found_by_id::<OrganizationUnit>(id))?;
+
+                    let has_member = organization_unit
+                        .members
+                        .iter()
+                        .any(|v| &v.cid == cid && &v.oid == oid && &v.iid == iid);
+                    if !has_member {
+                        return err!(unauthorized(&self.auth));
+                    }
+                    Ok(())
+                }
+            },
+            Lvl::Institution => match owner {
+                Owner::Customer(_) | Owner::Organization(_) | Owner::OrganizationUnit(_) => {
+                    err!(unauthorized(&self.auth))
+                }
+                Owner::Institution(v) => {
+                    let cid = v.cid.as_ref().ok_or(EntityError::bad_request(
+                        "Owner",
+                        "owner does not have 'cid'",
+                    ))?;
+                    let oid = v.oid.as_ref().ok_or(EntityError::bad_request(
+                        "Owner",
+                        "owner does not have 'oid'",
+                    ))?;
+                    let iid = v.iid.as_ref().ok_or(EntityError::bad_request(
+                        "Owner",
+                        "owner does not have 'iid'",
+                    ))?;
+                    let institution_access = self.auth.has_access(
+                        &qm_role::Access::new(AccessLevel::institution()).with_fmt_id(Some(
+                            &InstitutionId {
+                                cid: cid.clone(),
+                                oid: oid.clone(),
+                                id: iid.clone(),
+                            },
+                        )),
+                    );
+                    if !institution_access {
+                        return err!(unauthorized(&self.auth));
+                    }
+                    Ok(())
+                }
+            },
             Lvl::None => err!(unauthorized(&self.auth)),
         }
     }

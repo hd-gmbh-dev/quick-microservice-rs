@@ -23,7 +23,6 @@ pub struct CreateInstitutionInput {
 
 #[derive(Debug, InputObject)]
 pub struct UpdateInstitutionInput {
-    pub institution: InstitutionId,
     pub name: Option<String>,
 }
 

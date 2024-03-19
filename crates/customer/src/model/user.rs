@@ -122,11 +122,7 @@ impl User {
             return None;
         }
         let cache = cache.unwrap();
-        if let Some(id) = self.owner.customer() {
-            cache.customer().customer_by_id(id.as_ref()).await
-        } else {
-            None
-        }
+        cache.customer_by_owner(&self.owner).await
     }
 
     async fn organization(&self, ctx: &Context<'_>) -> Option<Arc<Organization>> {
@@ -136,11 +132,7 @@ impl User {
             return None;
         }
         let cache = cache.unwrap();
-        if let Some(id) = self.owner.organization() {
-            cache.customer().organization_by_id(&id).await
-        } else {
-            None
-        }
+        cache.organization_by_owner(&self.owner).await
     }
 
     async fn institution(&self, ctx: &Context<'_>) -> Option<Arc<Institution>> {
@@ -150,11 +142,7 @@ impl User {
             return None;
         }
         let cache = cache.unwrap();
-        if let Some(id) = self.owner.institution() {
-            cache.customer().institution_by_id(&id).await
-        } else {
-            None
-        }
+        cache.institution_by_owner(&self.owner).await
     }
 
     async fn organization_unit(&self, ctx: &Context<'_>) -> Option<Arc<OrganizationUnit>> {
@@ -164,11 +152,7 @@ impl User {
             return None;
         }
         let cache = cache.unwrap();
-        if let Some(id) = self.owner.organization_unit() {
-            cache.customer().organization_unit_by_id(&id).await
-        } else {
-            None
-        }
+        cache.organization_unit_by_owner(&self.owner).await
     }
 }
 
@@ -226,64 +210,6 @@ impl TryFrom<UserRepresentation> for UserDetails {
         })
     }
 }
-
-// #[ComplexObject]
-// impl User {
-//     pub async fn customer(&self, ctx: &Context<'_>) -> Option<Arc<Customer>> {
-//         let store = ctx.data_unchecked::<CustomerCache>();
-//         let Some(cid) = self.rid.cid.as_deref() else {
-//             return None;
-//         };
-//         store.customer_by_id(cid).await
-//     }
-
-//     pub async fn organization(&self, ctx: &Context<'_>) -> Option<Arc<Organization>> {
-//         let store = ctx.data_unchecked::<CustomerStore>();
-//         let Some(cid) = self.rid.cid.clone() else {
-//             return None;
-//         };
-//         let Some(oid) = self.rid.oid.clone() else {
-//             return None;
-//         };
-//         store
-//             .organization_by_id(&CustomerShardedId { cid, id: oid })
-//             .await
-//     }
-
-//     pub async fn institution(&self, ctx: &Context<'_>) -> Option<Arc<Institution>> {
-//         let store = ctx.data_unchecked::<CustomerStore>();
-//         let Some(cid) = self.rid.cid.clone() else {
-//             return None;
-//         };
-//         let Some(oid) = self.rid.oid.clone() else {
-//             return None;
-//         };
-//         let Some(iid) = self.rid.iid.clone() else {
-//             return None;
-//         };
-//         store
-//             .institution_by_id(&OrganizationShardedId { cid, oid, id: iid })
-//             .await
-//     }
-
-//     // TODO: deliver access level
-//     // pub async fn access(
-//     //     &self,
-//     //     ctx: &Context<'_>,
-//     // ) -> Result<AccessLevel>, async_graphql::FieldError> {
-//     //     let store = ctx.data_unchecked::<UserStore>();
-//     //     Ok(store.user_by_uid(&self.user_id).await)
-//     // }
-
-//     // TODO: deliver group information
-//     // pub async fn groups(
-//     //     &self,
-//     //     ctx: &Context<'_>,
-//     // ) -> Result<AccessLevel>, async_graphql::FieldError> {
-//     //     let store = ctx.data_unchecked::<UserStore>();
-//     //     Ok(store.user_by_uid(&self.user_id).await)
-//     // }
-// }
 
 impl Hash for User {
     fn hash<H: Hasher>(&self, state: &mut H) {

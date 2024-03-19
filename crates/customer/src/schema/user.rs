@@ -1,5 +1,6 @@
 use async_graphql::{Context, ErrorExtensions, FieldResult, Object, ResultExt};
 use qm_entity::ctx::ContextFilterInput;
+use qm_entity::exerr;
 use qm_entity::list::ListCtx;
 use qm_entity::model::ListFilter;
 use qm_role::Access;
@@ -19,6 +20,7 @@ use qm_mongodb::DB;
 use crate::config::SchemaConfig;
 use crate::groups::RelatedBuiltInGroup;
 use crate::marker::Marker;
+
 use crate::model::User;
 use crate::model::{CreateUserInput, CreateUserPayload, UserList};
 use crate::model::{RequiredUserAction, UserData, UserDetails};
@@ -360,14 +362,19 @@ where
                 .remove_user(keycloak.config().realm(), &user_id)
                 .await
             {
-                Ok(_) => user_ids.push(user_id),
+                Ok(_) => user_ids.push(id.as_ref()),
                 Err(err) => {
                     log::error!("{err:#?}");
                 }
             }
         }
         if !user_ids.is_empty() {
-            let result = self.0.store.users().remove_all("_id", &user_ids).await?;
+            let result = self
+                .0
+                .store
+                .users()
+                .remove_all_by_uuids("_id", &user_ids)
+                .await?;
             self.0
                 .store
                 .cache()
@@ -523,16 +530,28 @@ where
         ctx: &Context<'_>,
         ids: Arc<[Arc<Uuid>]>,
     ) -> async_graphql::FieldResult<u64> {
-        // TODO: check if user is allowed to remove users by owner field in customer cache
-        Ctx(
+        let auth_ctx =
             AuthCtx::<'_, Auth, Store, AccessLevel, Resource, Permission>::new_with_role(
                 ctx,
                 (Resource::user(), Permission::delete()),
             )
-            .await?,
-        )
-        .remove(ids)
-        .await
-        .extend()
+            .await?;
+        let active_user_id = auth_ctx
+            .auth
+            .user_id()
+            .ok_or(EntityError::unauthorized(&auth_ctx.auth))?;
+        if ids.iter().any(|id| id.as_ref() == active_user_id) {
+            return exerr!(bad_request("User", "User cannot remove himself"));
+        }
+        let cache = auth_ctx.store.cache();
+        for id in ids.iter() {
+            let user = cache.user().db_user_by_uid(id.as_ref()).await;
+            if let Some(user) = user {
+                auth_ctx.can_mutate(&user.owner).await.extend()?;
+            } else {
+                return exerr!(not_found_by_id::<User>(id.to_string()));
+            }
+        }
+        Ctx(auth_ctx).remove(ids).await.extend()
     }
 }

@@ -3,16 +3,17 @@ use std::sync::Arc;
 use async_graphql::ResultExt;
 use async_graphql::{Context, Object};
 
+use async_graphql::ErrorExtensions;
+use qm_entity::ctx::CustOrOrgFilter;
 use qm_entity::ctx::MutationContext;
 use qm_entity::ctx::OrganizationFilter;
-use qm_entity::ctx::{CustOrOrgFilter, CustomerFilter};
-use qm_entity::err;
 use qm_entity::error::EntityResult;
 use qm_entity::ids::OrganizationId;
 use qm_entity::ids::{Cid, Iid, InstitutionId, Oid, StrictInstitutionIds};
 use qm_entity::list::ListCtx;
 use qm_entity::model::ListFilter;
 use qm_entity::Create;
+use qm_entity::{err, exerr};
 use qm_mongodb::bson::{doc, Uuid};
 use qm_mongodb::DB;
 
@@ -27,7 +28,7 @@ use crate::marker::Marker;
 use crate::model::CreateInstitutionInput;
 use crate::model::CreateUserPayload;
 use crate::model::Institution;
-use crate::model::{InstitutionData, InstitutionList, UpdateInstitutionInput};
+use crate::model::{InstitutionData, InstitutionList};
 use crate::roles;
 use crate::schema::auth::AuthCtx;
 
@@ -66,22 +67,16 @@ where
         cust_or_org_filter: Option<CustOrOrgFilter>,
         filter: Option<ListFilter>,
     ) -> async_graphql::FieldResult<InstitutionList> {
-        let mut ctx = ListCtx::new(self.0.store.institutions());
-        if let Some(cust_or_org_filter) = cust_or_org_filter {
-            let query = match cust_or_org_filter {
-                CustOrOrgFilter::Customer(CustomerFilter { customer }) => {
-                    doc! { "owner.entityId.cid" : customer.as_ref() }
-                }
-                CustOrOrgFilter::Organization(OrganizationFilter {
-                    customer,
-                    organization,
-                }) => {
-                    doc! { "owner.entityId.cid" : customer.as_ref(), "owner.entityId.oid": organization.as_ref() }
-                }
-            };
-            ctx = ctx.with_query(query);
-        }
-        ctx.list(filter).await.extend()
+        ListCtx::new(self.0.store.institutions())
+            .with_query(
+                self.0
+                    .build_context_query(cust_or_org_filter.map(Into::into).as_ref())
+                    .await
+                    .extend()?,
+            )
+            .list(filter)
+            .await
+            .extend()
     }
 
     pub async fn by_id(&self, id: InstitutionId) -> Option<Arc<Institution>> {
@@ -219,22 +214,22 @@ where
     Permission: RelatedPermission,
     BuiltInGroup: RelatedBuiltInGroup,
 {
-    async fn institution_by_id(
-        &self,
-        ctx: &Context<'_>,
-        id: InstitutionId,
-    ) -> async_graphql::FieldResult<Option<Arc<Institution>>> {
-        Ok(Ctx(
-            AuthCtx::<'_, Auth, Store, AccessLevel, Resource, Permission>::new_with_role(
-                ctx,
-                (Resource::institution(), Permission::view()),
-            )
-            .await
-            .extend()?,
-        )
-        .by_id(id)
-        .await)
-    }
+    // async fn institution_by_id(
+    //     &self,
+    //     ctx: &Context<'_>,
+    //     id: InstitutionId,
+    // ) -> async_graphql::FieldResult<Option<Arc<Institution>>> {
+    //     Ok(Ctx(
+    //         AuthCtx::<'_, Auth, Store, AccessLevel, Resource, Permission>::new_with_role(
+    //             ctx,
+    //             (Resource::institution(), Permission::view()),
+    //         )
+    //         .await
+    //         .extend()?,
+    //     )
+    //     .by_id(id)
+    //     .await)
+    // }
 
     async fn institutions(
         &self,
@@ -320,32 +315,45 @@ where
         Ok(result)
     }
 
-    async fn update_institution(
-        &self,
-        _ctx: &Context<'_>,
-        _input: UpdateInstitutionInput,
-    ) -> async_graphql::FieldResult<Institution> {
-        // Ok(InstitutionCtx::<Auth, Store>::from_graphql(ctx)
-        //     .await?
-        //     .update(&input)
-        //     .await?)
-        unimplemented!()
-    }
+    // async fn update_institution(
+    //     &self,
+    //     ctx: &Context<'_>,
+    //     context: InstitutionFilter,
+    //     input: UpdateInstitutionInput,
+    // ) -> async_graphql::FieldResult<Institution> {
+    //     Ctx(
+    //         AuthCtx::<'_, Auth, Store, AccessLevel, Resource, Permission>::new_with_role(
+    //             ctx,
+    //             (Resource::institution(), Permission::update()),
+    //         )
+    //         .await?,
+    //     )
+    //     .update(context, input)
+    //     .await
+    //     .extend()
+    // }
 
     async fn remove_institutions(
         &self,
         ctx: &Context<'_>,
         ids: StrictInstitutionIds,
     ) -> async_graphql::FieldResult<u64> {
-        Ctx(
+        let auth_ctx =
             AuthCtx::<'_, Auth, Store, AccessLevel, Resource, Permission>::new_with_role(
                 ctx,
                 (Resource::institution(), Permission::delete()),
             )
-            .await?,
-        )
-        .remove(ids)
-        .await
-        .extend()
+            .await?;
+        let cache = auth_ctx.store.cache();
+        for id in ids.iter() {
+            let id = id.clone().into();
+            let v = cache.customer().institution_by_id(&id).await;
+            if let Some(v) = v {
+                auth_ctx.can_mutate(&v.owner).await.extend()?;
+            } else {
+                return exerr!(not_found_by_id::<Institution>(id.to_string()));
+            }
+        }
+        Ctx(auth_ctx).remove(ids).await.extend()
     }
 }

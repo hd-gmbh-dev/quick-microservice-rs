@@ -1,7 +1,10 @@
 use std::sync::Arc;
 
 use qm_entity::error::{EntityError, EntityResult};
-use qm_entity::ids::{EntityId, MemberId, OrganizationUnitId, StrictOrganizationUnitId, ID};
+use qm_entity::ids::{
+    CustomerResourceId, EntityId, MemberId, OrganizationResourceId, OrganizationUnitId,
+    StrictOrganizationUnitId, ID,
+};
 
 use qm_entity::list::NewList;
 use qm_entity::{Create, UserId};
@@ -87,8 +90,15 @@ where
 impl OrganizationUnit {
     pub fn as_id(&self) -> OrganizationUnitId {
         match &self.owner {
-            Owner::Customer(v) => OrganizationUnitId::Customer(v.clone().into()),
-            Owner::Organization(v) => OrganizationUnitId::Organization(v.clone().into()),
+            Owner::Customer(v) => OrganizationUnitId::Customer(CustomerResourceId {
+                cid: v.cid.clone().expect("'cid' is missing"),
+                id: self.id.clone().expect("'id' is missing"),
+            }),
+            Owner::Organization(v) => OrganizationUnitId::Organization(OrganizationResourceId {
+                cid: v.cid.clone().expect("'cid' is missing"),
+                oid: v.oid.clone().expect("'oid' is missing"),
+                id: self.id.clone().expect("'id' is missing"),
+            }),
             _ => {
                 panic!("organization unit '{}' has invalid owner", self.name);
             }

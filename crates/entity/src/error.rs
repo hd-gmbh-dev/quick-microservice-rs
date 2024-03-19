@@ -73,22 +73,22 @@ impl EntityError {
     }
 
     pub fn name_conflict<T>(name: impl Into<String>) -> Self {
-        Self::NameConflict(tynm::type_name::<T>().into(), name.into())
+        Self::NameConflict(tynm::type_name::<T>(), name.into())
     }
 
     pub fn fields_conflict<T>(
         name: impl Into<String>,
         fields: impl Into<async_graphql::Value>,
     ) -> Self {
-        Self::FieldsConflict(tynm::type_name::<T>().into(), name.into(), fields.into())
+        Self::FieldsConflict(tynm::type_name::<T>(), name.into(), fields.into())
     }
 
     pub fn not_found_by_id<T>(id: impl Into<String>) -> Self {
-        Self::NotFoundById(tynm::type_name::<T>().into(), id.into())
+        Self::NotFoundById(tynm::type_name::<T>(), id.into())
     }
 
     pub fn not_found_by_field<T>(field: impl Into<String>, value: impl Into<String>) -> Self {
-        Self::NotFoundByField(tynm::type_name::<T>().into(), field.into(), value.into())
+        Self::NotFoundByField(tynm::type_name::<T>(), field.into(), value.into())
     }
 
     pub fn bad_request(err_type: impl Into<String>, err_msg: impl Into<String>) -> Self {

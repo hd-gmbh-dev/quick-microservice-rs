@@ -1,16 +1,19 @@
+use async_graphql::ErrorExtensions;
 use async_graphql::ResultExt;
 use async_graphql::{Context, Object};
 
 use qm_entity::ctx::CustOrOrgFilter;
 use qm_entity::ctx::MutationContext;
-use qm_entity::err;
 use qm_entity::error::EntityResult;
-use qm_entity::ids::OrganizationUnitId;
+use qm_entity::ids::{Cid, Oid, StrictOrganizationUnitIds, Uid};
 use qm_entity::list::ListCtx;
 use qm_entity::model::ListFilter;
 use qm_entity::Create;
+use qm_entity::{err, exerr};
+use qm_mongodb::bson::{doc, Uuid};
 use qm_mongodb::DB;
 
+use crate::cleanup::{CleanupTask, CleanupTaskType};
 use crate::context::RelatedAccessLevel;
 use crate::context::RelatedAuth;
 use crate::context::RelatedPermission;
@@ -21,7 +24,7 @@ use crate::marker::Marker;
 use crate::model::CreateOrganizationUnitInput;
 use crate::model::CreateUserPayload;
 use crate::model::OrganizationUnit;
-use crate::model::{OrganizationUnitData, OrganizationUnitList, UpdateOrganizationUnitInput};
+use crate::model::{OrganizationUnitData, OrganizationUnitList};
 use crate::roles;
 use crate::schema::auth::AuthCtx;
 
@@ -61,9 +64,16 @@ where
 {
     pub async fn list(
         &self,
+        context: Option<CustOrOrgFilter>,
         filter: Option<ListFilter>,
     ) -> async_graphql::FieldResult<OrganizationUnitList> {
         ListCtx::new(self.0.store.organization_units())
+            .with_query(
+                self.0
+                    .build_context_query(context.map(Into::into).as_ref())
+                    .await
+                    .extend()?,
+            )
             .list(filter)
             .await
             .extend()
@@ -129,6 +139,53 @@ where
         }
         Ok(result)
     }
+
+    pub async fn remove(&self, ids: StrictOrganizationUnitIds) -> EntityResult<u64> {
+        let db = self.0.store.as_ref();
+        let mut session = db.session().await?;
+        let docs = ids
+            .iter()
+            .map(|v| {
+                let cid: &Cid = v.as_ref();
+                let oid: &Option<Oid> = v.as_ref();
+                let uid: &Uid = v.as_ref();
+                let mut d = doc! {"_id": **uid, "owner.entityId.cid": **cid };
+                if let Some(oid) = oid.as_ref() {
+                    d.insert("owner.entityId.oid", **oid);
+                }
+                d
+            })
+            .collect::<Vec<_>>();
+        if !docs.is_empty() {
+            let result = self
+                .0
+                .store
+                .organization_units()
+                .as_ref()
+                .delete_many_with_session(doc! {"$or": docs}, None, &mut session)
+                .await?;
+            self.0
+                .store
+                .cache()
+                .customer()
+                .reload_organization_units(self.0.store, Some(self.0.store.redis().as_ref()))
+                .await?;
+            if result.deleted_count != 0 {
+                let id = Uuid::new();
+                self.0
+                    .store
+                    .cleanup_task_producer()
+                    .add_item(&CleanupTask {
+                        id,
+                        ty: CleanupTaskType::OrganizationUnits(ids),
+                    })
+                    .await?;
+                log::debug!("emit cleanup task {}", id.to_string());
+                return Ok(result.deleted_count);
+            }
+        }
+        Ok(0)
+    }
 }
 
 pub struct OrganizationUnitQueryRoot<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup> {
@@ -156,21 +213,22 @@ where
     Permission: RelatedPermission,
     BuiltInGroup: RelatedBuiltInGroup,
 {
-    async fn organization_unit_by_id(
-        &self,
-        _ctx: &Context<'_>,
-        _id: OrganizationUnitId,
-    ) -> async_graphql::FieldResult<Option<OrganizationUnit>> {
-        // Ok(OrganizationUnitCtx::<Auth, Store>::from_graphql(ctx)
-        //     .await?
-        //     .by_id(&id)
-        //     .await?)
-        unimplemented!()
-    }
+    // async fn organization_unit_by_id(
+    //     &self,
+    //     _ctx: &Context<'_>,
+    //     _id: OrganizationUnitId,
+    // ) -> async_graphql::FieldResult<Option<OrganizationUnit>> {
+    //     // Ok(OrganizationUnitCtx::<Auth, Store>::from_graphql(ctx)
+    //     //     .await?
+    //     //     .by_id(&id)
+    //     //     .await?)
+    //     unimplemented!()
+    // }
 
     async fn organization_units(
         &self,
         ctx: &Context<'_>,
+        context: Option<CustOrOrgFilter>,
         filter: Option<ListFilter>,
     ) -> async_graphql::FieldResult<OrganizationUnitList> {
         Ctx(
@@ -180,7 +238,7 @@ where
             )
             .await?,
         )
-        .list(filter)
+        .list(context, filter)
         .await
         .extend()
     }
@@ -285,27 +343,45 @@ where
         Ok(result)
     }
 
-    async fn update_organization_unit(
-        &self,
-        _ctx: &Context<'_>,
-        _input: UpdateOrganizationUnitInput,
-    ) -> async_graphql::FieldResult<OrganizationUnit> {
-        // Ok(OrganizationUnitCtx::<Auth, Store>::from_graphql(ctx)
-        //     .await?
-        //     .update(&input)
-        //     .await?)
-        unimplemented!()
-    }
+    // async fn update_organization_unit(
+    //     &self,
+    //     ctx: &Context<'_>,
+    //     context: OrganizationUnitFilter,
+    //     input: UpdateOrganizationUnitInput,
+    // ) -> async_graphql::FieldResult<OrganizationUnit> {
+    //     Ctx(
+    //         AuthCtx::<'_, Auth, Store, AccessLevel, Resource, Permission>::new_with_role(
+    //             ctx,
+    //             (Resource::organization_unit(), Permission::update()),
+    //         )
+    //         .await?,
+    //     )
+    //     .update(context, input)
+    //     .await
+    //     .extend()
+    // }
 
     async fn remove_organization_units(
         &self,
-        _ctx: &Context<'_>,
-        _ids: Vec<OrganizationUnitId>,
-    ) -> async_graphql::FieldResult<usize> {
-        // Ok(OrganizationUnitCtx::<Auth, Store>::from_graphql(ctx)
-        //     .await?
-        //     .remove(&ids)
-        //     .await?)
-        unimplemented!()
+        ctx: &Context<'_>,
+        ids: StrictOrganizationUnitIds,
+    ) -> async_graphql::FieldResult<u64> {
+        let auth_ctx =
+            AuthCtx::<'_, Auth, Store, AccessLevel, Resource, Permission>::new_with_role(
+                ctx,
+                (Resource::organization_unit(), Permission::delete()),
+            )
+            .await?;
+        let cache = auth_ctx.store.cache();
+        for id in ids.iter() {
+            let id = id.clone().into();
+            let v = cache.customer().organization_unit_by_id(&id).await;
+            if let Some(v) = v {
+                auth_ctx.can_mutate(&v.owner).await.extend()?;
+            } else {
+                return exerr!(not_found_by_id::<OrganizationUnit>(id.to_string()));
+            }
+        }
+        Ctx(auth_ctx).remove(ids).await.extend()
     }
 }
