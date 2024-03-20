@@ -416,9 +416,8 @@ where
         &self,
         ctx: &Context<'_>,
     ) -> async_graphql::FieldResult<Option<Arc<User>>> {
-        let auth_ctx = AuthCtx::<'_, Auth, Store, AccessLevel, Resource, Permission>::new_with_role(
+        let auth_ctx = AuthCtx::<'_, Auth, Store, AccessLevel, Resource, Permission>::new(
             ctx,
-            (Resource::user(), Permission::view()),
         )
         .await
         .extend()?;
