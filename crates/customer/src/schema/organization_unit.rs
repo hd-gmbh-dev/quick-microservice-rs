@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use async_graphql::ErrorExtensions;
 use async_graphql::ResultExt;
 use async_graphql::{Context, Object};
@@ -5,6 +7,7 @@ use async_graphql::{Context, Object};
 use qm_entity::ctx::CustOrOrgFilter;
 use qm_entity::ctx::MutationContext;
 use qm_entity::error::EntityResult;
+use qm_entity::ids::OrganizationUnitId;
 use qm_entity::ids::{Cid, Oid, StrictOrganizationUnitIds, Uid};
 use qm_entity::list::ListCtx;
 use qm_entity::model::ListFilter;
@@ -77,6 +80,15 @@ where
             .list(filter)
             .await
             .extend()
+    }
+
+    pub async fn by_id(&self, id: OrganizationUnitId) -> Option<Arc<OrganizationUnit>> {
+        self.0
+            .store
+            .cache()
+            .customer()
+            .organization_unit_by_id(&id)
+            .await
     }
 
     pub async fn create(
@@ -213,17 +225,22 @@ where
     Permission: RelatedPermission,
     BuiltInGroup: RelatedBuiltInGroup,
 {
-    // async fn organization_unit_by_id(
-    //     &self,
-    //     _ctx: &Context<'_>,
-    //     _id: OrganizationUnitId,
-    // ) -> async_graphql::FieldResult<Option<OrganizationUnit>> {
-    //     // Ok(OrganizationUnitCtx::<Auth, Store>::from_graphql(ctx)
-    //     //     .await?
-    //     //     .by_id(&id)
-    //     //     .await?)
-    //     unimplemented!()
-    // }
+    async fn organization_unit_by_id(
+        &self,
+        ctx: &Context<'_>,
+        id: OrganizationUnitId,
+    ) -> async_graphql::FieldResult<Option<Arc<OrganizationUnit>>> {
+        Ok(Ctx(
+            AuthCtx::<'_, Auth, Store, AccessLevel, Resource, Permission>::new_with_role(
+                ctx,
+                (Resource::organization_unit(), Permission::view()),
+            )
+            .await
+            .extend()?,
+        )
+        .by_id(id)
+        .await)
+    }
 
     async fn organization_units(
         &self,

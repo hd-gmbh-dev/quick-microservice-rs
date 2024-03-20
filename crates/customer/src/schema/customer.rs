@@ -188,22 +188,22 @@ where
     Permission: RelatedPermission,
     BuiltInGroup: RelatedBuiltInGroup,
 {
-    // async fn customer_by_id(
-    //     &self,
-    //     ctx: &Context<'_>,
-    //     id: CustomerId,
-    // ) -> async_graphql::FieldResult<Option<Arc<Customer>>> {
-    //     Ok(Ctx(
-    //         AuthCtx::<'_, Auth, Store, AccessLevel, Resource, Permission>::new_with_role(
-    //             ctx,
-    //             (Resource::customer(), Permission::view()),
-    //         )
-    //         .await
-    //         .extend()?,
-    //     )
-    //     .by_id(id)
-    //     .await)
-    // }
+    async fn customer_by_id(
+        &self,
+        ctx: &Context<'_>,
+        id: CustomerId,
+    ) -> async_graphql::FieldResult<Option<Arc<Customer>>> {
+        Ok(Ctx(
+            AuthCtx::<'_, Auth, Store, AccessLevel, Resource, Permission>::new_with_role(
+                ctx,
+                (Resource::customer(), Permission::view()),
+            )
+            .await
+            .extend()?,
+        )
+        .by_id(id)
+        .await)
+    }
 
     async fn customers(
         &self,

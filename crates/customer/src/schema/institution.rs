@@ -214,22 +214,22 @@ where
     Permission: RelatedPermission,
     BuiltInGroup: RelatedBuiltInGroup,
 {
-    // async fn institution_by_id(
-    //     &self,
-    //     ctx: &Context<'_>,
-    //     id: InstitutionId,
-    // ) -> async_graphql::FieldResult<Option<Arc<Institution>>> {
-    //     Ok(Ctx(
-    //         AuthCtx::<'_, Auth, Store, AccessLevel, Resource, Permission>::new_with_role(
-    //             ctx,
-    //             (Resource::institution(), Permission::view()),
-    //         )
-    //         .await
-    //         .extend()?,
-    //     )
-    //     .by_id(id)
-    //     .await)
-    // }
+    async fn institution_by_id(
+        &self,
+        ctx: &Context<'_>,
+        id: InstitutionId,
+    ) -> async_graphql::FieldResult<Option<Arc<Institution>>> {
+        Ok(Ctx(
+            AuthCtx::<'_, Auth, Store, AccessLevel, Resource, Permission>::new_with_role(
+                ctx,
+                (Resource::institution(), Permission::view()),
+            )
+            .await
+            .extend()?,
+        )
+        .by_id(id)
+        .await)
+    }
 
     async fn institutions(
         &self,

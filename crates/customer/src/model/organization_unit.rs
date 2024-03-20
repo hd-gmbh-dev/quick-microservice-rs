@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use futures::StreamExt;
 use qm_entity::error::{EntityError, EntityResult};
 use qm_entity::ids::{
     CustomerResourceId, EntityId, MemberId, OrganizationResourceId, OrganizationUnitId,
@@ -16,7 +17,7 @@ use crate::cache::Cache;
 use crate::model::CreateUserInput;
 use qm_entity::model::Modification;
 
-use super::{Customer, Organization, Owner};
+use super::{Customer, Institution, Organization, Owner};
 
 #[derive(Debug, InputObject)]
 pub struct CreateOrganizationUnitInput {
@@ -138,6 +139,27 @@ impl OrganizationUnit {
         } else {
             None
         }
+    }
+
+    async fn institutions(&self, ctx: &Context<'_>) -> Option<Vec<Arc<Institution>>> {
+        let cache = ctx.data::<Cache>().ok();
+        if cache.is_none() {
+            log::warn!("qm::customer::Cache is not installed in schema context");
+            return None;
+        }
+        let cache = cache.unwrap();
+        Some(
+            futures::stream::FuturesOrdered::from_iter(
+                self.members
+                    .iter()
+                    .map(|m| cache.customer().institution_by_member_id(m)),
+            )
+            .collect::<Vec<Option<Arc<Institution>>>>()
+            .await
+            .into_iter()
+            .flatten()
+            .collect(),
+        )
     }
 }
 
