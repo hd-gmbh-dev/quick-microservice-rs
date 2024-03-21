@@ -17,18 +17,21 @@ use crate::schema::user::UserDB;
 use std::sync::Arc;
 
 use futures::{StreamExt, TryStreamExt};
+
+use crate::cleanup::CleanupTask;
+use qm_entity::ids::select_ids;
+use qm_entity::ids::Cid;
+use qm_entity::ids::CustomerIds;
 use qm_entity::ids::Iid;
+use qm_entity::ids::InstitutionId;
+use qm_entity::ids::InstitutionIdRef;
+use qm_entity::ids::InstitutionIds;
 use qm_entity::ids::Oid;
+use qm_entity::ids::OrganizationId;
+use qm_entity::ids::OrganizationIds;
 use qm_entity::ids::OrganizationUnitId;
-use qm_entity::ids::StrictInstitutionId;
-use qm_entity::ids::StrictInstitutionIds;
-use qm_entity::ids::StrictOrganizationId;
-use qm_entity::ids::StrictOrganizationIds;
-use qm_entity::ids::StrictOrganizationUnitIds;
-use qm_entity::ids::{
-    Cid, CustomerResourceId, OrganizationResourceId, StrictOrganizationUnitId, Uid,
-};
-use qm_entity::utils::select_ids;
+use qm_entity::ids::OrganizationUnitIds;
+use qm_entity::ids::Uid;
 use qm_kafka::producer::EventNs;
 use qm_mongodb::bson::doc;
 use qm_mongodb::bson::Document;
@@ -42,9 +45,6 @@ use qm_redis::WorkerContext;
 use qm_redis::Workers;
 use serde::de::DeserializeOwned;
 use std::collections::BTreeSet;
-
-use crate::cleanup::CleanupTask;
-use crate::cleanup::CustomerIds;
 
 lazy_static::lazy_static! {
     static ref PREFIX: String = {
@@ -156,16 +156,14 @@ async fn remove_users(
 async fn update_organization_units(
     db: &impl OrganizationUnitDB,
     session: &mut ClientSession,
-    v: &StrictInstitutionId,
+    v: InstitutionIdRef<'_>,
 ) -> anyhow::Result<()> {
-    let cid: &Cid = v.as_ref();
-    let oid: &Oid = v.as_ref();
-    let iid: &Iid = v.as_ref();
+    let InstitutionIdRef { cid, oid, iid } = v;
     db.organization_units()
         .as_ref()
         .update_many_with_session(
-            doc! { "members.cid": **cid, "members.oid": **oid },
-            doc! { "$pull": { "members": { "cid": **cid, "oid": **oid, "iid": **iid } }},
+            doc! { "members.cid": cid, "members.oid": oid },
+            doc! { "$pull": { "members": { "cid": cid, "oid": oid, "iid": iid } }},
             None,
             session,
         )
@@ -288,7 +286,7 @@ async fn cleanup_organizations<Auth, Store, AccessLevel, Resource, Permission>(
     worker_ctx: WorkerContext<CleanupWorkerCtx<Auth, Store, AccessLevel, Resource, Permission>>,
     ty: &str,
     id: Uuid,
-    strict_oids: &StrictOrganizationIds,
+    strict_oids: &OrganizationIds,
 ) -> anyhow::Result<()>
 where
     Auth: RelatedAuth<AccessLevel, Resource, Permission>,
@@ -308,8 +306,8 @@ where
                 .to_string(),
         );
     }
-    let cids = select_ids::<StrictOrganizationId, Cid>(strict_oids);
-    let oids = select_ids::<StrictOrganizationId, Oid>(strict_oids);
+    let cids = select_ids::<OrganizationId, Cid>(strict_oids);
+    let oids = select_ids::<OrganizationId, Oid>(strict_oids);
     let query = doc! {
         "owner.entityId.cid": {
             "$in": &cids
@@ -318,7 +316,7 @@ where
             "$in": &oids
         }
     };
-    let institution_ids: StrictInstitutionIds = async {
+    let institution_ids: InstitutionIds = async {
         let mut items = store
             .institutions()
             .as_ref()
@@ -330,7 +328,7 @@ where
     }
     .await?;
     for id in institution_ids.iter() {
-        update_organization_units(store, &mut session, id).await?;
+        update_organization_units(store, &mut session, id.into()).await?;
         roles.insert(
             qm_role::Access::new(AccessLevel::institution())
                 .with_fmt_id(Some(&id))
@@ -402,7 +400,7 @@ async fn cleanup_institutions<Auth, Store, AccessLevel, Resource, Permission>(
     worker_ctx: WorkerContext<CleanupWorkerCtx<Auth, Store, AccessLevel, Resource, Permission>>,
     ty: &str,
     id: Uuid,
-    strict_iids: &StrictInstitutionIds,
+    strict_iids: &InstitutionIds,
 ) -> anyhow::Result<()>
 where
     Auth: RelatedAuth<AccessLevel, Resource, Permission>,
@@ -422,11 +420,11 @@ where
                 .with_fmt_id(Some(&id))
                 .to_string(),
         );
-        update_organization_units(store, &mut session, id).await?;
+        update_organization_units(store, &mut session, id.into()).await?;
     }
-    let cids = select_ids::<StrictInstitutionId, Cid>(strict_iids);
-    let oids = select_ids::<StrictInstitutionId, Oid>(strict_iids);
-    let iids = select_ids::<StrictInstitutionId, Iid>(strict_iids);
+    let cids = select_ids::<InstitutionId, Cid>(strict_iids);
+    let oids = select_ids::<InstitutionId, Oid>(strict_iids);
+    let iids = select_ids::<InstitutionId, Iid>(strict_iids);
 
     let query = doc! {
         "owner.entityId.cid": {
@@ -492,7 +490,7 @@ async fn cleanup_organization_units<Auth, Store, AccessLevel, Resource, Permissi
     worker_ctx: WorkerContext<CleanupWorkerCtx<Auth, Store, AccessLevel, Resource, Permission>>,
     ty: &str,
     id: Uuid,
-    strict_uids: &StrictOrganizationUnitIds,
+    strict_uids: &OrganizationUnitIds,
 ) -> anyhow::Result<()>
 where
     Auth: RelatedAuth<AccessLevel, Resource, Permission>,
@@ -506,29 +504,14 @@ where
     let mut session = db.session().await?;
     let mut roles = BTreeSet::new();
     for id in strict_uids.iter() {
-        let cid: &Cid = id.as_ref();
-        let oid: &Option<Oid> = id.as_ref();
-        let uid: &Uid = id.as_ref();
-        let id = if let Some(oid) = oid.as_ref() {
-            OrganizationUnitId::Organization(OrganizationResourceId {
-                cid: cid.as_ref().clone(),
-                oid: oid.as_ref().clone(),
-                id: uid.as_ref().clone(),
-            })
-        } else {
-            OrganizationUnitId::Customer(CustomerResourceId {
-                cid: cid.as_ref().clone(),
-                id: uid.as_ref().clone(),
-            })
-        };
         roles.insert(
             qm_role::Access::new(AccessLevel::organization_unit())
-                .with_fmt_id(Some(&id))
+                .with_fmt_id(Some(id))
                 .to_string(),
         );
     }
-    let cids = select_ids::<StrictOrganizationUnitId, Cid>(strict_uids);
-    let iids = select_ids::<StrictOrganizationUnitId, Uid>(strict_uids);
+    let cids = select_ids::<OrganizationUnitId, Cid>(strict_uids);
+    let iids = select_ids::<OrganizationUnitId, Uid>(strict_uids);
     let query = doc! {
         "owner.entityId.cid": &cids,
         "owner.entityId.iid": &iids,

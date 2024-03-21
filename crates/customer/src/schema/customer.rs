@@ -6,6 +6,7 @@ use qm_entity::ctx::CustomerFilter;
 use qm_entity::err;
 use qm_entity::error::EntityResult;
 use qm_entity::ids::CustomerId;
+use qm_entity::ids::CustomerIds;
 use qm_entity::list::ListCtx;
 use qm_entity::model::ListFilter;
 use qm_entity::Create;
@@ -122,7 +123,7 @@ where
         Ok(result)
     }
 
-    pub async fn remove(&self, ids: Arc<[CustomerId]>) -> EntityResult<u64> {
+    pub async fn remove(&self, ids: CustomerIds) -> EntityResult<u64> {
         let db = self.0.store.as_ref();
         let mut session = db.session().await?;
         let docs = ids
@@ -309,7 +310,7 @@ where
     async fn remove_customers(
         &self,
         ctx: &Context<'_>,
-        ids: Arc<[CustomerId]>,
+        ids: CustomerIds,
     ) -> async_graphql::FieldResult<u64> {
         Ctx(
             AuthCtx::<'_, Auth, Store, AccessLevel, Resource, Permission>::new_with_role(

@@ -8,7 +8,7 @@ use qm_entity::ctx::CustOrOrgFilter;
 use qm_entity::ctx::MutationContext;
 use qm_entity::error::EntityResult;
 use qm_entity::ids::OrganizationUnitId;
-use qm_entity::ids::{Cid, Oid, StrictOrganizationUnitIds, Uid};
+use qm_entity::ids::OrganizationUnitIds;
 use qm_entity::list::ListCtx;
 use qm_entity::model::ListFilter;
 use qm_entity::Create;
@@ -152,20 +152,25 @@ where
         Ok(result)
     }
 
-    pub async fn remove(&self, ids: StrictOrganizationUnitIds) -> EntityResult<u64> {
+    pub async fn remove(&self, ids: OrganizationUnitIds) -> EntityResult<u64> {
         let db = self.0.store.as_ref();
         let mut session = db.session().await?;
         let docs = ids
             .iter()
-            .map(|v| {
-                let cid: &Cid = v.as_ref();
-                let oid: &Option<Oid> = v.as_ref();
-                let uid: &Uid = v.as_ref();
-                let mut d = doc! {"_id": **uid, "owner.entityId.cid": **cid };
-                if let Some(oid) = oid.as_ref() {
-                    d.insert("owner.entityId.oid", **oid);
+            .map(|v| match v {
+                OrganizationUnitId::Customer(v) => {
+                    doc! {
+                        "_id": v.id.as_ref(),
+                        "owner.entityId.cid": v.cid.as_ref(),
+                    }
                 }
-                d
+                OrganizationUnitId::Organization(v) => {
+                    doc! {
+                        "_id": v.id.as_ref(),
+                        "owner.entityId.cid": v.cid.as_ref(),
+                        "owner.entityId.oid": v.oid.as_ref(),
+                    }
+                }
             })
             .collect::<Vec<_>>();
         if !docs.is_empty() {
@@ -381,7 +386,7 @@ where
     async fn remove_organization_units(
         &self,
         ctx: &Context<'_>,
-        ids: StrictOrganizationUnitIds,
+        ids: OrganizationUnitIds,
     ) -> async_graphql::FieldResult<u64> {
         let auth_ctx =
             AuthCtx::<'_, Auth, Store, AccessLevel, Resource, Permission>::new_with_role(
@@ -391,7 +396,7 @@ where
             .await?;
         let cache = auth_ctx.store.cache();
         for id in ids.iter() {
-            let id = id.clone().into();
+            let id = id.clone();
             let v = cache.customer().organization_unit_by_id(&id).await;
             if let Some(v) = v {
                 auth_ctx.can_mutate(&v.owner).await.extend()?;

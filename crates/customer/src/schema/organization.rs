@@ -7,7 +7,9 @@ use async_graphql::{Context, Object};
 use qm_entity::ctx::MutationContext;
 use qm_entity::ctx::{ContextFilterInput, CustomerFilter};
 use qm_entity::error::EntityResult;
-use qm_entity::ids::{Cid, Oid, OrganizationId, StrictOrganizationIds};
+use qm_entity::ids::OrganizationId;
+use qm_entity::ids::OrganizationIdRef;
+use qm_entity::ids::OrganizationIds;
 use qm_entity::list::ListCtx;
 use qm_entity::model::ListFilter;
 use qm_entity::Create;
@@ -145,15 +147,14 @@ where
         Ok(result)
     }
 
-    pub async fn remove(&self, ids: StrictOrganizationIds) -> EntityResult<u64> {
+    pub async fn remove(&self, ids: OrganizationIds) -> EntityResult<u64> {
         let db = self.0.store.as_ref();
         let mut session = db.session().await?;
         let docs = ids
             .iter()
             .map(|v| {
-                let cid: &Cid = v.as_ref();
-                let oid: &Oid = v.as_ref();
-                doc! {"_id": **oid, "owner.entityId.cid": **cid }
+                let OrganizationIdRef { cid, oid } = v.into();
+                doc! {"_id": oid, "owner.entityId.cid": cid }
             })
             .collect::<Vec<_>>();
         if !docs.is_empty() {
@@ -335,7 +336,7 @@ where
     async fn remove_organizations(
         &self,
         ctx: &Context<'_>,
-        ids: StrictOrganizationIds,
+        ids: OrganizationIds,
     ) -> async_graphql::FieldResult<u64> {
         let auth_ctx =
             AuthCtx::<'_, Auth, Store, AccessLevel, Resource, Permission>::new_with_role(
@@ -345,7 +346,7 @@ where
             .await?;
         let cache = auth_ctx.store.cache();
         for id in ids.iter() {
-            let id = id.clone().into();
+            let id = id.clone();
             let v = cache.customer().organization_by_id(&id).await;
             if let Some(v) = v {
                 auth_ctx.can_mutate(&v.owner).await.extend()?;

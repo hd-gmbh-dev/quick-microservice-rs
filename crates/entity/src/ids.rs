@@ -1,6 +1,5 @@
 use async_graphql::InputObject;
 use async_graphql::SimpleObject;
-use std::ops::Deref;
 use std::str::FromStr;
 use std::sync::Arc;
 
@@ -226,6 +225,20 @@ pub struct CustomerResourceId {
     pub cid: ID,
 }
 
+pub struct OrganizationIdRef<'a> {
+    pub cid: &'a ObjectId,
+    pub oid: &'a ObjectId,
+}
+
+impl<'a> Into<OrganizationIdRef<'a>> for &'a CustomerResourceId {
+    fn into(self) -> OrganizationIdRef<'a> {
+        OrganizationIdRef {
+            cid: self.cid.as_ref(),
+            oid: self.id.as_ref(),
+        }
+    }
+}
+
 impl From<CustomerResourceId> for EntityId {
     fn from(value: CustomerResourceId) -> Self {
         Self {
@@ -279,6 +292,22 @@ pub struct OrganizationResourceId {
     pub id: ID,
     pub cid: ID,
     pub oid: ID,
+}
+
+pub struct InstitutionIdRef<'a> {
+    pub cid: &'a ObjectId,
+    pub oid: &'a ObjectId,
+    pub iid: &'a ObjectId,
+}
+
+impl<'a> Into<InstitutionIdRef<'a>> for &'a OrganizationResourceId {
+    fn into(self) -> InstitutionIdRef<'a> {
+        InstitutionIdRef {
+            cid: self.cid.as_ref(),
+            oid: self.oid.as_ref(),
+            iid: self.id.as_ref(),
+        }
+    }
 }
 
 impl From<OrganizationResourceId> for EntityId {
@@ -415,23 +444,6 @@ impl ScalarType for InstitutionResourceId {
 pub enum OrganizationUnitId {
     Customer(CustomerResourceId),
     Organization(OrganizationResourceId),
-}
-
-impl From<StrictOrganizationUnitId> for OrganizationUnitId {
-    fn from(value: StrictOrganizationUnitId) -> Self {
-        if let Some(oid) = value.oid {
-            OrganizationUnitId::Organization(OrganizationResourceId {
-                cid: value.cid.cid,
-                oid: oid.oid,
-                id: value.uid.uid,
-            })
-        } else {
-            OrganizationUnitId::Customer(CustomerResourceId {
-                cid: value.cid.cid,
-                id: value.uid.uid,
-            })
-        }
-    }
 }
 
 impl TryFrom<EntityId> for OrganizationUnitId {
@@ -607,9 +619,6 @@ impl ScalarType for OrganizationUnitResourceId {
     }
 }
 
-pub type OrganizationId = CustomerResourceId;
-pub type InstitutionId = OrganizationResourceId;
-
 impl From<EntityId> for CustomerId {
     fn from(value: EntityId) -> Self {
         Self {
@@ -664,386 +673,6 @@ impl std::fmt::Display for OrganizationUnitId {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, InputObject, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Cid {
-    #[serde(flatten)]
-    cid: ID,
-}
-impl Cid {
-    pub fn new(cid: ID) -> Self {
-        Self { cid }
-    }
-}
-impl Deref for Cid {
-    type Target = ObjectId;
-
-    fn deref(&self) -> &Self::Target {
-        &self.cid
-    }
-}
-impl AsRef<ID> for Cid {
-    fn as_ref(&self) -> &ID {
-        &self.cid
-    }
-}
-impl<'a> AsRef<ObjectId> for &'a Cid {
-    fn as_ref(&self) -> &ObjectId {
-        self.cid.as_ref()
-    }
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize, InputObject, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Oid {
-    #[serde(flatten)]
-    oid: ID,
-}
-impl Oid {
-    pub fn new(oid: ID) -> Self {
-        Self { oid }
-    }
-}
-impl Deref for Oid {
-    type Target = ObjectId;
-    fn deref(&self) -> &Self::Target {
-        &self.oid
-    }
-}
-impl AsRef<ID> for Oid {
-    fn as_ref(&self) -> &ID {
-        &self.oid
-    }
-}
-impl<'a> AsRef<ObjectId> for &'a Oid {
-    fn as_ref(&self) -> &ObjectId {
-        self.oid.as_ref()
-    }
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize, InputObject, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Uid {
-    #[serde(flatten)]
-    uid: ID,
-}
-impl Uid {
-    pub fn new(uid: ID) -> Self {
-        Self { uid }
-    }
-}
-impl Deref for Uid {
-    type Target = ObjectId;
-    fn deref(&self) -> &Self::Target {
-        &self.uid
-    }
-}
-impl AsRef<ID> for Uid {
-    fn as_ref(&self) -> &ID {
-        &self.uid
-    }
-}
-impl<'a> AsRef<ObjectId> for &'a Uid {
-    fn as_ref(&self) -> &ObjectId {
-        self.uid.as_ref()
-    }
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize, InputObject, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Iid {
-    #[serde(flatten)]
-    iid: ID,
-}
-impl Iid {
-    pub fn new(iid: ID) -> Self {
-        Self { iid }
-    }
-}
-impl Deref for Iid {
-    type Target = ObjectId;
-    fn deref(&self) -> &Self::Target {
-        &self.iid
-    }
-}
-impl AsRef<ID> for Iid {
-    fn as_ref(&self) -> &ID {
-        &self.iid
-    }
-}
-impl<'a> AsRef<ObjectId> for &'a Iid {
-    fn as_ref(&self) -> &ObjectId {
-        self.iid.as_ref()
-    }
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize, InputObject)]
-pub struct StrictCustomerId {
-    #[graphql(flatten)]
-    #[serde(rename = "_id")]
-    cid: Cid,
-}
-impl AsRef<Cid> for StrictCustomerId {
-    fn as_ref(&self) -> &Cid {
-        &self.cid
-    }
-}
-impl From<StrictCustomerId> for EntityId {
-    fn from(value: StrictCustomerId) -> Self {
-        Self {
-            cid: None,
-            oid: None,
-            iid: None,
-            id: Some(value.cid.cid),
-        }
-    }
-}
-pub type StrictCustomerIds = Arc<[StrictCustomerId]>;
-
-#[derive(Debug, Clone, Serialize, Deserialize, InputObject, PartialEq, Eq, PartialOrd, Ord)]
-pub struct StrictOrganizationId {
-    #[graphql(flatten)]
-    cid: Cid,
-    #[graphql(flatten)]
-    #[serde(rename = "_id")]
-    oid: Oid,
-}
-impl std::fmt::Display for StrictOrganizationId {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}{}", self.cid.to_hex(), self.oid.to_hex(),)
-    }
-}
-impl AsRef<Cid> for StrictOrganizationId {
-    fn as_ref(&self) -> &Cid {
-        &self.cid
-    }
-}
-impl AsRef<Oid> for StrictOrganizationId {
-    fn as_ref(&self) -> &Oid {
-        &self.oid
-    }
-}
-impl From<StrictOrganizationId> for EntityId {
-    fn from(value: StrictOrganizationId) -> Self {
-        Self {
-            cid: Some(value.cid.cid),
-            oid: None,
-            iid: None,
-            id: Some(value.oid.oid),
-        }
-    }
-}
-impl From<StrictOrganizationId> for CustomerResourceId {
-    fn from(value: StrictOrganizationId) -> Self {
-        Self {
-            cid: value.cid.cid.clone(),
-            id: value.oid.oid.clone(),
-        }
-    }
-}
-pub type StrictOrganizationIds = Arc<[StrictOrganizationId]>;
-#[derive(Debug, Clone, Serialize, Deserialize, InputObject, PartialEq, Eq, PartialOrd, Ord)]
-pub struct StrictOrganizationUnitId {
-    #[graphql(flatten)]
-    cid: Cid,
-    oid: Option<Oid>,
-    #[graphql(flatten)]
-    #[serde(rename = "_id")]
-    uid: Uid,
-}
-
-impl std::fmt::Display for StrictOrganizationUnitId {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if let Some(oid) = self.oid.as_ref() {
-            write!(
-                f,
-                "{}{}{}",
-                self.cid.to_hex(),
-                oid.to_hex(),
-                self.uid.to_hex(),
-            )
-        } else {
-            write!(f, "{}{}", self.cid.to_hex(), self.uid.to_hex(),)
-        }
-    }
-}
-
-impl From<(ID, Option<ID>, ID)> for StrictOrganizationUnitId {
-    fn from(value: (ID, Option<ID>, ID)) -> Self {
-        Self {
-            cid: Cid::new(value.0),
-            oid: value.1.map(Oid::new),
-            uid: Uid::new(value.2),
-        }
-    }
-}
-
-impl AsRef<Cid> for StrictOrganizationUnitId {
-    fn as_ref(&self) -> &Cid {
-        &self.cid
-    }
-}
-
-impl AsRef<Uid> for StrictOrganizationUnitId {
-    fn as_ref(&self) -> &Uid {
-        &self.uid
-    }
-}
-
-impl AsRef<Option<Oid>> for StrictOrganizationUnitId {
-    fn as_ref(&self) -> &Option<Oid> {
-        &self.oid
-    }
-}
-impl TryFrom<EntityId> for StrictOrganizationUnitId {
-    type Error = anyhow::Error;
-    fn try_from(value: EntityId) -> Result<Self, Self::Error> {
-        let cid = value.cid.ok_or(anyhow::anyhow!("cid is missing"))?;
-        let uid = value.id.ok_or(anyhow::anyhow!("id is missing"))?;
-        if let Some(oid) = value.oid {
-            Ok(StrictOrganizationUnitId {
-                cid: Cid { cid },
-                oid: Some(Oid { oid }),
-                uid: Uid { uid },
-            })
-        } else {
-            Ok(StrictOrganizationUnitId {
-                cid: Cid { cid },
-                oid: None,
-                uid: Uid { uid },
-            })
-        }
-    }
-}
-
-pub type StrictOrganizationUnitIds = Arc<[StrictOrganizationUnitId]>;
-
-#[derive(Debug, Clone, Serialize, Deserialize, InputObject, PartialEq, Eq, PartialOrd, Ord)]
-pub struct StrictInstitutionId {
-    #[graphql(flatten)]
-    cid: Cid,
-    #[graphql(flatten)]
-    oid: Oid,
-    #[graphql(flatten)]
-    #[serde(rename = "_id")]
-    iid: Iid,
-}
-
-impl std::fmt::Display for StrictInstitutionId {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}{}{}",
-            self.cid.to_hex(),
-            self.oid.to_hex(),
-            self.iid.to_hex(),
-        )
-    }
-}
-
-impl From<(ID, ID, ID)> for StrictInstitutionId {
-    fn from(value: (ID, ID, ID)) -> Self {
-        Self {
-            cid: Cid::new(value.0),
-            oid: Oid::new(value.1),
-            iid: Iid::new(value.2),
-        }
-    }
-}
-
-impl AsRef<Cid> for StrictInstitutionId {
-    fn as_ref(&self) -> &Cid {
-        &self.cid
-    }
-}
-impl AsRef<Oid> for StrictInstitutionId {
-    fn as_ref(&self) -> &Oid {
-        &self.oid
-    }
-}
-impl AsRef<Iid> for StrictInstitutionId {
-    fn as_ref(&self) -> &Iid {
-        &self.iid
-    }
-}
-
-impl From<StrictInstitutionId> for EntityId {
-    fn from(value: StrictInstitutionId) -> Self {
-        Self {
-            cid: Some(value.cid.cid),
-            oid: Some(value.oid.oid),
-            iid: None,
-            id: Some(value.iid.iid),
-        }
-    }
-}
-impl From<StrictInstitutionId> for OrganizationResourceId {
-    fn from(value: StrictInstitutionId) -> Self {
-        Self {
-            cid: value.cid.cid,
-            oid: value.oid.oid,
-            id: value.iid.iid,
-        }
-    }
-}
-
-pub type StrictInstitutionIds = Arc<[StrictInstitutionId]>;
-
-#[derive(Clone, Debug, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct StrictEntityId {
-    pub cid: ID,
-    pub oid: ID,
-    pub iid: ID,
-    pub id: ID,
-}
-
-impl FromStr for StrictEntityId {
-    type Err = anyhow::Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let l = s.len();
-        if l != 96 {
-            anyhow::bail!(
-                "invalid length, LongEntityId should have 96 characters .. it has {l} characters"
-            );
-        }
-        Ok(Self {
-            cid: parse_object_id(&s[0..24])?
-                .ok_or(anyhow::anyhow!("'cid' is required on StrictEntityId"))?,
-            oid: parse_object_id(&s[24..48])?
-                .ok_or(anyhow::anyhow!("'oid' is required on StrictEntityId"))?,
-            iid: parse_object_id(&s[48..72])?
-                .ok_or(anyhow::anyhow!("'iid' is required on StrictEntityId"))?,
-            id: parse_object_id(&s[72..96])?
-                .ok_or(anyhow::anyhow!("'id' is required on StrictEntityId"))?,
-        })
-    }
-}
-
-pub type StrictEntityIds = Arc<[StrictEntityId]>;
-
-#[Scalar]
-impl ScalarType for StrictEntityId {
-    fn parse(value: Value) -> InputValueResult<Self> {
-        if let Value::String(value) = &value {
-            // Parse the integer value
-            Ok(StrictEntityId::from_str(value)
-                .map_err(|err| InputValueError::custom(err.to_string()))?)
-        } else {
-            // If the type does not match
-            Err(InputValueError::expected_type(value))
-        }
-    }
-
-    fn to_value(&self) -> Value {
-        Value::String(
-            [
-                self.cid.to_hex(),
-                self.oid.to_hex(),
-                self.iid.to_hex(),
-                self.id.to_hex(),
-            ]
-            .join(""),
-        )
-    }
-}
-
 #[derive(Default, Debug, Clone, SimpleObject, InputObject, Serialize, Deserialize)]
 #[graphql(input_name = "MemberIdInput")]
 pub struct MemberId {
@@ -1065,4 +694,73 @@ impl PartialEq<CustomerResourceId> for OrganizationResourceId {
     fn eq(&self, other: &CustomerResourceId) -> bool {
         self.cid.eq(&other.cid) && self.oid.eq(&other.id)
     }
+}
+
+pub type CustomerIds = Arc<[ID]>;
+pub type OrganizationId = CustomerResourceId;
+pub type OrganizationIds = Arc<[OrganizationId]>;
+pub type InstitutionId = OrganizationResourceId;
+pub type InstitutionIds = Arc<[InstitutionId]>;
+pub type OrganizationUnitIds = Arc<[OrganizationUnitId]>;
+
+pub struct Cid;
+pub struct Oid;
+pub struct Iid;
+pub struct Uid;
+
+pub trait SelectId<T> {
+    fn id(&self) -> &ObjectId;
+}
+
+impl SelectId<Cid> for OrganizationId {
+    fn id(&self) -> &ObjectId {
+        self.cid.as_ref()
+    }
+}
+
+impl SelectId<Oid> for OrganizationId {
+    fn id(&self) -> &ObjectId {
+        self.id.as_ref()
+    }
+}
+
+impl SelectId<Cid> for InstitutionId {
+    fn id(&self) -> &ObjectId {
+        self.cid.as_ref()
+    }
+}
+impl SelectId<Oid> for InstitutionId {
+    fn id(&self) -> &ObjectId {
+        self.oid.as_ref()
+    }
+}
+impl SelectId<Iid> for InstitutionId {
+    fn id(&self) -> &ObjectId {
+        self.id.as_ref()
+    }
+}
+
+impl SelectId<Cid> for OrganizationUnitId {
+    fn id(&self) -> &ObjectId {
+        match self {
+            OrganizationUnitId::Customer(v) => v.cid.as_ref(),
+            OrganizationUnitId::Organization(v) => v.cid.as_ref(),
+        }
+    }
+}
+
+impl SelectId<Uid> for OrganizationUnitId {
+    fn id(&self) -> &ObjectId {
+        match self {
+            OrganizationUnitId::Customer(v) => v.id.as_ref(),
+            OrganizationUnitId::Organization(v) => v.id.as_ref(),
+        }
+    }
+}
+
+pub fn select_ids<'a, T, U>(ids: &'a [T]) -> Vec<&'a ObjectId>
+where
+    T: SelectId<U>,
+{
+    ids.iter().map(|v| v.id()).collect()
 }

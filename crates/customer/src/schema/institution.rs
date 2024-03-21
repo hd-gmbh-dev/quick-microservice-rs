@@ -8,8 +8,9 @@ use qm_entity::ctx::CustOrOrgFilter;
 use qm_entity::ctx::MutationContext;
 use qm_entity::ctx::OrganizationFilter;
 use qm_entity::error::EntityResult;
+use qm_entity::ids::InstitutionIds;
 use qm_entity::ids::OrganizationId;
-use qm_entity::ids::{Cid, Iid, InstitutionId, Oid, StrictInstitutionIds};
+use qm_entity::ids::{InstitutionId, InstitutionIdRef};
 use qm_entity::list::ListCtx;
 use qm_entity::model::ListFilter;
 use qm_entity::Create;
@@ -145,16 +146,14 @@ where
         Ok(result)
     }
 
-    pub async fn remove(&self, ids: StrictInstitutionIds) -> EntityResult<u64> {
+    pub async fn remove(&self, ids: InstitutionIds) -> EntityResult<u64> {
         let db = self.0.store.as_ref();
         let mut session = db.session().await?;
         let docs = ids
             .iter()
             .map(|v| {
-                let cid: &Cid = v.as_ref();
-                let oid: &Oid = v.as_ref();
-                let iid: &Iid = v.as_ref();
-                doc! {"_id": **iid, "owner.entityId.cid": **cid, "owner.entityId.oid": **oid }
+                let InstitutionIdRef { cid, oid, iid } = v.into();
+                doc! {"_id": iid, "owner.entityId.cid": cid, "owner.entityId.oid": oid }
             })
             .collect::<Vec<_>>();
         if !docs.is_empty() {
@@ -336,7 +335,7 @@ where
     async fn remove_institutions(
         &self,
         ctx: &Context<'_>,
-        ids: StrictInstitutionIds,
+        ids: InstitutionIds,
     ) -> async_graphql::FieldResult<u64> {
         let auth_ctx =
             AuthCtx::<'_, Auth, Store, AccessLevel, Resource, Permission>::new_with_role(
@@ -346,7 +345,7 @@ where
             .await?;
         let cache = auth_ctx.store.cache();
         for id in ids.iter() {
-            let id = id.clone().into();
+            let id = id.clone();
             let v = cache.customer().institution_by_id(&id).await;
             if let Some(v) = v {
                 auth_ctx.can_mutate(&v.owner).await.extend()?;

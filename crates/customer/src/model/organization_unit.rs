@@ -3,8 +3,7 @@ use std::sync::Arc;
 use futures::StreamExt;
 use qm_entity::error::{EntityError, EntityResult};
 use qm_entity::ids::{
-    CustomerResourceId, EntityId, MemberId, OrganizationResourceId, OrganizationUnitId,
-    StrictOrganizationUnitId, ID,
+    CustomerResourceId, EntityId, MemberId, OrganizationResourceId, OrganizationUnitId, ID,
 };
 
 use qm_entity::list::NewList;
@@ -28,7 +27,6 @@ pub struct CreateOrganizationUnitInput {
 
 #[derive(Debug, InputObject)]
 pub struct UpdateOrganizationUnitInput {
-    pub organization_unit: StrictOrganizationUnitId,
     pub name: Option<String>,
 }
 

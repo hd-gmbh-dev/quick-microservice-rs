@@ -1,11 +1,7 @@
 use crate::ids::EntityId;
-use crate::ids::EntityIds;
 use crate::ids::OrganizationUnitId;
-use crate::ids::StrictEntityIds;
-use crate::ids::StrictInstitutionIds;
-use crate::ids::StrictOrganizationIds;
 use crate::ids::ID;
-use crate::ids::{CustomerResourceId, OrganizationResourceId, StrictEntityId};
+use crate::ids::{CustomerResourceId, OrganizationResourceId};
 
 use async_graphql::{InputObject, OneofObject};
 use qm_mongodb::bson::{doc, oid::ObjectId};
@@ -246,24 +242,10 @@ impl ContextFilterInput {
     }
 }
 
-impl<'a> From<&'a StrictEntityId> for MutationContext {
-    fn from(value: &StrictEntityId) -> Self {
-        MutationContext::Institution(InstitutionFilter {
-            customer: value.cid.clone(),
-            organization: value.oid.clone(),
-            institution: value.iid.clone(),
-        })
-    }
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum MutationContext {
-    OptCustomer(Option<CustomerFilter>),
     Customer(CustomerFilter),
     Organization(OrganizationFilter),
+    OrganizationUnit(OrganizationUnitFilter),
     Institution(InstitutionFilter),
-    Batch(EntityIds),
-    BatchStrict(StrictEntityIds),
-    BatchOrganization(StrictOrganizationIds),
-    BatchInstitution(StrictInstitutionIds),
 }

@@ -1,4 +1,5 @@
 use futures::stream::FuturesUnordered;
+
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 use std::sync::Arc;
@@ -6,9 +7,10 @@ use strum::AsRefStr;
 use tokio::sync::Semaphore;
 
 use futures::StreamExt;
-use qm_entity::ids::{
-    CustomerId, StrictInstitutionIds, StrictOrganizationIds, StrictOrganizationUnitIds,
-};
+use qm_entity::ids::CustomerIds;
+use qm_entity::ids::InstitutionIds;
+use qm_entity::ids::OrganizationIds;
+use qm_entity::ids::OrganizationUnitIds;
 use qm_keycloak::Keycloak;
 use qm_keycloak::KeycloakError;
 use qm_mongodb::bson::doc;
@@ -18,7 +20,6 @@ use qm_mongodb::ClientSession;
 use crate::cache::user::UserCache;
 use crate::roles::RoleDB;
 
-pub type CustomerIds = Arc<[CustomerId]>;
 #[derive(
     Default, AsRefStr, Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize,
 )]
@@ -26,11 +27,11 @@ pub enum CleanupTaskType {
     #[strum(serialize = "customers")]
     Customers(CustomerIds),
     #[strum(serialize = "organizations")]
-    Organizations(StrictOrganizationIds),
+    Organizations(OrganizationIds),
     #[strum(serialize = "institutions")]
-    Institutions(StrictInstitutionIds),
+    Institutions(InstitutionIds),
     #[strum(serialize = "organization_units")]
-    OrganizationUnits(StrictOrganizationUnitIds),
+    OrganizationUnits(OrganizationUnitIds),
     #[default]
     #[strum(serialize = "none")]
     None,

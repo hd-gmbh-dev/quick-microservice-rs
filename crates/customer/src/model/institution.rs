@@ -7,9 +7,7 @@ use serde::{Deserialize, Serialize};
 use crate::cache::Cache;
 use crate::model::CreateUserInput;
 use qm_entity::error::{EntityError, EntityResult};
-use qm_entity::ids::{
-    EntityId, InstitutionId, OrganizationId, OrganizationResourceId, StrictInstitutionId, ID,
-};
+use qm_entity::ids::{EntityId, InstitutionId, OrganizationId, OrganizationResourceId, ID};
 use qm_entity::model::Modification;
 use qm_entity::{Create, UserId};
 
@@ -39,11 +37,20 @@ pub struct Institution {
     pub modified: Option<Modification>,
 }
 
-impl TryInto<StrictInstitutionId> for Institution {
+impl TryInto<InstitutionId> for Institution {
     type Error = anyhow::Error;
-    fn try_into(self) -> Result<StrictInstitutionId, Self::Error> {
-        let rid = self.as_id();
-        Ok((rid.cid, rid.oid, rid.id).into())
+    fn try_into(self) -> Result<InstitutionId, Self::Error> {
+        let organization = self.owner.organization().ok_or(anyhow::anyhow!(
+            "institution '{}' requires organization as owner",
+            self.name
+        ))?;
+        Ok(InstitutionId {
+            cid: organization.cid,
+            oid: organization.id,
+            id: self
+                .id
+                .ok_or(anyhow::anyhow!("institution '{}' has no id", self.name))?,
+        })
     }
 }
 
