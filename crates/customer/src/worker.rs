@@ -46,7 +46,11 @@ use std::collections::BTreeSet;
 use crate::cleanup::CleanupTask;
 use crate::cleanup::CustomerIds;
 
-pub const PREFIX: &str = "cleanup_tasks";
+lazy_static::lazy_static! {
+    static ref PREFIX: String = {
+        std::env::var("CUSTOMER_CLEANUP_TASK_PREFIX").unwrap_or("cleanup_tasks".to_string())
+    };
+}
 
 pub trait CleanupTaskProducer {
     fn cleanup_task_producer(&self) -> &qm_redis::Producer;
@@ -60,7 +64,7 @@ pub struct CleanupProducer {
 impl CleanupProducer {
     pub fn new(redis: Arc<deadpool_redis::Pool>) -> Self {
         Self {
-            inner: Arc::new(Producer::new_with_client(redis, PREFIX)),
+            inner: Arc::new(Producer::new_with_client(redis, PREFIX.as_str())),
         }
     }
 }
@@ -626,7 +630,7 @@ where
     workers
         .start(
             ctx,
-            AsyncWorker::new(PREFIX)
+            AsyncWorker::new(PREFIX.as_str())
                 .with_num_workers(num_workers)
                 .run(CleanupWorker),
         )

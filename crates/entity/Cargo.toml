@@ -21,6 +21,7 @@ futures.workspace = true
 chrono.workspace = true
 tynm.workspace = true
 reqwest.workspace = true
+log.workspace = true
 qm-redis.workspace = true
 qm-keycloak.workspace = true
 qm-role.workspace = true

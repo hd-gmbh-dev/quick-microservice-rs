@@ -76,7 +76,8 @@ impl FromStr for EntityId {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.len() {
+        let l = s.len();
+        match l {
             24 => Ok(Self {
                 cid: parse_object_id(&s[0..24])?,
                 oid: None,
@@ -102,7 +103,7 @@ impl FromStr for EntityId {
                 id: parse_object_id(&s[72..96])?,
             }),
             _ => Err(anyhow::anyhow!(
-                "invalid length, EntityId should have 24, 48, 72 or 96 characters"
+                "invalid length, EntityId should have 24, 48, 72 or 96 characters .. it has {l} characters"
             )),
         }
     }
@@ -185,8 +186,11 @@ impl FromStr for CustomerId {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if s.len() != 24 {
-            anyhow::bail!("invalid length, CustomerId should have 24 characters");
+        let l = s.len();
+        if l != 24 {
+            anyhow::bail!(
+                "invalid length, CustomerId should have 24 characters .. it has {l} characters"
+            );
         }
         Ok(Self {
             id: parse_object_id(&s[0..24])?
@@ -455,7 +459,8 @@ impl FromStr for OrganizationUnitId {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if s.len() == 76 {
+        let l = s.len();
+        if l == 72 {
             return Ok(Self::Organization(OrganizationResourceId {
                 cid: parse_object_id(&s[0..24])?.ok_or(anyhow::anyhow!(
                     "'cid' is required on OrganizationUnitId::Organization"
@@ -468,7 +473,7 @@ impl FromStr for OrganizationUnitId {
                 ))?,
             }));
         }
-        if s.len() == 48 {
+        if l == 48 {
             return Ok(Self::Customer(CustomerResourceId {
                 cid: parse_object_id(&s[0..24])?.ok_or(anyhow::anyhow!(
                     "'cid' is required on OrganizationUnitId::Customer"
@@ -478,7 +483,8 @@ impl FromStr for OrganizationUnitId {
                 ))?,
             }));
         }
-        anyhow::bail!("invalid length, OrganizationUnitId should have 48 or 72 characters")
+
+        anyhow::bail!("invalid length, OrganizationUnitId should have 48 or 72 characters .. it has {l} characters")
     }
 }
 
@@ -529,7 +535,8 @@ impl FromStr for OrganizationUnitResourceId {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if s.len() == 96 {
+        let l = s.len();
+        if l == 96 {
             return Ok(Self {
                 cid: parse_object_id(&s[0..24])?.ok_or(anyhow::anyhow!(
                     "'cid' is required on OrganizationUnitResourceId"
@@ -545,7 +552,7 @@ impl FromStr for OrganizationUnitResourceId {
                 ))?,
             });
         }
-        if s.len() == 72 {
+        if l == 72 {
             return Ok(Self {
                 cid: parse_object_id(&s[0..24])?.ok_or(anyhow::anyhow!(
                     "'cid' is required on OrganizationUnitResourceId"
@@ -559,7 +566,7 @@ impl FromStr for OrganizationUnitResourceId {
                 ))?,
             });
         }
-        anyhow::bail!("invalid length, OrganizationUnitResourceId should have 72 or 96 characters")
+        anyhow::bail!("invalid length, OrganizationUnitResourceId should have 72 or 96 characters .. it has {l}")
     }
 }
 
@@ -990,8 +997,11 @@ impl FromStr for StrictEntityId {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if s.len() != 96 {
-            anyhow::bail!("invalid length, LongEntityId should have 96 characters");
+        let l = s.len();
+        if l != 96 {
+            anyhow::bail!(
+                "invalid length, LongEntityId should have 96 characters .. it has {l} characters"
+            );
         }
         Ok(Self {
             cid: parse_object_id(&s[0..24])?

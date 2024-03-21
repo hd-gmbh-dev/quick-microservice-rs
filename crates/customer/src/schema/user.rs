@@ -412,23 +412,15 @@ where
     Permission: RelatedPermission,
     BuiltInGroup: RelatedBuiltInGroup,
 {
-    async fn me(
-        &self,
-        ctx: &Context<'_>,
-    ) -> async_graphql::FieldResult<Option<Arc<User>>> {
-        let auth_ctx = AuthCtx::<'_, Auth, Store, AccessLevel, Resource, Permission>::new(
-            ctx,
-        )
-        .await
-        .extend()?;
-        let id = *auth_ctx.auth.user_id()
-            .ok_or(EntityError::unauthorized(&auth_ctx.auth)
-            .extend())?;
-        Ok(Ctx(
-            auth_ctx,
-        )
-        .by_id(id)
-        .await)
+    async fn me(&self, ctx: &Context<'_>) -> async_graphql::FieldResult<Option<Arc<User>>> {
+        let auth_ctx = AuthCtx::<'_, Auth, Store, AccessLevel, Resource, Permission>::new(ctx)
+            .await
+            .extend()?;
+        let id = *auth_ctx
+            .auth
+            .user_id()
+            .ok_or(EntityError::unauthorized(&auth_ctx.auth).extend())?;
+        Ok(Ctx(auth_ctx).by_id(id).await)
     }
 
     async fn user_by_id(

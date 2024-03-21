@@ -186,11 +186,9 @@ where
             return if let Some(context) = context {
                 match context {
                     ContextFilterInput::Customer(v) => Ok(doc! {
-                        "owner.ty": "Customer",
                         "owner.entityId.cid": v.customer.as_ref(),
                     }),
                     ContextFilterInput::Organization(v) => Ok(doc! {
-                        "owner.ty": "OrganizationUnit",
                         "owner.entityId.cid": v.customer.as_ref(),
                         "owner.entityId.oid": v.organization.as_ref(),
                     }),
@@ -207,7 +205,6 @@ where
                             .iter()
                             .map(|v| {
                                 doc! {
-                                    "ty": "Institution",
                                     "entityId.cid": v.cid.as_ref(),
                                     "entityId.oid": v.oid.as_ref(),
                                     "entityId.iid": v.iid.as_ref(),
@@ -215,7 +212,6 @@ where
                             })
                             .collect();
                         let mut unit = doc! {
-                            "ty": "OrganizationUnit",
                             "entityId.cid": v.customer.as_ref(),
                             "entityId.iid": v.organization_unit.as_ref(),
                         };
@@ -230,7 +226,6 @@ where
                         })
                     }
                     ContextFilterInput::Institution(v) => Ok(doc! {
-                        "owner.ty": "Institution",
                         "owner.entityId.cid": v.customer.as_ref(),
                         "owner.entityId.oid": v.organization.as_ref(),
                         "owner.entityId.iid": v.institution.as_ref(),
