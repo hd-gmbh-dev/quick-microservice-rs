@@ -71,7 +71,7 @@ where
     type Err = anyhow::Error;
 
     fn from_str(v: &str) -> Result<Self, Self::Err> {
-        let mut s = v.split("_");
+        let mut s = v.split("@");
         if let Some((access, id)) = s.next().zip(s.next()) {
             if let Some((access, method)) = access.split_once(":") {
                 if method == "access" {

@@ -309,13 +309,17 @@ where
         })?;
 
         let cache = self.0.store.cache();
-        if let Some(group_id) = cache.user().get_group_id(&group).await {
-            keycloak
-                .add_user_to_group(realm, &user_id, &group_id)
-                .await?;
+        if let Some(group) = group.as_ref() {
+            if let Some(group_id) = cache.user().get_group_id(group).await {
+                keycloak
+                    .add_user_to_group(realm, &user_id, &group_id)
+                    .await?;
+            }
         }
-        if let Some(role) = cache.user().get_role(&access).await {
-            keycloak.add_user_role(realm, &user_id, role).await?;
+        if let Some(access) = access.as_ref() {
+            if let Some(role) = cache.user().get_role(access).await {
+                keycloak.add_user_role(realm, &user_id, role).await?;
+            }
         }
 
         let db_user = Arc::new(
@@ -324,8 +328,8 @@ where
                 .users()
                 .save(
                     UserData {
-                        owner: context.into(),
-                        groups: vec![group],
+                        owner: context.map(Into::into).unwrap_or_default(),
+                        groups: group.map(|v| vec![v]).unwrap_or_default(),
                         access,
                         details: UserDetails {
                             email: Arc::from(user_input.email),
@@ -491,7 +495,7 @@ where
         built_in_group: Option<BuiltInGroup>,
         custom_group: Option<String>, // TODO: implement custom_groups in Cache and schema
         input: CreateUserInput,
-        context: ContextFilterInput,
+        context: Option<ContextFilterInput>,
     ) -> async_graphql::FieldResult<Arc<User>> {
         if access_level.is_admin() && !SchemaConfig::new(ctx).allow_multiple_admin_users() {
             return err!(not_allowed("creating multiple admin users").extend());
@@ -503,21 +507,37 @@ where
             )
             .await?;
         let access_level_u32 = access_level.as_number();
-        let access = Access::new(access_level).with_fmt_id(Some(&context));
-        if auth_ctx.auth.as_number() < access_level_u32
-            || (auth_ctx.auth.as_number() == access_level_u32 && !auth_ctx.auth.has_access(&access))
-        {
-            return err!(unauthorized(&auth_ctx.auth).extend());
-        }
+        let access = if let Some(context) = context.as_ref() {
+            let access = Access::new(access_level).with_fmt_id(Some(&context));
+            if auth_ctx.auth.as_number() < access_level_u32
+                || (auth_ctx.auth.as_number() == access_level_u32
+                    && !auth_ctx.auth.has_access(&access))
+            {
+                return err!(unauthorized(&auth_ctx.auth).extend());
+            }
+            access
+        } else {
+            let own_access_level_id = auth_ctx
+                .auth
+                .session_access()
+                .ok_or(EntityError::unauthorized(&auth_ctx.auth))?;
+            if own_access_level_id.id().is_some() {
+                return err!(unauthorized(&auth_ctx.auth).extend());
+            }
+            if access_level.id_required() {
+                return err!(bad_request(
+                    "ContextFilterInput",
+                    "'context' is required for specified access level"
+                )
+                .extend());
+            }
+            Access::new(access_level)
+        };
         Ctx(auth_ctx)
             .create(CreateUserPayload {
-                access: access.to_string(),
+                access: Some(access.to_string()),
                 user: input,
-                group: custom_group.unwrap_or_else(|| {
-                    built_in_group
-                        .map(|v| v.as_ref().to_string())
-                        .unwrap_or_default()
-                }),
+                group: custom_group.or_else(|| built_in_group.map(|v| v.as_ref().to_string())),
                 context,
             })
             .await

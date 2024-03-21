@@ -6,9 +6,11 @@ use qm_entity::{
     },
 };
 
-#[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
+#[derive(Default, serde::Deserialize, serde::Serialize, Debug, Clone)]
 #[serde(tag = "ty", content = "entityId")]
 pub enum Owner {
+    #[default]
+    None,
     Customer(EntityId),
     Organization(EntityId),
     Institution(EntityId),

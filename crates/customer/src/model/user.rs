@@ -100,7 +100,7 @@ pub struct User {
     #[graphql(skip)]
     pub groups: Vec<String>,
     #[graphql(skip)]
-    pub access: String,
+    pub access: Option<String>,
     #[serde(default)]
     #[graphql(skip)]
     pub custom_groups: Vec<String>, // TODO: implement custom groups
@@ -166,7 +166,7 @@ pub struct UserData {
     pub owner: Owner,
     pub groups: Vec<String>,
     pub details: UserDetails,
-    pub access: String,
+    pub access: Option<String>,
 }
 
 impl<C> Create<User, C> for UserData
@@ -228,9 +228,9 @@ pub struct UserList {
 #[derive(Debug)]
 pub struct CreateUserPayload {
     pub user: CreateUserInput,
-    pub group: String,
-    pub access: String,
-    pub context: ContextFilterInput,
+    pub group: Option<String>,
+    pub access: Option<String>,
+    pub context: Option<ContextFilterInput>,
 }
 
 impl NewList<User> for UserList {

@@ -542,9 +542,12 @@ where
                     }
                     Ok(())
                 }
+                Owner::None => {
+                    err!(unauthorized(&self.auth))
+                }
             },
             Lvl::Organization => match owner {
-                Owner::Customer(_) => {
+                Owner::None | Owner::Customer(_) => {
                     err!(unauthorized(&self.auth))
                 }
                 Owner::Organization(v) | Owner::Institution(v) | Owner::OrganizationUnit(v) => {
@@ -571,7 +574,7 @@ where
                 }
             },
             Lvl::OrganizationUnit => match owner {
-                Owner::Customer(_) | Owner::Organization(_) => {
+                Owner::Customer(_) | Owner::Organization(_) | Owner::None => {
                     err!(unauthorized(&self.auth))
                 }
                 Owner::OrganizationUnit(v) => {
@@ -659,7 +662,10 @@ where
                 }
             },
             Lvl::Institution => match owner {
-                Owner::Customer(_) | Owner::Organization(_) | Owner::OrganizationUnit(_) => {
+                Owner::Customer(_)
+                | Owner::Organization(_)
+                | Owner::OrganizationUnit(_)
+                | Owner::None => {
                     err!(unauthorized(&self.auth))
                 }
                 Owner::Institution(v) => {

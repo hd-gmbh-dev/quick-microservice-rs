@@ -302,12 +302,14 @@ where
                 .await?,
             )
             .create(CreateUserPayload {
-                access: qm_role::Access::new(AccessLevel::organization())
-                    .with_fmt_id(Some(&id))
-                    .to_string(),
+                access: Some(
+                    qm_role::Access::new(AccessLevel::organization())
+                        .with_fmt_id(Some(&id))
+                        .to_string(),
+                ),
                 user,
-                group: Auth::create_organization_owner_group().name,
-                context: qm_entity::ctx::ContextFilterInput::Organization(id.into()),
+                group: Some(Auth::create_organization_owner_group().name),
+                context: Some(qm_entity::ctx::ContextFilterInput::Organization(id.into())),
             })
             .await
             .extend()?;

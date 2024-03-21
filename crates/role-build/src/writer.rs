@@ -43,6 +43,8 @@ impl Writer<std::fs::File> {
 const ENUM_DERIVE: &'static str =
     "#[derive(Clone, Debug, Copy, EnumString, EnumIter, AsRefStr, Ord, PartialOrd, Eq, PartialEq)]";
 const ENUM_DERIVE_ACCESS_LEVELS: &'static str =
+    "#[derive(Default, Clone, Debug, Copy, EnumString, async_graphql::Enum, AsRefStr, Ord, PartialOrd, Eq, PartialEq)]";
+const ENUM_DERIVE_BUILT_IN_GROUP: &'static str =
     "#[derive(Clone, Debug, Copy, EnumString, async_graphql::Enum, AsRefStr, Ord, PartialOrd, Eq, PartialEq)]";
 
 impl<W> Writer<W>
@@ -79,6 +81,9 @@ where
         self.write_line(0, "")?;
         self.write_line(0, ENUM_DERIVE_ACCESS_LEVELS)?;
         self.write_line(0, "pub enum AccessLevel {")?;
+        self.write_line(1, "#[default]")?;
+        self.write_line(1, "#[strum(serialize = \"none\")]")?;
+        self.write_line(1, "None,")?;
         for access_level in access_levels.iter() {
             self.write_line(
                 1,
@@ -208,7 +213,7 @@ where
         }
         self.write_line(0, "];")?;
         self.write_line(0, "")?;
-        self.write_line(0, ENUM_DERIVE_ACCESS_LEVELS)?;
+        self.write_line(0, ENUM_DERIVE_BUILT_IN_GROUP)?;
         self.write_line(0, "pub enum BuiltInGroup {")?;
         for group_name in group_names.iter() {
             self.write_line(

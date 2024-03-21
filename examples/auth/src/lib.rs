@@ -4,8 +4,8 @@ use async_graphql::ResultExt;
 use qm::{
     customer::{
         context::{
-            AdminContext, CustomerAccess, CustomerResource, InstitutionAccess, InstitutionResource,
-            OrganizationAccess, OrganizationResource, OrganizationUnitAccess,
+            AdminContext, CustomerAccess, CustomerResource, IdRequired, InstitutionAccess,
+            InstitutionResource, OrganizationAccess, OrganizationResource, OrganizationUnitAccess,
             OrganizationUnitResource, RelatedAuth, RelatedPermission, RelatedResource, UserContext,
             UserResource,
         },
@@ -40,6 +40,7 @@ impl AsNumber for AccessLevel {
             // Self::Organization => u32::MAX -2,
             // Self::OrganizationUnit => u32::MAX -3,
             Self::Institution => u32::MAX - 3,
+            Self::None => 0,
         }
     }
 }
@@ -181,7 +182,11 @@ impl InstitutionAccess for AccessLevel {
         Self::Institution
     }
 }
-
+impl IdRequired for AccessLevel {
+    fn id_required(&self) -> bool {
+        matches!(self, AccessLevel::Customer | AccessLevel::Institution)
+    }
+}
 impl qm::customer::context::RelatedAccessLevel for AccessLevel {}
 
 impl CustomerResource for Resource {

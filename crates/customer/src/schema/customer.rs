@@ -274,14 +274,16 @@ where
                 .await?,
             )
             .create(CreateUserPayload {
-                access: qm_role::Access::new(AccessLevel::customer())
-                    .with_fmt_id(Some(&id))
-                    .to_string(),
+                access: Some(
+                    qm_role::Access::new(AccessLevel::customer())
+                        .with_fmt_id(Some(&id))
+                        .to_string(),
+                ),
                 user,
-                group: Auth::create_customer_owner_group().name,
-                context: qm_entity::ctx::ContextFilterInput::Customer(CustomerFilter {
-                    customer: id.id,
-                }),
+                group: Some(Auth::create_customer_owner_group().name),
+                context: Some(qm_entity::ctx::ContextFilterInput::Customer(
+                    CustomerFilter { customer: id.id },
+                )),
             })
             .await
             .extend()?;

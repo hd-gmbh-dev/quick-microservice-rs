@@ -102,6 +102,9 @@ pub trait OrganizationUnitAccess {
 pub trait CustomerAccess {
     fn customer() -> Self;
 }
+pub trait IdRequired {
+    fn id_required(&self) -> bool;
+}
 
 pub trait RelatedAccessLevel:
     IsAdmin
@@ -109,6 +112,8 @@ pub trait RelatedAccessLevel:
     + InstitutionAccess
     + OrganizationUnitAccess
     + CustomerAccess
+    + Default
+    + IdRequired
     + async_graphql::InputType
     + Eq
     + AsRef<str>

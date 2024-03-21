@@ -352,12 +352,16 @@ where
                 .await?,
             )
             .create(CreateUserPayload {
-                access: qm_role::Access::new(AccessLevel::organization_unit())
-                    .with_fmt_id(Some(&id))
-                    .to_string(),
+                access: Some(
+                    qm_role::Access::new(AccessLevel::organization_unit())
+                        .with_fmt_id(Some(&id))
+                        .to_string(),
+                ),
                 user,
-                group: Auth::create_organization_unit_owner_group().name,
-                context: qm_entity::ctx::ContextFilterInput::OrganizationUnit(id.into()),
+                group: Some(Auth::create_organization_unit_owner_group().name),
+                context: Some(qm_entity::ctx::ContextFilterInput::OrganizationUnit(
+                    id.into(),
+                )),
             })
             .await
             .extend()?;
