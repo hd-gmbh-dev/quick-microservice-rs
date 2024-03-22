@@ -33,13 +33,15 @@ services:
     volumes:
       - mongodb:/data/db
   postgresql:
-    image: bitnami/postgresql:15
+    image: bitnami/postgresql:16
     environment:
       - ALLOW_EMPTY_PASSWORD=yes
       - POSTGRESQL_USERNAME=bn_keycloak
       - POSTGRESQL_DATABASE=bitnami_keycloak
+    ports:
+      - 5432:5432
     volumes:
-      - 'postgres:/bitnami/postgresql'
+      - 'postgres16:/bitnami/postgresql'
   keycloak:
     image: bitnami/keycloak:23
     environment:
@@ -71,5 +73,5 @@ volumes:
   mongodb:
   kafka:
   redis:
-  postgres:
+  postgres16:
   s3:

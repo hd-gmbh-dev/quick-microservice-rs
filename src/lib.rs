@@ -1,6 +1,9 @@
 #[cfg(feature = "mongodb")]
 pub use qm_mongodb as mongodb;
 
+#[cfg(feature = "pg")]
+pub use qm_pg as pg;
+
 #[cfg(feature = "redis")]
 pub use qm_redis as redis;
 

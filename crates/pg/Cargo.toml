@@ -1,0 +1,22 @@
+[package]
+name = "qm-pg"
+description = "PostgreSQL helper functions"
+edition = "2021"
+rust-version = "1.75.0"
+version.workspace = true
+authors = ["Jürgen Seitz <juergen.seitz@h-d-gmbh.de>"]
+license = "MIT"
+repository = "https://github.com/hd-gmbh-dev/quick-microservice-rs"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow.workspace = true
+envy.workspace = true
+futures.workspace = true
+log.workspace = true
+serde.workspace = true
+tokio.workspace = true
+sqlx.workspace = true
+diesel.workspace = true
+deadpool-diesel.workspace = true

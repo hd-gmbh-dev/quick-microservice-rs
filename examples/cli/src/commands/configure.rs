@@ -33,11 +33,18 @@ async fn configure_keycloak() -> anyhow::Result<()> {
     Ok(())
 }
 
+async fn configure_posgres() -> anyhow::Result<()> {
+    let db = qm::pg::DB::new("qm_example", &qm::pg::DbConfig::new()?).await?;
+    // qm::customer::pg::run_migrations(&db).await?;
+    Ok(())
+}
+
 impl ConfigureCommand {
     pub async fn run(self) -> anyhow::Result<()> {
         match self.resource {
             super::Resource::All => {
                 configure_keycloak().await?;
+                configure_posgres().await?;
             }
             super::Resource::KeycloakRealm => {
                 configure_keycloak().await?;

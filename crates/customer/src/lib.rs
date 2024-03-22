@@ -8,7 +8,9 @@ pub mod model;
 pub mod roles;
 pub mod schema;
 pub mod worker;
-// impl $crate::context::RelatedStorage for $storage {}
+
+#[cfg(feature = "pg")]
+pub mod pg;
 
 #[macro_export]
 macro_rules! database {

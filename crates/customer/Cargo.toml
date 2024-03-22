@@ -10,6 +10,10 @@ repository = "https://github.com/hd-gmbh-dev/quick-microservice-rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+default = []
+pg = ["qm-pg", "diesel", "diesel_migrations"]
+
 [dependencies]
 anyhow.workspace = true
 async-graphql.workspace = true
@@ -18,6 +22,7 @@ serde.workspace = true
 serde_json.workspace = true
 chrono.workspace = true
 tynm.workspace = true
+uuid.workspace = true
 futures.workspace = true
 tokio.workspace = true
 log.workspace = true
@@ -33,3 +38,7 @@ qm-keycloak.workspace = true
 qm-entity.workspace = true
 qm-redis.workspace = true
 qm-role.workspace = true
+qm-pg = { workspace = true, optional = true }
+diesel = { workspace = true, optional = true }
+diesel_migrations = { workspace = true, optional = true }
+deadpool-diesel.workspace = true

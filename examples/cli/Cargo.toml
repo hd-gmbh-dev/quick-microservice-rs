@@ -19,7 +19,9 @@ qm = { workspace = true, default-features = false, features = [
     "server",
     "role",
     "entity",
+    "pg",
     "customer",
+    "customer_pg",
 ]}
 env_logger = "0.11.0"
 clap = { version = "4.4.18", features = ["derive"]}
