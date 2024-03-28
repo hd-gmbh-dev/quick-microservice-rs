@@ -1,15 +1,13 @@
-use async_graphql::{ComplexObject, InputObject, SimpleObject};
-use qm_entity::list::NewList;
+use crate::model::CreateUserInput;
+use async_graphql::{InputObject, SimpleObject};
+use qm_entity::ids::{CustomerId, InfraId};
 use serde::{Deserialize, Serialize};
+use sqlx::types::uuid::Uuid;
+use sqlx::FromRow;
 
-use qm_entity::error::{EntityError, EntityResult};
-use qm_entity::ids::{CustomerId, ID};
-use qm_entity::model::Modification;
-use qm_entity::{Create, UserId};
+use std::sync::Arc;
 
-use super::CreateUserInput;
-
-pub struct CustomerData(pub String);
+use time::PrimitiveDateTime;
 
 #[derive(Debug, InputObject)]
 pub struct CreateCustomerInput {
@@ -19,80 +17,66 @@ pub struct CreateCustomerInput {
 
 #[derive(Debug, InputObject)]
 pub struct UpdateCustomerInput {
-    pub customer: CustomerId,
-    pub name: Option<String>,
+    pub name: String,
 }
 
-#[derive(Default, Debug, Clone, SimpleObject, Serialize, Deserialize)]
+pub struct CustomerData(pub String);
+
+#[derive(Debug, Clone, SimpleObject, FromRow, Serialize, Deserialize)]
 #[graphql(complex)]
 pub struct Customer {
     #[graphql(skip)]
-    #[serde(rename = "_id", skip_serializing_if = "Option::is_none")]
-    pub id: Option<ID>,
-    pub name: String,
-    pub created: Modification,
-    pub modified: Option<Modification>,
+    pub id: InfraId,
+    pub name: Arc<str>,
+    pub created_by: Uuid,
+    pub created_at: PrimitiveDateTime,
+    pub updated_by: Option<Uuid>,
+    pub updated_at: Option<PrimitiveDateTime>,
 }
 
-impl Customer {
-    pub fn as_id(&self) -> CustomerId {
-        CustomerId {
-            id: self
-                .id
-                .clone()
-                .unwrap_or_else(|| panic!("customer '{}' is invalid, id missing", &self.name)),
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CustomerUpdate {
+    pub id: InfraId,
+    pub name: Arc<str>,
+    pub created_by: Uuid,
+    pub created_at: String,
+    pub updated_by: Option<Uuid>,
+    pub updated_at: Option<String>,
+}
+
+pub struct RemoveCustomerPayload {
+    pub id: InfraId,
+    pub name: Arc<str>,
+}
+
+impl From<CustomerUpdate> for RemoveCustomerPayload {
+    fn from(value: CustomerUpdate) -> Self {
+        Self {
+            id: value.id,
+            name: value.name,
         }
     }
 }
 
-#[ComplexObject]
-impl Customer {
-    async fn id(&self) -> CustomerId {
-        self.as_id()
+impl<'a> From<&'a Customer> for RemoveCustomerPayload {
+    fn from(value: &'a Customer) -> Self {
+        Self {
+            id: value.id,
+            name: value.name.clone(),
+        }
     }
 }
 
-impl AsMut<Option<ID>> for Customer {
-    fn as_mut(&mut self) -> &mut Option<ID> {
-        &mut self.id
-    }
-}
-
-impl<C> Create<Customer, C> for CustomerData
-where
-    C: UserId,
-{
-    fn create(self, c: &C) -> EntityResult<Customer> {
-        let user_id = c.user_id().ok_or(EntityError::Forbidden)?.to_owned();
-        Ok(Customer {
-            id: None,
-            name: self.0,
-            created: Modification::new(user_id),
-            modified: None,
-        })
-    }
-}
-
-#[derive(Default, Debug, Clone, SimpleObject, Serialize, Deserialize)]
+#[derive(Debug, Clone, SimpleObject)]
 pub struct CustomerList {
-    pub items: Vec<Customer>,
+    pub items: Arc<[Arc<Customer>]>,
     pub limit: Option<i64>,
     pub total: Option<i64>,
     pub page: Option<i64>,
 }
 
-impl NewList<Customer> for CustomerList {
-    fn new(
-        items: Vec<Customer>,
-        limit: Option<i64>,
-        total: Option<i64>,
-        page: Option<i64>,
-    ) -> Self {
-        Self {
-            items,
-            limit,
-            total,
-            page,
-        }
+impl<'a> From<&'a Customer> for CustomerId {
+    fn from(val: &'a Customer) -> Self {
+        (*val.id.as_ref()).into()
     }
 }

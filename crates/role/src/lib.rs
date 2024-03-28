@@ -19,7 +19,7 @@ macro_rules! role {
     };
 }
 
-#[derive(Ord, PartialOrd, Eq, PartialEq)]
+#[derive(Debug, Ord, PartialOrd, Eq, PartialEq)]
 pub struct Access<T> {
     ty: T,
     id: Option<Arc<str>>,

@@ -1,6 +1,6 @@
 use async_graphql::{ComplexObject, InputObject, MaybeUndefined, SimpleObject};
 use qm::customer::model::{Customer, Institution, Organization};
-use qm::entity::ids::{EntityId, InstitutionResourceId, OrganizationResourceId};
+use qm::entity::ids::{InstitutionResourceId, OrganizationResourceId, Owner, ID};
 use serde::{Deserialize, Serialize};
 
 #[derive(Default, Debug, Clone, SimpleObject, InputObject, Serialize, Deserialize)]
@@ -38,8 +38,9 @@ pub struct SimpleAddress {
 #[derive(Default, Debug, Clone, SimpleObject, Serialize, Deserialize)]
 #[graphql(complex)]
 pub struct Employee {
-    #[serde(flatten)]
-    id: EntityId,
+    id: ID,
+    #[graphql(skip)]
+    owner: Owner,
     person: Person,
     address: Option<SimpleAddress>,
 }

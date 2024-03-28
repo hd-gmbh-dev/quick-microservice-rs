@@ -1,23 +1,22 @@
 use qm_keycloak::Keycloak;
 use qm_keycloak::KeycloakError;
 use qm_keycloak::RoleRepresentation;
-use qm_mongodb::DB;
 
-pub const DEFAULT_COLLECTION: &str = "roles";
+// pub const DEFAULT_COLLECTION: &str = "roles";
 
-pub trait RoleDB: AsRef<DB> {
-    fn collection(&self) -> &str {
-        DEFAULT_COLLECTION
-    }
-    fn roles(&self) -> qm_entity::Collection<RoleRepresentation> {
-        let collection = self.collection();
-        qm_entity::Collection(
-            self.as_ref()
-                .get()
-                .collection::<RoleRepresentation>(collection),
-        )
-    }
-}
+// pub trait RoleDB: AsRef<DB> {
+//     fn collection(&self) -> &str {
+//         DEFAULT_COLLECTION
+//     }
+//     fn roles(&self) -> qm_entity::Collection<RoleRepresentation> {
+//         let collection = self.collection();
+//         qm_entity::Collection(
+//             self.as_ref()
+//                 .get()
+//                 .collection::<RoleRepresentation>(collection),
+//         )
+//     }
+// }
 
 pub async fn ensure(
     keycloak: &Keycloak,

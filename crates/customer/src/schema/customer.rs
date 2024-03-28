@@ -2,17 +2,17 @@ use std::sync::Arc;
 
 use async_graphql::{Context, Object, ResultExt};
 
-use qm_entity::ctx::CustomerFilter;
 use qm_entity::err;
+
+use qm_entity::error::EntityError;
 use qm_entity::error::EntityResult;
 use qm_entity::ids::CustomerId;
 use qm_entity::ids::CustomerIds;
-use qm_entity::list::ListCtx;
+
+use qm_entity::ids::InfraId;
 use qm_entity::model::ListFilter;
-use qm_entity::Create;
 use qm_mongodb::bson::doc;
-use qm_mongodb::bson::Uuid;
-use qm_mongodb::DB;
+use sqlx::types::Uuid;
 
 use crate::cleanup::CleanupTask;
 use crate::cleanup::CleanupTaskType;
@@ -24,19 +24,19 @@ use crate::marker::Marker;
 use crate::model::CreateCustomerInput;
 use crate::model::CreateUserPayload;
 use crate::model::Customer;
-use crate::model::{CustomerData, CustomerList};
+use crate::model::CustomerData;
+use crate::model::CustomerList;
+use crate::model::UpdateCustomerInput;
+use crate::mutation::remove_customers;
+use crate::mutation::update_customer;
 use crate::roles;
 use crate::schema::auth::AuthCtx;
+use async_graphql::ComplexObject;
 
-pub const DEFAULT_COLLECTION: &str = "customers";
-
-pub trait CustomerDB: AsRef<DB> {
-    fn collection(&self) -> &str {
-        DEFAULT_COLLECTION
-    }
-    fn customers(&self) -> qm_entity::Collection<Customer> {
-        let collection = self.collection();
-        qm_entity::Collection(self.as_ref().get().collection::<Customer>(collection))
+#[ComplexObject]
+impl Customer {
+    async fn id(&self) -> async_graphql::FieldResult<CustomerId> {
+        Ok(self.into())
     }
 }
 
@@ -62,56 +62,53 @@ where
         &self,
         filter: Option<ListFilter>,
     ) -> async_graphql::FieldResult<CustomerList> {
-        ListCtx::new(self.0.store.customers())
-            .list(filter)
-            .await
-            .extend()
+        Ok(self.0.store.cache_db().customer_list(filter).await)
     }
 
     pub async fn by_id(&self, id: CustomerId) -> Option<Arc<Customer>> {
-        self.0.store.cache().customer().customer_by_id(&id.id).await
+        self.0.store.cache_db().customer_by_id(&id.into()).await
     }
 
-    pub async fn create(&self, customer: CustomerData) -> EntityResult<Customer> {
+    pub async fn create(&self, customer: CustomerData) -> EntityResult<Arc<Customer>> {
+        let user_id = self.0.auth.user_id().unwrap();
         let name = customer.0.clone();
         let lock_key = format!("v1_customer_lock_{name}");
         let lock = self.0.store.redis().lock(&lock_key, 5000, 20, 250).await?;
         let (result, exists) = async {
             EntityResult::Ok(
-                if let Some(item) = self.0.store.customers().by_name(&customer.0).await? {
+                if let Some(item) = self.0.store.cache_db().customer_by_name(&customer.0).await {
                     (item, true)
                 } else {
-                    let result = self
-                        .0
-                        .store
-                        .customers()
-                        .save(customer.create(&self.0.auth)?)
-                        .await?;
-                    let id = result.as_id();
+                    let result = crate::mutation::create_customer(
+                        self.0.store.customer_db().pool(),
+                        &name,
+                        user_id,
+                    )
+                    .await?;
+                    let id: CustomerId = (&result).into();
                     let access = qm_role::Access::new(AccessLevel::customer())
                         .with_fmt_id(Some(&id))
                         .to_string();
                     let roles =
                         roles::ensure(self.0.store.keycloak(), Some(access).into_iter()).await?;
-                    let cache = self.0.store.cache();
-                    cache
-                        .customer()
-                        .new_customer(self.0.store.redis().as_ref(), result.clone())
-                        .await?;
-                    cache
-                        .user()
-                        .new_roles(self.0.store, self.0.store.redis().as_ref(), roles)
-                        .await?;
+                    self.0.store.cache_db().user().new_roles(roles).await?;
                     if let Some(producer) = self.0.store.mutation_event_producer() {
                         producer
                             .create_event(
                                 &qm_kafka::producer::EventNs::Customer,
-                                CustomerDB::collection(self.0.store),
+                                "customer",
                                 &result,
                             )
                             .await?;
                     }
-                    (result, false)
+                    let customer = Arc::new(result);
+                    self.0
+                        .store
+                        .cache_db()
+                        .infra()
+                        .new_customer(customer.clone())
+                        .await;
+                    (customer, false)
                 },
             )
         }
@@ -123,42 +120,42 @@ where
         Ok(result)
     }
 
+    pub async fn update(&self, id: CustomerId, name: String) -> EntityResult<Arc<Customer>> {
+        let user_id = self.0.auth.user_id().unwrap();
+        let id: InfraId = id.into();
+        let old_customer = self
+            .0
+            .store
+            .cache_db()
+            .customer_by_id(&id)
+            .await
+            .ok_or(EntityError::not_found_by_field::<Customer>("name", &name))?;
+        let result = update_customer(self.0.store.customer_db().pool(), id, &name, user_id).await?;
+        let new_customer = Arc::new(result);
+        self.0
+            .store
+            .cache_db()
+            .infra()
+            .update_customer(new_customer.clone(), old_customer.as_ref().into())
+            .await;
+        Ok(new_customer)
+    }
+
     pub async fn remove(&self, ids: CustomerIds) -> EntityResult<u64> {
-        let db = self.0.store.as_ref();
-        let mut session = db.session().await?;
-        let docs = ids
-            .iter()
-            .map(|cid| {
-                doc! {"_id": cid.as_ref()}
-            })
-            .collect::<Vec<_>>();
-        if !docs.is_empty() {
-            let result = self
-                .0
-                .store
-                .customers()
-                .as_ref()
-                .delete_many_with_session(doc! {"$or": docs}, None, &mut session)
-                .await?;
+        let v: Vec<i64> = ids.iter().map(CustomerId::unzip).collect();
+        let delete_count = remove_customers(self.0.store.customer_db().pool(), &v).await?;
+        if delete_count != 0 {
+            let id = Uuid::new_v4();
             self.0
                 .store
-                .cache()
-                .customer()
-                .reload_customers(self.0.store, Some(self.0.store.redis().as_ref()))
+                .cleanup_task_producer()
+                .add_item(&CleanupTask {
+                    id,
+                    ty: CleanupTaskType::Customers(ids),
+                })
                 .await?;
-            if result.deleted_count != 0 {
-                let id = Uuid::new();
-                self.0
-                    .store
-                    .cleanup_task_producer()
-                    .add_item(&CleanupTask {
-                        id,
-                        ty: CleanupTaskType::Customers(ids),
-                    })
-                    .await?;
-                log::debug!("emit cleanup task {}", id.to_string());
-                return Ok(result.deleted_count);
-            }
+            log::debug!("emit cleanup task {}", id.to_string());
+            return Ok(delete_count);
         }
         Ok(0)
     }
@@ -253,7 +250,7 @@ where
         &self,
         ctx: &Context<'_>,
         input: CreateCustomerInput,
-    ) -> async_graphql::FieldResult<Customer> {
+    ) -> async_graphql::FieldResult<Arc<Customer>> {
         let result = Ctx(
             AuthCtx::<'_, Auth, Store, AccessLevel, Resource, Permission>::new_with_role(
                 ctx,
@@ -264,7 +261,7 @@ where
         .create(CustomerData(input.name))
         .await
         .extend()?;
-        let id = result.as_id();
+        let id: CustomerId = result.as_ref().into();
         if let Some(user) = input.initial_user {
             crate::schema::user::Ctx(
                 AuthCtx::<'_, Auth, Store, AccessLevel, Resource, Permission>::new_with_role(
@@ -281,9 +278,7 @@ where
                 ),
                 user,
                 group: Some(Auth::create_customer_owner_group().name),
-                context: Some(qm_entity::ctx::ContextFilterInput::Customer(
-                    CustomerFilter { customer: id.id },
-                )),
+                context: Some(qm_entity::ids::InfraContext::Customer(id)),
             })
             .await
             .extend()?;
@@ -291,23 +286,23 @@ where
         Ok(result)
     }
 
-    // async fn update_customer(
-    //     &self,
-    //     ctx: &Context<'_>,
-    //     context: CustomerFilter,
-    //     input: UpdateCustomerInput,
-    // ) -> async_graphql::FieldResult<Customer> {
-    //     Ctx(
-    //         AuthCtx::<'_, Auth, Store, AccessLevel, Resource, Permission>::new_with_role(
-    //             ctx,
-    //             (Resource::customer(), Permission::update()),
-    //         )
-    //         .await?,
-    //     )
-    //     .update(context, input)
-    //     .await
-    //     .extend()
-    // }
+    async fn update_customer(
+        &self,
+        ctx: &Context<'_>,
+        context: CustomerId,
+        input: UpdateCustomerInput,
+    ) -> async_graphql::FieldResult<Arc<Customer>> {
+        Ctx(
+            AuthCtx::<'_, Auth, Store, AccessLevel, Resource, Permission>::new_with_role(
+                ctx,
+                (Resource::customer(), Permission::update()),
+            )
+            .await?,
+        )
+        .update(context, input.name)
+        .await
+        .extend()
+    }
 
     async fn remove_customers(
         &self,

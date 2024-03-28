@@ -11,7 +11,6 @@ use qm_mongodb::bson::{doc, oid::ObjectId};
 use qm_mongodb::options::FindOptions;
 use qm_mongodb::results::DeleteResult;
 use serde::{de::DeserializeOwned, Serialize};
-use std::sync::Arc;
 
 pub mod ctx;
 pub mod error;
@@ -76,9 +75,8 @@ pub trait HasRole<R, P> {
 }
 
 pub trait UserId {
-    fn user_id(&self) -> Option<&qm_mongodb::bson::Uuid>;
+    fn user_id(&self) -> Option<&sqlx::types::Uuid>;
 }
-
 pub trait SessionAccess<A> {
     fn session_access(&self) -> Option<&qm_role::Access<A>>;
 }
@@ -186,7 +184,7 @@ where
     pub async fn save(&self, mut value: T) -> qm_mongodb::error::Result<T> {
         let id: qm_mongodb::bson::Bson = self.as_ref().insert_one(&value, None).await?.inserted_id;
         if let qm_mongodb::bson::Bson::ObjectId(cid) = id {
-            *value.as_mut() = Some(Arc::new(cid));
+            *value.as_mut() = Some(cid);
         }
         Ok(value)
     }

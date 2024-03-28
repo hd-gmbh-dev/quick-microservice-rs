@@ -1,7 +1,7 @@
 use crate::UserId;
 use async_graphql::ErrorExtensions;
 use qm_keycloak::KeycloakError;
-use qm_mongodb::bson::Uuid;
+use sqlx::types::Uuid;
 use thiserror::Error;
 
 #[derive(Debug, Error)]

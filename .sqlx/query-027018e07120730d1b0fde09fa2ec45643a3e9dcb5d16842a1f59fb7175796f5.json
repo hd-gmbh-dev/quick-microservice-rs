@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\nSELECT\n    r.id AS role_id,\n    r.name AS role_name\nFROM realm re\n    JOIN public.keycloak_role r ON r.realm_id = re.id\n    WHERE re.name = $1;",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "role_id",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 1,
+        "name": "role_name",
+        "type_info": "Varchar"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      true
+    ]
+  },
+  "hash": "027018e07120730d1b0fde09fa2ec45643a3e9dcb5d16842a1f59fb7175796f5"
+}

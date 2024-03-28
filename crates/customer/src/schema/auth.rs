@@ -1,22 +1,19 @@
 use async_graphql::Context;
+use async_graphql::ErrorExtensions;
 use async_graphql::FieldResult;
 use async_graphql::ResultExt;
-use qm_entity::ctx::ContextFilterInput;
-use qm_entity::ctx::OrganizationFilter;
-use qm_entity::error::EntityResult;
 
-use qm_entity::ids::CustomerResourceId;
+use qm_entity::error::EntityResult;
+use qm_entity::ids::CustomerId;
+use qm_entity::ids::CustomerOrOrganization;
+use qm_entity::ids::InfraContext;
 use qm_entity::ids::InstitutionId;
 use qm_entity::ids::OrganizationId;
-use qm_entity::ids::OrganizationResourceId;
-use qm_mongodb::bson::doc;
-use qm_mongodb::bson::oid::ObjectId;
 use qm_mongodb::bson::Document;
-use std::str::FromStr;
-use std::sync::Arc;
 
-use qm_entity::ctx::CustomerFilter;
-use qm_entity::ctx::MutationContext;
+use std::sync::Arc;
+use tokio::sync::RwLock;
+
 use qm_entity::err;
 use qm_entity::error::EntityError;
 use qm_entity::ids::OrganizationUnitId;
@@ -29,8 +26,10 @@ use crate::context::RelatedStorage;
 use crate::marker::ArpMarker;
 use crate::model::Customer;
 use crate::model::Organization;
-use crate::model::OrganizationUnit;
-use crate::model::Owner;
+
+// use crate::model::Customer;
+// use crate::model::Organization;
+// use crate::model::OrganizationUnit;
 
 enum Lvl {
     Customer,
@@ -44,6 +43,8 @@ enum Lvl {
 pub struct AuthCtx<'ctx, Auth, Store, AccessLevel, Resource, Permission> {
     pub auth: Auth,
     pub store: &'ctx Store,
+    pub requires_context: bool,
+    pub context: Arc<RwLock<Option<InfraContext>>>,
     pub is_admin: bool,
     _marker: ArpMarker<AccessLevel, Resource, Permission>,
     // access: Access,
@@ -64,10 +65,20 @@ where
         let auth = Auth::from_graphql_context(graphql_context).await.extend()?;
         let store = graphql_context.data_unchecked::<Store>();
         let is_admin = auth.is_admin();
+        if auth.user_id().is_none() {
+            return Err(EntityError::Forbidden).extend();
+        }
+        let has_id = auth
+            .session_access()
+            .map(|v| v.id().is_some())
+            .ok_or(EntityError::unauthorized(&auth).extend())?;
+        let requires_context = !is_admin && has_id;
         Ok(Self {
             is_admin,
             auth,
             store,
+            requires_context,
+            context: Default::default(),
             _marker: Default::default(),
         })
     }
@@ -91,14 +102,13 @@ where
         Ok(result)
     }
 
-    async fn with_customer(self, customer_filter: CustomerFilter) -> FieldResult<Self> {
-        let cache = self.store.cache();
+    async fn with_customer(self, customer_id: CustomerId) -> FieldResult<Self> {
+        let cache = self.store.cache_db();
         let _ = cache
-            .customer()
-            .customer_by_id(&customer_filter.customer)
+            .customer_by_id(&customer_id.into())
             .await
             .ok_or(EntityError::not_found_by_id::<Customer>(
-                customer_filter.customer.to_hex(),
+                customer_id.to_string(),
             ))
             .extend()?;
 
@@ -108,19 +118,17 @@ where
 
         if !self.auth.has_access(
             &qm_role::Access::new(AccessLevel::customer())
-                .with_id(Arc::from(customer_filter.customer.to_hex())),
+                .with_id(Arc::from(customer_id.to_string())),
         ) {
             return err!(unauthorized(&self.auth)).extend();
         }
         Ok(self)
     }
 
-    async fn with_organization(self, organization_filter: OrganizationFilter) -> FieldResult<Self> {
-        let organization_id = organization_filter.into();
-        let cache = self.store.cache();
+    async fn with_organization(self, organization_id: OrganizationId) -> FieldResult<Self> {
+        let cache = self.store.cache_db();
         let _ = cache
-            .customer()
-            .organization_by_id(&organization_id)
+            .organization_by_id(&organization_id.into())
             .await
             .ok_or(EntityError::not_found_by_id::<Organization>(
                 organization_id.to_string(),
@@ -133,7 +141,7 @@ where
 
         let customer_access = self.auth.has_access(
             &qm_role::Access::new(AccessLevel::customer())
-                .with_id(Arc::from(organization_id.cid.to_string())),
+                .with_id(Arc::from(organization_id.root().to_string())),
         );
 
         let organization_access = self.auth.has_access(
@@ -149,13 +157,13 @@ where
 
     pub async fn mutate_with_role(
         graphql_context: &'ctx Context<'_>,
-        mutation_context: MutationContext,
+        mutation_context: InfraContext,
         role: (Resource, Permission),
     ) -> FieldResult<Self> {
         let result = Self::new_with_role(graphql_context, role).await?;
         match mutation_context {
-            MutationContext::Customer(filter) => result.with_customer(filter).await,
-            MutationContext::Organization(filter) => result.with_organization(filter).await,
+            InfraContext::Customer(filter) => result.with_customer(filter).await,
+            InfraContext::Organization(filter) => result.with_organization(filter).await,
             _ => {
                 unimplemented!()
             }
@@ -178,525 +186,211 @@ where
         Lvl::None
     }
 
+    pub async fn enforce_customer_context(
+        &self,
+        context: Option<CustomerId>,
+    ) -> EntityResult<Option<CustomerId>> {
+        if self.is_admin {
+            return Ok(context);
+        }
+        let lvl = self.lvl();
+        if matches!(lvl, Lvl::Customer) {
+            let access = self
+                .auth
+                .session_access()
+                .ok_or(EntityError::unauthorized(&self.auth))?;
+            let id = access.id().ok_or(EntityError::unauthorized(&self.auth))?;
+            return Ok(Some(
+                CustomerId::parse(id)
+                    .ok()
+                    .ok_or(EntityError::unauthorized(&self.auth))?,
+            ));
+        }
+        Err(EntityError::unauthorized(&self.auth))
+    }
+
+    pub async fn enforce_customer_or_organization_context(
+        &self,
+        context: Option<CustomerOrOrganization>,
+    ) -> EntityResult<Option<CustomerOrOrganization>> {
+        if self.is_admin {
+            return Ok(context);
+        }
+        let lvl = self.lvl();
+        if matches!(lvl, Lvl::Customer) {
+            let access = self
+                .auth
+                .session_access()
+                .ok_or(EntityError::unauthorized(&self.auth))?;
+            let id = access.id().ok_or(EntityError::unauthorized(&self.auth))?;
+            return Ok(Some(
+                CustomerId::parse(id)
+                    .map(CustomerOrOrganization::Customer)
+                    .ok()
+                    .ok_or(EntityError::unauthorized(&self.auth))?,
+            ));
+        }
+        if matches!(lvl, Lvl::Organization) {
+            let access = self
+                .auth
+                .session_access()
+                .ok_or(EntityError::unauthorized(&self.auth))?;
+            let id = access.id().ok_or(EntityError::unauthorized(&self.auth))?;
+            return Ok(Some(
+                OrganizationId::parse(id)
+                    .map(CustomerOrOrganization::Organization)
+                    .ok()
+                    .ok_or(EntityError::unauthorized(&self.auth))?,
+            ));
+        }
+        Err(EntityError::unauthorized(&self.auth))
+    }
+
+    pub async fn enforce_current_context(
+        &self,
+        context: Option<InfraContext>,
+    ) -> EntityResult<Option<InfraContext>> {
+        if self.is_admin {
+            return Ok(context);
+        }
+        let lvl = self.lvl();
+        if let Some(id) = self
+            .auth
+            .session_access()
+            .ok_or(EntityError::internal())?
+            .id()
+        {
+            if let Some(context) = context {
+                return match lvl {
+                    Lvl::Customer => Ok(Some(
+                        CustomerId::parse(id)
+                            .map(InfraContext::Customer)
+                            .ok()
+                            .ok_or(EntityError::unauthorized(&self.auth))?,
+                    )),
+                    Lvl::OrganizationUnit => Ok(Some(
+                        OrganizationUnitId::parse(id)
+                            .map(InfraContext::OrganizationUnit)
+                            .ok()
+                            .ok_or(EntityError::unauthorized(&self.auth))?,
+                    )),
+                    Lvl::Organization => Ok(Some(
+                        OrganizationId::parse(id)
+                            .map(InfraContext::Organization)
+                            .ok()
+                            .ok_or(EntityError::unauthorized(&self.auth))?,
+                    )),
+                    Lvl::Institution => Ok(Some(
+                        InstitutionId::parse(id)
+                            .map(InfraContext::Institution)
+                            .ok()
+                            .ok_or(EntityError::unauthorized(&self.auth))?,
+                    )),
+                    Lvl::None => Err(EntityError::unauthorized(&self.auth))?,
+                }
+                .map(|c| c.map(|v| v.combine(context)));
+            } else {
+                return match lvl {
+                    Lvl::Customer => Ok(Some(
+                        CustomerId::parse(id)
+                            .map(InfraContext::Customer)
+                            .ok()
+                            .ok_or(EntityError::unauthorized(&self.auth))?,
+                    )),
+                    Lvl::OrganizationUnit => Ok(Some(
+                        OrganizationUnitId::parse(id)
+                            .map(InfraContext::OrganizationUnit)
+                            .ok()
+                            .ok_or(EntityError::unauthorized(&self.auth))?,
+                    )),
+                    Lvl::Organization => Ok(Some(
+                        OrganizationId::parse(id)
+                            .map(InfraContext::Organization)
+                            .ok()
+                            .ok_or(EntityError::unauthorized(&self.auth))?,
+                    )),
+                    Lvl::Institution => Ok(Some(
+                        InstitutionId::parse(id)
+                            .map(InfraContext::Institution)
+                            .ok()
+                            .ok_or(EntityError::unauthorized(&self.auth))?,
+                    )),
+                    Lvl::None => Err(EntityError::unauthorized(&self.auth))?,
+                };
+            }
+        }
+        Err(EntityError::unauthorized(&self.auth))
+    }
+
     pub async fn build_context_query(
         &self,
-        context: Option<&ContextFilterInput>,
+        _context: Option<&InfraContext>,
     ) -> EntityResult<Document> {
-        if self.is_admin {
-            return if let Some(context) = context {
-                match context {
-                    ContextFilterInput::Customer(v) => Ok(doc! {
-                        "owner.entityId.cid": v.customer.as_ref(),
-                    }),
-                    ContextFilterInput::Organization(v) => Ok(doc! {
-                        "owner.entityId.cid": v.customer.as_ref(),
-                        "owner.entityId.oid": v.organization.as_ref(),
-                    }),
-                    ContextFilterInput::OrganizationUnit(v) => {
-                        let organization_unit = self
-                            .store
-                            .cache()
-                            .customer()
-                            .organization_unit_by_id(&v.clone().into())
-                            .await
-                            .ok_or(EntityError::internal())?;
-                        let mut docs: Vec<Document> = organization_unit
-                            .members
-                            .iter()
-                            .map(|v| {
-                                doc! {
-                                    "entityId.cid": v.cid.as_ref(),
-                                    "entityId.oid": v.oid.as_ref(),
-                                    "entityId.iid": v.iid.as_ref(),
-                                }
-                            })
-                            .collect();
-                        let mut unit = doc! {
-                            "entityId.cid": v.customer.as_ref(),
-                            "entityId.iid": v.organization_unit.as_ref(),
-                        };
-                        if let Some(oid) = v.organization.as_ref() {
-                            unit.insert("entityId.oid", oid.as_ref());
-                        }
-                        docs.push(unit);
-                        Ok(doc! {
-                            "owner": {
-                                "$in": &docs,
-                            }
-                        })
-                    }
-                    ContextFilterInput::Institution(v) => Ok(doc! {
-                        "owner.entityId.cid": v.customer.as_ref(),
-                        "owner.entityId.oid": v.organization.as_ref(),
-                        "owner.entityId.iid": v.institution.as_ref(),
-                    }),
-                }
-            } else {
-                Ok(doc! {})
-            };
+        unimplemented!()
+    }
+
+    async fn ensure_user_context(&self) -> EntityResult<()> {
+        let has_context = self.context.read().await.is_some();
+        if has_context {
+            return Ok(());
         }
         let id = self
             .auth
             .session_access()
             .ok_or(EntityError::internal())?
-            .id()
-            .ok_or(EntityError::internal())?;
-        match self.lvl() {
-            Lvl::Customer => {
-                if id.len() != 24 {
-                    return err!(unauthorized(&self.auth));
-                }
-                match context {
-                    Some(ContextFilterInput::Organization(organization_filter)) => {
-                        let cid = ObjectId::parse_str(id).map_err(|_| EntityError::internal())?;
-                        if organization_filter.customer.as_ref() == &cid {
-                            let oid = organization_filter.organization.as_ref();
-                            Ok(doc! {
-                                "owner.entityId.cid": &cid,
-                                "owner.entityId.oid": oid,
-                            })
-                        } else {
-                            err!(unauthorized(&self.auth))
-                        }
-                    }
-                    Some(ContextFilterInput::OrganizationUnit(v)) => {
-                        let cid = ObjectId::parse_str(id).map_err(|_| EntityError::internal())?;
-                        if v.customer.as_ref() == &cid {
-                            let organization_unit = self
-                                .store
-                                .cache()
-                                .customer()
-                                .organization_unit_by_id(&v.clone().into())
-                                .await
-                                .ok_or(EntityError::internal())?;
-                            let mut docs: Vec<Document> = organization_unit
-                                .members
-                                .iter()
-                                .map(|v| {
-                                    doc! {
-                                        "ty": "Institution",
-                                        "entityId": {
-                                            "cid": v.cid.as_ref(),
-                                            "oid": v.oid.as_ref(),
-                                            "iid": v.iid.as_ref(),
-                                        }
-                                    }
-                                })
-                                .collect();
-                            let entity_id = if let Some(oid) = v.organization.as_ref() {
-                                doc! {
-                                    "cid": v.customer.as_ref(),
-                                    "oid": oid.as_ref(),
-                                    "iid": v.organization_unit.as_ref(),
-                                }
-                            } else {
-                                doc! {
-                                    "cid": v.customer.as_ref(),
-                                    "iid": v.organization_unit.as_ref(),
-                                }
-                            };
-                            docs.push(doc! {
-                                "ty": "OrganizationUnit",
-                                "entityId": entity_id
-                            });
-                            Ok(doc! {
-                                "owner": {
-                                    "$in": &docs,
-                                }
-                            })
-                        } else {
-                            err!(unauthorized(&self.auth))
-                        }
-                    }
-                    Some(ContextFilterInput::Institution(institution_filter)) => {
-                        let cid =
-                            ObjectId::parse_str(&id[0..24]).map_err(|_| EntityError::internal())?;
-                        if institution_filter.customer.as_ref() == &cid {
-                            let oid = institution_filter.organization.as_ref();
-                            let iid = institution_filter.institution.as_ref();
-                            Ok(doc! {
-                                "owner.entityId.cid": &cid,
-                                "owner.entityId.oid": oid,
-                                "owner.entityId.iid": iid,
-                            })
-                        } else {
-                            err!(unauthorized(&self.auth))
-                        }
-                    }
-                    _ => {
-                        let cid =
-                            ObjectId::parse_str(&id[0..24]).map_err(|_| EntityError::internal())?;
-                        Ok(doc! {
-                            "owner.entityId.cid": &cid,
-                        })
-                    }
-                }
-            }
-            Lvl::Organization => {
-                if id.len() != 48 {
-                    return err!(unauthorized(&self.auth));
-                }
-                match context {
-                    Some(ContextFilterInput::OrganizationUnit(v)) => {
-                        let cid =
-                            ObjectId::parse_str(&id[0..24]).map_err(|_| EntityError::internal())?;
-                        let oid = ObjectId::parse_str(&id[24..48])
-                            .map_err(|_| EntityError::internal())?;
-                        if v.customer.as_ref() == &cid && v.organization.as_deref() == Some(&oid) {
-                            let organization_unit = self
-                                .store
-                                .cache()
-                                .customer()
-                                .organization_unit_by_id(&v.clone().into())
-                                .await
-                                .ok_or(EntityError::internal())?;
-                            let mut docs: Vec<Document> = organization_unit
-                                .members
-                                .iter()
-                                .map(|v| {
-                                    doc! {
-                                        "ty": "Institution",
-                                        "entityId": {
-                                            "cid": v.cid.as_ref(),
-                                            "oid": v.oid.as_ref(),
-                                            "iid": v.iid.as_ref(),
-                                        }
-                                    }
-                                })
-                                .collect();
-                            docs.push(doc! {
-                                "ty": "OrganizationUnit",
-                                "entityId": {
-                                    "cid": v.customer.as_ref(),
-                                    "oid": &oid,
-                                    "iid": v.organization_unit.as_ref(),
-                                }
-                            });
-                            Ok(doc! {
-                                "owner": {
-                                    "$in": &docs,
-                                }
-                            })
-                        } else {
-                            err!(unauthorized(&self.auth))
-                        }
-                    }
-                    Some(ContextFilterInput::Institution(institution_filter)) => {
-                        let cid =
-                            ObjectId::parse_str(&id[0..24]).map_err(|_| EntityError::internal())?;
-                        let oid = ObjectId::parse_str(&id[24..48])
-                            .map_err(|_| EntityError::internal())?;
-                        if institution_filter.customer.as_ref() == &cid
-                            && institution_filter.organization.as_ref() == &oid
-                        {
-                            let iid = institution_filter.institution.as_ref();
-                            let cid = ObjectId::parse_str(&id[0..24])
-                                .map_err(|_| EntityError::internal())?;
-                            let oid = ObjectId::parse_str(&id[24..48])
-                                .map_err(|_| EntityError::internal())?;
-                            Ok(doc! {
-                                "owner.entityId.cid": &cid,
-                                "owner.entityId.oid": &oid,
-                                "owner.entityId.iid": iid,
-                            })
-                        } else {
-                            err!(unauthorized(&self.auth))
-                        }
-                    }
-                    _ => {
-                        let id = self.auth.session_access().unwrap().id().unwrap();
-                        let cid =
-                            ObjectId::parse_str(&id[0..24]).map_err(|_| EntityError::internal())?;
-                        let oid = ObjectId::parse_str(&id[24..48])
-                            .map_err(|_| EntityError::internal())?;
-                        Ok(doc! {
-                            "owner.entityId.cid": &cid,
-                            "owner.entityId.oid": &oid,
-                        })
-                    }
-                }
-            }
-            Lvl::OrganizationUnit => {
-                let l = id.len();
-                if l == 48 {
-                    let rid = CustomerResourceId::from_str(id)?;
-                    let organization_unit_id = OrganizationUnitId::Customer(rid.clone());
-                    let organization_unit = self
-                        .store
-                        .cache()
-                        .customer()
-                        .organization_unit_by_id(&organization_unit_id)
-                        .await
-                        .ok_or(EntityError::internal())?;
-                    let mut docs: Vec<Document> = organization_unit
-                        .members
-                        .iter()
-                        .map(|v| {
-                            doc! {
-                                "ty": "Institution",
-                                "entityId": {
-                                    "cid": v.cid.as_ref(),
-                                    "oid": v.oid.as_ref(),
-                                    "iid": v.iid.as_ref(),
-                                }
-                            }
-                        })
-                        .collect();
-                    docs.push(doc! {
-                        "ty": "OrganizationUnit",
-                        "entityId": {
-                            "cid": rid.cid.as_ref(),
-                            "iid": rid.id.as_ref(),
-                        }
-                    });
-                    Ok(doc! {
-                        "owner": {
-                            "$in": &docs,
-                        }
-                    })
-                } else if l == 72 {
-                    let rid = OrganizationResourceId::from_str(id)?;
-                    let organization_unit_id = OrganizationUnitId::Organization(rid.clone());
-                    let organization_unit = self
-                        .store
-                        .cache()
-                        .customer()
-                        .organization_unit_by_id(&organization_unit_id)
-                        .await
-                        .ok_or(EntityError::internal())?;
+            .id();
 
-                    let mut docs: Vec<Document> = organization_unit
-                        .members
-                        .iter()
-                        .map(|v| {
-                            doc! {
-                                "ty": "Institution",
-                                "entityId": {
-                                    "cid": v.cid.as_ref(),
-                                    "oid": v.oid.as_ref(),
-                                    "iid": v.iid.as_ref(),
-                                }
-                            }
-                        })
-                        .collect();
-                    docs.push(doc! {
-                        "ty": "OrganizationUnit",
-                        "entityId": {
-                            "cid": rid.cid.as_ref(),
-                            "oid": rid.oid.as_ref(),
-                            "iid": rid.id.as_ref(),
-                        }
-                    });
-                    Ok(doc! {
-                        "owner": {
-                            "$in": &docs,
-                        }
-                    })
-                } else {
-                    err!(unauthorized(&self.auth))
-                }
-            }
-            Lvl::Institution => {
-                // Ignore context for institutions
-                let id = self.auth.session_access().unwrap().id().unwrap();
-                if id.len() == 72 {
-                    let cid =
-                        ObjectId::parse_str(&id[0..24]).map_err(|_| EntityError::internal())?;
-                    let oid =
-                        ObjectId::parse_str(&id[24..48]).map_err(|_| EntityError::internal())?;
-                    let iid =
-                        ObjectId::parse_str(&id[48..72]).map_err(|_| EntityError::internal())?;
-                    Ok(doc! {
-                        "owner.entityId.cid": &cid,
-                        "owner.entityId.oid": &oid,
-                        "owner.entityId.iid": &iid,
-                    })
-                } else {
-                    err!(unauthorized(&self.auth))
-                }
-            }
-            Lvl::None => err!(unauthorized(&self.auth)),
+        if let Some(id) = id {
+            let ctx = InfraContext::parse(id)?;
+            self.context.write().await.replace(ctx);
         }
+        Ok(())
     }
 
-    pub async fn can_mutate(&self, owner: &Owner) -> EntityResult<()> {
-        if self.is_admin {
+    pub async fn can_mutate(&self, object_context: Option<&InfraContext>) -> EntityResult<()> {
+        if !self.requires_context {
             return Ok(());
         }
-        match self.lvl() {
-            Lvl::Customer => match owner {
-                Owner::Customer(v)
-                | Owner::Organization(v)
-                | Owner::Institution(v)
-                | Owner::OrganizationUnit(v) => {
-                    let cid = v.cid.as_ref().ok_or(EntityError::bad_request(
-                        "Owner",
-                        "owner does not have 'cid'",
-                    ))?;
-                    let customer_access = self.auth.has_access(
-                        &qm_role::Access::new(AccessLevel::customer())
-                            .with_id(Arc::from(cid.to_hex().to_string())),
-                    );
-                    if !customer_access {
-                        return err!(unauthorized(&self.auth));
-                    }
-                    Ok(())
+        self.ensure_user_context().await?;
+        let c = self.context.read().await;
+        let user_context = c.as_ref().ok_or(EntityError::unauthorized(&self.auth))?;
+        let object_context = object_context.ok_or(EntityError::unauthorized(&self.auth))?;
+        match user_context {
+            InfraContext::Customer(v) => {
+                if object_context.has_customer(v) {
+                    return Ok(());
                 }
-                Owner::None => {
-                    err!(unauthorized(&self.auth))
+                err!(unauthorized(&self.auth))
+            }
+            InfraContext::Organization(v) => {
+                if object_context.has_organization(v) {
+                    return Ok(());
                 }
-            },
-            Lvl::Organization => match owner {
-                Owner::None | Owner::Customer(_) => {
-                    err!(unauthorized(&self.auth))
+                err!(unauthorized(&self.auth))
+            }
+            InfraContext::Institution(v) => {
+                if object_context.has_institution(v) {
+                    return Ok(());
                 }
-                Owner::Organization(v) | Owner::Institution(v) | Owner::OrganizationUnit(v) => {
-                    let cid = v.cid.as_ref().ok_or(EntityError::bad_request(
-                        "Owner",
-                        "owner does not have 'cid'",
-                    ))?;
-                    let oid = v.oid.as_ref().ok_or(EntityError::bad_request(
-                        "Owner",
-                        "owner does not have 'oid'",
-                    ))?;
-                    let organization_access = self.auth.has_access(
-                        &qm_role::Access::new(AccessLevel::organization()).with_fmt_id(Some(
-                            &OrganizationId {
-                                cid: cid.clone(),
-                                id: oid.clone(),
-                            },
-                        )),
-                    );
-                    if !organization_access {
-                        return err!(unauthorized(&self.auth));
-                    }
-                    Ok(())
-                }
-            },
-            Lvl::OrganizationUnit => match owner {
-                Owner::Customer(_) | Owner::Organization(_) | Owner::None => {
-                    err!(unauthorized(&self.auth))
-                }
-                Owner::OrganizationUnit(v) => {
-                    let cid = v.cid.as_ref().ok_or(EntityError::bad_request(
-                        "Owner",
-                        "owner does not have 'cid'",
-                    ))?;
-                    let iid = v.iid.as_ref().ok_or(EntityError::bad_request(
-                        "Owner",
-                        "owner does not have 'iid'",
-                    ))?;
-                    let organization_unit_access = if let Some(oid) = v.oid.as_ref() {
-                        self.auth.has_access(
-                            &qm_role::Access::new(AccessLevel::organization_unit()).with_fmt_id(
-                                Some(&OrganizationUnitId::Organization(OrganizationResourceId {
-                                    cid: cid.clone(),
-                                    oid: oid.clone(),
-                                    id: iid.clone(),
-                                })),
-                            ),
-                        )
-                    } else {
-                        self.auth.has_access(
-                            &qm_role::Access::new(AccessLevel::organization_unit()).with_fmt_id(
-                                Some(&OrganizationUnitId::Customer(CustomerResourceId {
-                                    cid: cid.clone(),
-                                    id: iid.clone(),
-                                })),
-                            ),
-                        )
-                    };
-                    if !organization_unit_access {
-                        return err!(unauthorized(&self.auth));
-                    }
-                    Ok(())
-                }
-                Owner::Institution(v) => {
-                    let cid = v.cid.as_ref().ok_or(EntityError::bad_request(
-                        "Owner",
-                        "owner does not have 'cid'",
-                    ))?;
-                    let oid = v.oid.as_ref().ok_or(EntityError::bad_request(
-                        "Owner",
-                        "owner does not have 'oid'",
-                    ))?;
-                    let iid = v.iid.as_ref().ok_or(EntityError::bad_request(
-                        "Owner",
-                        "owner does not have 'iid'",
-                    ))?;
-
-                    let id = self
-                        .auth
-                        .session_access()
-                        .ok_or(EntityError::internal())?
-                        .id()
-                        .ok_or(EntityError::internal())?;
-
-                    let l = id.len();
-                    let organization_unit_id = if l == 48 {
-                        let rid = CustomerResourceId::from_str(id)?;
-                        Some(OrganizationUnitId::Customer(rid.clone()))
-                    } else if l == 72 {
-                        let rid = OrganizationResourceId::from_str(id)?;
-                        Some(OrganizationUnitId::Organization(rid.clone()))
-                    } else {
-                        None
-                    }
+                err!(unauthorized(&self.auth))
+            }
+            InfraContext::OrganizationUnit(v) => {
+                let organization_unit = self
+                    .store
+                    .cache_db()
+                    .organization_unit_by_id(&v.into())
+                    .await
                     .ok_or(EntityError::internal())?;
-                    let organization_unit = self
-                        .store
-                        .cache()
-                        .customer()
-                        .organization_unit_by_id(&organization_unit_id)
-                        .await
-                        .ok_or(EntityError::not_found_by_id::<OrganizationUnit>(id))?;
-
-                    let has_member = organization_unit
+                if object_context.has_organization_unit(v)
+                    || organization_unit
                         .members
                         .iter()
-                        .any(|v| &v.cid == cid && &v.oid == oid && &v.iid == iid);
-                    if !has_member {
-                        return err!(unauthorized(&self.auth));
-                    }
-                    Ok(())
+                        .any(|i| object_context.has_institution(i))
+                {
+                    return Ok(());
                 }
-            },
-            Lvl::Institution => match owner {
-                Owner::Customer(_)
-                | Owner::Organization(_)
-                | Owner::OrganizationUnit(_)
-                | Owner::None => {
-                    err!(unauthorized(&self.auth))
-                }
-                Owner::Institution(v) => {
-                    let cid = v.cid.as_ref().ok_or(EntityError::bad_request(
-                        "Owner",
-                        "owner does not have 'cid'",
-                    ))?;
-                    let oid = v.oid.as_ref().ok_or(EntityError::bad_request(
-                        "Owner",
-                        "owner does not have 'oid'",
-                    ))?;
-                    let iid = v.iid.as_ref().ok_or(EntityError::bad_request(
-                        "Owner",
-                        "owner does not have 'iid'",
-                    ))?;
-                    let institution_access = self.auth.has_access(
-                        &qm_role::Access::new(AccessLevel::institution()).with_fmt_id(Some(
-                            &InstitutionId {
-                                cid: cid.clone(),
-                                oid: oid.clone(),
-                                id: iid.clone(),
-                            },
-                        )),
-                    );
-                    if !institution_access {
-                        return err!(unauthorized(&self.auth));
-                    }
-                    Ok(())
-                }
-            },
-            Lvl::None => err!(unauthorized(&self.auth)),
+                err!(unauthorized(&self.auth))
+            }
         }
     }
 }

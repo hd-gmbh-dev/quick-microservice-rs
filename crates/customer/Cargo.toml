@@ -7,6 +7,7 @@ version.workspace = true
 authors = ["Jürgen Seitz <juergen.seitz@h-d-gmbh.de>"]
 license = "MIT"
 repository = "https://github.com/hd-gmbh-dev/quick-microservice-rs"
+include = ["/src", "/migrations"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -27,9 +28,12 @@ strum.workspace = true
 envy.workspace = true
 constcat.workspace = true
 lazy_static.workspace = true
+sqlx.workspace = true
+time.workspace = true
 qm-mongodb.workspace = true
 qm-kafka.workspace = true
 qm-keycloak.workspace = true
 qm-entity.workspace = true
 qm-redis.workspace = true
 qm-role.workspace = true
+qm-pg.workspace = true

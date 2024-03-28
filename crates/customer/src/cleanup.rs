@@ -6,19 +6,13 @@ use std::sync::Arc;
 use strum::AsRefStr;
 use tokio::sync::Semaphore;
 
-use futures::StreamExt;
 use qm_entity::ids::CustomerIds;
 use qm_entity::ids::InstitutionIds;
 use qm_entity::ids::OrganizationIds;
 use qm_entity::ids::OrganizationUnitIds;
 use qm_keycloak::Keycloak;
 use qm_keycloak::KeycloakError;
-use qm_mongodb::bson::doc;
-use qm_mongodb::bson::Uuid;
-use qm_mongodb::ClientSession;
-
-use crate::cache::user::UserCache;
-use crate::roles::RoleDB;
+use sqlx::types::Uuid;
 
 #[derive(
     Default, AsRefStr, Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize,
@@ -46,7 +40,7 @@ pub struct CleanupTask {
 impl CleanupTask {
     pub fn new(ty: CleanupTaskType) -> Self {
         Self {
-            id: Uuid::new(),
+            id: Uuid::new_v4(),
             ty,
         }
     }
@@ -74,14 +68,7 @@ async fn remove_users_by_access(
     Ok(())
 }
 
-pub async fn cleanup_roles(
-    db: &impl RoleDB,
-    redis: &deadpool_redis::Pool,
-    keycloak: &Keycloak,
-    user_cache: &UserCache,
-    roles: BTreeSet<String>,
-    session: &mut ClientSession,
-) -> anyhow::Result<()> {
+pub async fn cleanup_roles(keycloak: &Keycloak, roles: BTreeSet<String>) -> anyhow::Result<()> {
     if !roles.is_empty() {
         let semaphore = Arc::new(Semaphore::new(4));
         let role_remove_tasks = FuturesUnordered::new();
@@ -113,16 +100,6 @@ pub async fn cleanup_roles(
                 }
                 anyhow::Ok(role)
             }));
-        }
-        role_remove_tasks.collect::<Vec<_>>().await;
-        let roles: Vec<&String> = roles.iter().collect();
-        let result = db
-            .roles()
-            .as_ref()
-            .delete_many_with_session(doc! { "name": { "$in": &roles }}, None, session)
-            .await?;
-        if result.deleted_count != 0 {
-            user_cache.reload_roles(db, Some(redis)).await?;
         }
     }
     Ok(())

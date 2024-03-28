@@ -1,22 +1,24 @@
 use std::sync::Arc;
 
+use async_graphql::ComplexObject;
 use async_graphql::ErrorExtensions;
 use async_graphql::ResultExt;
 use async_graphql::{Context, Object};
-
-use qm_entity::ctx::CustOrOrgFilter;
-use qm_entity::ctx::MutationContext;
+use futures::stream;
+use futures::StreamExt;
+use qm_entity::err;
 use qm_entity::error::EntityResult;
+use qm_entity::exerr;
+use qm_entity::ids::CustomerOrOrganization;
 use qm_entity::ids::OrganizationUnitId;
 use qm_entity::ids::OrganizationUnitIds;
-use qm_entity::list::ListCtx;
 use qm_entity::model::ListFilter;
-use qm_entity::Create;
-use qm_entity::{err, exerr};
-use qm_mongodb::bson::{doc, Uuid};
-use qm_mongodb::DB;
+use qm_mongodb::bson::doc;
+use sqlx::types::Uuid;
 
-use crate::cleanup::{CleanupTask, CleanupTaskType};
+use crate::cache::CacheDB;
+use crate::cleanup::CleanupTask;
+use crate::cleanup::CleanupTaskType;
 use crate::context::RelatedAccessLevel;
 use crate::context::RelatedAuth;
 use crate::context::RelatedPermission;
@@ -26,24 +28,32 @@ use crate::groups::RelatedBuiltInGroup;
 use crate::marker::Marker;
 use crate::model::CreateOrganizationUnitInput;
 use crate::model::CreateUserPayload;
+use crate::model::Institution;
 use crate::model::OrganizationUnit;
-use crate::model::{OrganizationUnitData, OrganizationUnitList};
+use crate::model::OrganizationUnitData;
+use crate::model::OrganizationUnitList;
+use crate::mutation::remove_organization_units;
 use crate::roles;
 use crate::schema::auth::AuthCtx;
 
-pub const DEFAULT_COLLECTION: &str = "organization_units";
-
-pub trait OrganizationUnitDB: AsRef<DB> {
-    fn collection(&self) -> &str {
-        DEFAULT_COLLECTION
+#[ComplexObject]
+impl OrganizationUnit {
+    async fn id(&self) -> async_graphql::FieldResult<OrganizationUnitId> {
+        Ok(self.into())
     }
-    fn organization_units(&self) -> qm_entity::Collection<OrganizationUnit> {
-        let collection = self.collection();
-        qm_entity::Collection(
-            self.as_ref()
-                .get()
-                .collection::<OrganizationUnit>(collection),
-        )
+    async fn institutions(
+        &self,
+        ctx: &Context<'_>,
+    ) -> async_graphql::FieldResult<Vec<Arc<Institution>>> {
+        let cache = ctx.data_unchecked::<CacheDB>();
+        let organization_unit = cache.organization_unit_by_id(&self.id).await;
+        if let Some(organization_unit) = organization_unit {
+            return Ok(stream::iter(organization_unit.members.iter())
+                .filter_map(|m| async move { cache.institution_by_id(&m.iid.into()).await })
+                .collect()
+                .await);
+        }
+        Ok(vec![])
     }
 }
 
@@ -67,139 +77,109 @@ where
 {
     pub async fn list(
         &self,
-        context: Option<CustOrOrgFilter>,
+        mut context: Option<CustomerOrOrganization>,
         filter: Option<ListFilter>,
     ) -> async_graphql::FieldResult<OrganizationUnitList> {
-        ListCtx::new(self.0.store.organization_units())
-            .with_query(
-                self.0
-                    .build_context_query(context.map(Into::into).as_ref())
-                    .await
-                    .extend()?,
-            )
-            .list(filter)
-            .await
-            .extend()
+        context = self
+            .0
+            .enforce_customer_or_organization_context(context)
+            .await?;
+        Ok(self
+            .0
+            .store
+            .cache_db()
+            .organization_unit_list(context, filter)
+            .await)
     }
 
     pub async fn by_id(&self, id: OrganizationUnitId) -> Option<Arc<OrganizationUnit>> {
         self.0
             .store
-            .cache()
-            .customer()
-            .organization_unit_by_id(&id)
+            .cache_db()
+            .organization_unit_by_id(&id.into())
             .await
     }
 
     pub async fn create(
         &self,
         organization_unit: OrganizationUnitData,
-    ) -> EntityResult<OrganizationUnit> {
-        let cid = organization_unit.cid.clone();
-        let name = organization_unit.name.clone();
-        let lock_key = format!("v1_organization_unit_lock_{}_{name}", cid.to_hex());
+    ) -> EntityResult<Arc<OrganizationUnit>> {
+        let user_id = self.0.auth.user_id().unwrap();
+        let cid = organization_unit.cid;
+        let oid = organization_unit.oid;
+        let name: Arc<str> = Arc::from(organization_unit.name.clone());
+        let lock_key = format!("v1_organization_unit_lock_{:X}_{name}", cid.as_ref());
         let lock = self.0.store.redis().lock(&lock_key, 5000, 20, 250).await?;
         let (result, exists) = async {
             EntityResult::Ok(
                 if let Some(item) = self
                     .0
                     .store
-                    .organization_units()
-                    .by_field_with_customer_filter(&cid, "name", &name)
-                    .await?
+                    .cache_db()
+                    .organization_unit_by_name(cid, oid, name.clone())
+                    .await
                 {
                     (item, true)
                 } else {
-                    let result = self
-                        .0
-                        .store
-                        .organization_units()
-                        .save(organization_unit.create(&self.0.auth)?)
-                        .await?;
-                    let id = result.as_id();
+                    let result = crate::mutation::create_organization_unit(
+                        self.0.store.customer_db().pool(),
+                        &name,
+                        cid,
+                        oid,
+                        user_id,
+                        organization_unit.members,
+                    )
+                    .await?;
+                    let id: OrganizationUnitId = (&result).into();
                     let access = qm_role::Access::new(AccessLevel::organization_unit())
                         .with_fmt_id(Some(&id))
                         .to_string();
                     let roles =
                         roles::ensure(self.0.store.keycloak(), Some(access).into_iter()).await?;
-                    let cache = self.0.store.cache();
-                    cache
-                        .customer()
-                        .new_organization_unit(self.0.store.redis().as_ref(), result.clone())
-                        .await?;
-                    cache
-                        .user()
-                        .new_roles(self.0.store, self.0.store.redis().as_ref(), roles)
-                        .await?;
+                    self.0.store.cache_db().user().new_roles(roles).await?;
                     if let Some(producer) = self.0.store.mutation_event_producer() {
                         producer
                             .create_event(
                                 &qm_kafka::producer::EventNs::OrganizationUnit,
-                                OrganizationUnitDB::collection(self.0.store),
+                                "organization_unit",
                                 &result,
                             )
                             .await?;
                     }
-                    (result, false)
+                    let organization_unit = Arc::new(result);
+                    self.0
+                        .store
+                        .cache_db()
+                        .infra()
+                        .new_organization_unit(organization_unit.clone())
+                        .await;
+                    (organization_unit, false)
                 },
             )
         }
         .await?;
         self.0.store.redis().unlock(&lock_key, &lock.id).await?;
         if exists {
-            return err!(name_conflict::<OrganizationUnit>(name));
+            return err!(name_conflict::<OrganizationUnit>(name.to_string()));
         }
         Ok(result)
     }
 
     pub async fn remove(&self, ids: OrganizationUnitIds) -> EntityResult<u64> {
-        let db = self.0.store.as_ref();
-        let mut session = db.session().await?;
-        let docs = ids
-            .iter()
-            .map(|v| match v {
-                OrganizationUnitId::Customer(v) => {
-                    doc! {
-                        "_id": v.id.as_ref(),
-                        "owner.entityId.cid": v.cid.as_ref(),
-                    }
-                }
-                OrganizationUnitId::Organization(v) => {
-                    doc! {
-                        "_id": v.id.as_ref(),
-                        "owner.entityId.cid": v.cid.as_ref(),
-                        "owner.entityId.oid": v.oid.as_ref(),
-                    }
-                }
-            })
-            .collect::<Vec<_>>();
-        if !docs.is_empty() {
-            let result = self
-                .0
-                .store
-                .organization_units()
-                .as_ref()
-                .delete_many_with_session(doc! {"$or": docs}, None, &mut session)
-                .await?;
+        let v: Vec<i64> = ids.iter().map(OrganizationUnitId::id).collect();
+        let delete_count = remove_organization_units(self.0.store.customer_db().pool(), &v).await?;
+        if delete_count != 0 {
+            let id = Uuid::new_v4();
             self.0
                 .store
-                .cache()
-                .customer()
-                .reload_organization_units(self.0.store, Some(self.0.store.redis().as_ref()))
+                .cleanup_task_producer()
+                .add_item(&CleanupTask {
+                    id,
+                    ty: CleanupTaskType::OrganizationUnits(ids),
+                })
                 .await?;
-            if result.deleted_count != 0 {
-                let id = Uuid::new();
-                self.0
-                    .store
-                    .cleanup_task_producer()
-                    .add_item(&CleanupTask {
-                        id,
-                        ty: CleanupTaskType::OrganizationUnits(ids),
-                    })
-                    .await?;
-                log::debug!("emit cleanup task {}", id.to_string());
-                return Ok(result.deleted_count);
-            }
+            log::debug!("emit cleanup task {}", id.to_string());
+            return Ok(delete_count);
         }
         Ok(0)
     }
@@ -250,7 +230,7 @@ where
     async fn organization_units(
         &self,
         ctx: &Context<'_>,
-        context: Option<CustOrOrgFilter>,
+        context: Option<CustomerOrOrganization>,
         filter: Option<ListFilter>,
     ) -> async_graphql::FieldResult<OrganizationUnitList> {
         Ctx(
@@ -301,21 +281,21 @@ where
     async fn create_organization_unit(
         &self,
         ctx: &Context<'_>,
-        context: CustOrOrgFilter,
+        context: CustomerOrOrganization,
         input: CreateOrganizationUnitInput,
-    ) -> async_graphql::FieldResult<OrganizationUnit> {
+    ) -> async_graphql::FieldResult<Arc<OrganizationUnit>> {
         let result = match context {
-            CustOrOrgFilter::Customer(context) => {
+            CustomerOrOrganization::Customer(context) => {
                 Ctx(
                     AuthCtx::<Auth, Store, AccessLevel, Resource, Permission>::mutate_with_role(
                         ctx,
-                        MutationContext::Customer(context.clone()),
+                        qm_entity::ids::InfraContext::Customer(context),
                         (Resource::organization_unit(), Permission::create()),
                     )
                     .await?,
                 )
                 .create(OrganizationUnitData {
-                    cid: context.customer.clone(),
+                    cid: context.into(),
                     oid: None,
                     name: input.name,
                     members: input.members,
@@ -323,18 +303,19 @@ where
                 .await
                 .extend()?
             }
-            CustOrOrgFilter::Organization(context) => {
+            CustomerOrOrganization::Organization(context) => {
+                let (cid, oid) = context.unzip();
                 Ctx(
                     AuthCtx::<Auth, Store, AccessLevel, Resource, Permission>::mutate_with_role(
                         ctx,
-                        MutationContext::Organization(context.clone()),
+                        qm_entity::ids::InfraContext::Organization(context),
                         (Resource::organization_unit(), Permission::create()),
                     )
                     .await?,
                 )
                 .create(OrganizationUnitData {
-                    cid: context.customer.clone(),
-                    oid: Some(context.organization.clone()),
+                    cid: cid.into(),
+                    oid: Some(oid.into()),
                     name: input.name,
                     members: input.members,
                 })
@@ -343,7 +324,7 @@ where
             }
         };
         if let Some(user) = input.initial_user {
-            let id = result.as_id();
+            let id: OrganizationUnitId = result.as_ref().into();
             crate::schema::user::Ctx(
                 AuthCtx::<'_, Auth, Store, AccessLevel, Resource, Permission>::new_with_role(
                     ctx,
@@ -359,9 +340,7 @@ where
                 ),
                 user,
                 group: Some(Auth::create_organization_unit_owner_group().name),
-                context: Some(qm_entity::ctx::ContextFilterInput::OrganizationUnit(
-                    id.into(),
-                )),
+                context: Some(qm_entity::ids::InfraContext::OrganizationUnit(id)),
             })
             .await
             .extend()?;
@@ -398,12 +377,12 @@ where
                 (Resource::organization_unit(), Permission::delete()),
             )
             .await?;
-        let cache = auth_ctx.store.cache();
+        let cache = auth_ctx.store.cache_db();
         for id in ids.iter() {
-            let id = id.clone();
-            let v = cache.customer().organization_unit_by_id(&id).await;
-            if let Some(v) = v {
-                auth_ctx.can_mutate(&v.owner).await.extend()?;
+            let infra_id = id.into();
+            if cache.organization_unit_by_id(&infra_id).await.is_some() {
+                let object_owner = id.parent();
+                auth_ctx.can_mutate(Some(&object_owner)).await.extend()?;
             } else {
                 return exerr!(not_found_by_id::<OrganizationUnit>(id.to_string()));
             }
