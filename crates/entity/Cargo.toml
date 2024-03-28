@@ -26,7 +26,6 @@ log.workspace = true
 sqlx.workspace = true
 hex.workspace = true
 qm-redis.workspace = true
-qm-pg.workspace = true
 qm-keycloak.workspace = true
 qm-role.workspace = true
 qm-mongodb.workspace = true

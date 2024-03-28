@@ -289,6 +289,28 @@ impl User {
     }
 }
 
+// fetch("https://keycloak.shapth.local/admin/realms/shapth/users/402903af-cb74-4b97-8cd6-42a2b0876bbc/groups/7869fe5c-24d4-4e01-9745-6b33f55a93a3", {
+//     "headers": {
+//       "accept": "application/json, text/plain, */*",
+//       "accept-language": "de-DE,de;q=0.9,en-US;q=0.8,en;q=0.7",
+//       "authorization": "Bearer eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICJWWXc2WkhMWkloNmhUbXlYcDdPRnFDZkVyblFXdXlRY0JvOTYwNmF1UldrIn0.eyJleHAiOjE3MTE1OTkxNTYsImlhdCI6MTcxMTU5OTA5NiwiYXV0aF90aW1lIjoxNzExNTk4NTUzLCJqdGkiOiIzMmUwYzNiZS0xZDJlLTQ1MWUtYmU2MS1kMDJhOTRhMWU1ZWIiLCJpc3MiOiJodHRwczovL2F1dGguc2hhcHRoLmxvY2FsL3JlYWxtcy9tYXN0ZXIiLCJzdWIiOiJlNThkZDU3ZS0wZTNmLTRkYjQtYjhkMS0xODYxNmMzNjRlYWYiLCJ0eXAiOiJCZWFyZXIiLCJhenAiOiJzZWN1cml0eS1hZG1pbi1jb25zb2xlIiwibm9uY2UiOiIyZjBlYTQ3Ny0wMjYxLTQzYzYtODI0OS03ODAwMzEyNzk3MTMiLCJzZXNzaW9uX3N0YXRlIjoiNDM2ODE5NzItMTQwNS00NDQ4LWFiZDQtNDUxOTczNWFkMWM4IiwiYWNyIjoiMSIsImFsbG93ZWQtb3JpZ2lucyI6WyJodHRwczovL2tleWNsb2FrLnNoYXB0aC5sb2NhbCJdLCJzY29wZSI6Im9wZW5pZCBlbWFpbCBwcm9maWxlIiwic2lkIjoiNDM2ODE5NzItMTQwNS00NDQ4LWFiZDQtNDUxOTczNWFkMWM4IiwiZW1haWxfdmVyaWZpZWQiOmZhbHNlLCJwcmVmZXJyZWRfdXNlcm5hbWUiOiJhZG1pbiJ9.Is6k62PhKF3njKyf-pShcq_ZAt0Y0yTaZpqLzEYlO1Gcj-WPqQ5QKs5-X4x2Bc3jAPVoHDGb_VY_wwuPjnA-ldX9DgP_4R_eqgPxC3WJrGAwCsryYESKTQlFxgMfiEU3w-H1sGBECe76mkKVRu_3Qf-0QuFMjlZF9n7AsD2JvyWYOUrTMAYp9z6Dx1WXmC22-3mDv_15TVdSW1fbniVuhsBYLI6gbZYXXw_TfG_fKhtVXYl6zc6XJ2_Lr_vWr0Ya4cVl0ozElNPFL3iRbhD_68MEMCqEPIHp79x6iCuIAOCNLfEpmzxYb3DXGnDSMKJPKT3HhRMRysZd8cR1N-_KNw",
+//       "cache-control": "no-cache",
+//       "content-type": "application/json",
+//       "pragma": "no-cache",
+//       "sec-ch-ua": "\"Google Chrome\";v=\"123\", \"Not:A-Brand\";v=\"8\", \"Chromium\";v=\"123\"",
+//       "sec-ch-ua-mobile": "?0",
+//       "sec-ch-ua-platform": "\"macOS\"",
+//       "sec-fetch-dest": "empty",
+//       "sec-fetch-mode": "cors",
+//       "sec-fetch-site": "same-origin"
+//     },
+//     "referrerPolicy": "no-referrer",
+//     "body": "{}",
+//     "method": "PUT",
+//     "mode": "cors",
+//     "credentials": "include"
+//   });
+
 pub struct Ctx<'a, Auth, Store, AccessLevel, Resource, Permission>(
     pub AuthCtx<'a, Auth, Store, AccessLevel, Resource, Permission>,
 )
