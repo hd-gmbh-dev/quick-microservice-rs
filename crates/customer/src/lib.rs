@@ -5,10 +5,11 @@ pub mod context;
 pub mod groups;
 pub mod marker;
 pub mod model;
+pub mod mutation;
+pub mod query;
 pub mod roles;
 pub mod schema;
 pub mod worker;
-// impl $crate::context::RelatedStorage for $storage {}
 
 #[macro_export]
 macro_rules! database {
@@ -22,15 +23,6 @@ macro_rules! database {
 #[macro_export]
 macro_rules! storage {
     ($storage:ty) => {
-        impl $crate::schema::customer::CustomerDB for $storage {}
-        impl $crate::schema::organization::OrganizationDB for $storage {}
-        impl $crate::schema::organization_unit::OrganizationUnitDB for $storage {}
-        impl $crate::schema::institution::InstitutionDB for $storage {}
-        impl $crate::schema::user::UserDB for $storage {}
-        impl $crate::roles::RoleDB for $storage {}
-        impl $crate::cache::customer::CustomerCacheDB for $storage {}
-        impl $crate::cache::user::UserCacheDB for $storage {}
-        impl $crate::cache::CacheDB for $storage {}
         impl $crate::context::RelatedStorage for $storage {}
     };
 }
@@ -39,8 +31,8 @@ macro_rules! storage {
 macro_rules! cache {
     ($storage:ty) => {
         impl $crate::context::InMemoryCache for $storage {
-            fn cache(&self) -> &$crate::cache::Cache {
-                &self.inner.cache
+            fn cache_db(&self) -> &$crate::cache::CacheDB {
+                &self.inner.cache_db
             }
         }
     };

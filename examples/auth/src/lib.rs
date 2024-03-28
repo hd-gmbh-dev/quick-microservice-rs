@@ -19,10 +19,10 @@ use qm::{
         QueryPermissions, SessionAccess, UserId,
     },
     keycloak::token::jwt::Claims,
-    mongodb::bson::Uuid,
 };
 use qm_example_ctx::Storage;
 use roles::BuiltInGroup;
+use sqlx::types::Uuid;
 
 pub mod roles;
 use crate::roles::{AccessLevel, Permission, Resource, BUILT_IN_GROUPS};
@@ -72,7 +72,7 @@ impl FromGraphQLContext for Authorization {
             let mut v = auth_container.write().await;
             let storage = ctx.data_unchecked::<Storage>();
             let claims: Claims = storage.jwt_store().decode(encoded).await?;
-            let user_id = Uuid::parse_str(&claims.sub).ok();
+            let user_id = Uuid::parse_str(&claims.sub)?;
             let mut parsed = qm::role::parse(&claims.realm_access.roles);
             let is_admin = parsed
                 .roles
@@ -83,7 +83,7 @@ impl FromGraphQLContext for Authorization {
             } else {
                 match parsed.access.pop_first() {
                     Some(access) => access,
-                    None => err!(unauthorized_user(user_id.as_ref())).extend()?,
+                    None => err!(unauthorized_user(Some(&user_id))).extend()?,
                 }
             };
             let result = Self {
@@ -92,7 +92,7 @@ impl FromGraphQLContext for Authorization {
                     access: Some(access),
                     roles: parsed.roles,
                     is_admin,
-                    user_id,
+                    user_id: Some(user_id),
                 }),
             };
             v.replace(result.clone());

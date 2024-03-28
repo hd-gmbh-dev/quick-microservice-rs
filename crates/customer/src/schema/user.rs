@@ -1,29 +1,36 @@
+use async_graphql::ComplexObject;
 use async_graphql::{Context, ErrorExtensions, FieldResult, Object, ResultExt};
-use qm_entity::ctx::ContextFilterInput;
 use qm_entity::exerr;
-use qm_entity::list::ListCtx;
+use qm_entity::ids::InfraContext;
+
 use qm_entity::model::ListFilter;
+use qm_keycloak::RoleRepresentation;
 use qm_role::Access;
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use qm_entity::err;
 use qm_entity::error::EntityError;
 use qm_entity::error::EntityResult;
-use qm_entity::{err, Create};
 use qm_keycloak::CredentialRepresentation;
 use qm_keycloak::Keycloak;
 use qm_keycloak::KeycloakError;
 use qm_keycloak::UserRepresentation;
-use qm_mongodb::bson::Uuid;
-use qm_mongodb::DB;
+use sqlx::types::Uuid;
 
+use crate::cache::CacheDB;
 use crate::config::SchemaConfig;
 use crate::groups::RelatedBuiltInGroup;
 use crate::marker::Marker;
-
+use crate::model::CreateUserPayload;
+use crate::model::RequiredUserAction;
 use crate::model::User;
-use crate::model::{CreateUserInput, CreateUserPayload, UserList};
-use crate::model::{RequiredUserAction, UserData, UserDetails};
+use crate::model::UserList;
+use crate::model::{CreateUserInput, Customer, Institution, Organization, OrganizationUnit};
+
+// use crate::model::User;
+// use crate::model::{CreateUserInput, CreateUserPayload, UserList};
+// use crate::model::{RequiredUserAction, UserData, UserDetails};
 use crate::schema::auth::AuthCtx;
 use crate::schema::RelatedAccessLevel;
 use crate::schema::RelatedAuth;
@@ -44,17 +51,17 @@ where
     }
 }
 
-pub const DEFAULT_COLLECTION: &str = "users";
+// pub const DEFAULT_COLLECTION: &str = "users";
 
-pub trait UserDB: AsRef<DB> {
-    fn collection(&self) -> &str {
-        DEFAULT_COLLECTION
-    }
-    fn users(&self) -> qm_entity::Collection<User> {
-        let collection = self.collection();
-        qm_entity::Collection(self.as_ref().get().collection::<User>(collection))
-    }
-}
+// pub trait UserDB: AsRef<DB> {
+//     fn collection(&self) -> &str {
+//         DEFAULT_COLLECTION
+//     }
+//     fn users(&self) -> qm_entity::Collection<User> {
+//         let collection = self.collection();
+//         qm_entity::Collection(self.as_ref().get().collection::<User>(collection))
+//     }
+// }
 
 fn set_attributes(attributes: HashMap<&str, Option<String>>, u: &mut UserRepresentation) {
     if u.attributes.is_none() {
@@ -219,6 +226,69 @@ pub async fn create_keycloak_user(
         .extend()
 }
 
+#[ComplexObject]
+impl User {
+    async fn customer(&self, ctx: &Context<'_>) -> Option<Arc<Customer>> {
+        let cache = ctx.data::<CacheDB>().ok();
+        if cache.is_none() {
+            log::warn!("qm::customer::cache::CacheDB is not installed in schema context");
+            return None;
+        }
+        let cache = cache.unwrap();
+        if let Some(id) = self.context.as_ref().map(InfraContext::customer_id) {
+            return cache.customer_by_id(&id).await;
+        }
+        None
+    }
+
+    async fn organization(&self, ctx: &Context<'_>) -> Option<Arc<Organization>> {
+        let cache = ctx.data::<CacheDB>().ok();
+        if cache.is_none() {
+            log::warn!("qm::customer::cache::CacheDB is not installed in schema context");
+            return None;
+        }
+        let cache = cache.unwrap();
+        if let Some(id) = self
+            .context
+            .as_ref()
+            .and_then(InfraContext::organization_id)
+        {
+            return cache.organization_by_id(&id).await;
+        }
+        None
+    }
+
+    async fn organization_unit(&self, ctx: &Context<'_>) -> Option<Arc<OrganizationUnit>> {
+        let cache = ctx.data::<CacheDB>().ok();
+        if cache.is_none() {
+            log::warn!("qm::customer::cache::CacheDB is not installed in schema context");
+            return None;
+        }
+        let cache = cache.unwrap();
+        if let Some(id) = self
+            .context
+            .as_ref()
+            .and_then(InfraContext::organization_unit_id)
+        {
+            return cache.organization_unit_by_id(&id).await;
+        }
+        None
+    }
+
+    async fn institution(&self, ctx: &Context<'_>) -> Option<Arc<Institution>> {
+        let cache = ctx.data::<CacheDB>().ok();
+        if cache.is_none() {
+            log::warn!("qm::customer::cache::CacheDB is not installed in schema context");
+            return None;
+        }
+        let cache = cache.unwrap();
+        if let Some(id) = self.context.as_ref().and_then(InfraContext::institution_id) {
+            return cache.institution_by_id(&id).await;
+        }
+        None
+    }
+}
+
 pub struct Ctx<'a, Auth, Store, AccessLevel, Resource, Permission>(
     pub AuthCtx<'a, Auth, Store, AccessLevel, Resource, Permission>,
 )
@@ -239,23 +309,15 @@ where
 {
     pub async fn list(
         &self,
-        context: Option<ContextFilterInput>,
+        mut context: Option<InfraContext>,
         filter: Option<ListFilter>,
     ) -> async_graphql::FieldResult<UserList> {
-        ListCtx::new(self.0.store.users())
-            .with_query(
-                self.0
-                    .build_context_query(context.as_ref())
-                    .await
-                    .extend()?,
-            )
-            .list(filter)
-            .await
-            .extend()
+        context = self.0.enforce_current_context(context).await?;
+        Ok(self.0.store.cache_db().user_list(context, filter).await)
     }
 
-    pub async fn by_id(&self, id: Uuid) -> Option<Arc<User>> {
-        self.0.store.cache().user().db_user_by_uid(&id).await
+    pub async fn by_id(&self, id: &str) -> Option<Arc<User>> {
+        self.0.store.cache_db().user_by_id(id).await
     }
 
     pub async fn create(&self, input: CreateUserPayload) -> FieldResult<Arc<User>> {
@@ -266,23 +328,21 @@ where
             context,
         } = input;
         let mut conflict_fields = Vec::new();
-
         let user_exists_by_username = self
             .0
             .store
-            .users()
-            .by_field("username", &user_input.username)
-            .await?;
+            .cache_db()
+            .user_by_username(&user_input.username)
+            .await;
         if user_exists_by_username.is_some() {
             conflict_fields.push("username");
         }
-
         let user_exists_by_email = self
             .0
             .store
-            .users()
-            .by_field("email", &user_input.username)
-            .await?;
+            .cache_db()
+            .user_by_email(&user_input.username)
+            .await;
         if user_exists_by_email.is_some() {
             conflict_fields.push("email");
         }
@@ -307,63 +367,58 @@ where
             log::error!("Unable to parse user id to Uuid: {err:#?}");
             EntityError::Internal
         })?;
-
-        let cache = self.0.store.cache();
+        let mut user_groups = vec![];
+        let cache = self.0.store.cache_db();
         if let Some(group) = group.as_ref() {
-            if let Some(group_id) = cache.user().get_group_id(group).await {
+            if let Some(group) = cache.get_group(group).await {
+                log::info!(
+                    "add user {} to group {group:#?}",
+                    user_input.username.as_str()
+                );
                 keycloak
-                    .add_user_to_group(realm, &user_id, &group_id)
+                    .add_user_to_group(realm, &user_id, &group.id)
                     .await?;
+                user_groups.push(group);
             }
         }
+        let mut user_roles = vec![];
         if let Some(access) = access.as_ref() {
-            if let Some(role) = cache.user().get_role(access).await {
-                keycloak.add_user_role(realm, &user_id, role).await?;
+            if let Some(role) = cache.get_role(access).await {
+                keycloak
+                    .add_user_role(
+                        realm,
+                        &user_id,
+                        RoleRepresentation {
+                            id: Some(role.id.to_string()),
+                            name: Some(role.name.to_string()),
+                            ..Default::default()
+                        },
+                    )
+                    .await?;
+                user_roles.push(role);
             }
         }
-
-        let db_user = Arc::new(
-            self.0
-                .store
-                .users()
-                .save(
-                    UserData {
-                        owner: context.map(Into::into).unwrap_or_default(),
-                        groups: group.map(|v| vec![v]).unwrap_or_default(),
-                        access,
-                        details: UserDetails {
-                            email: Arc::from(user_input.email),
-                            firstname: Arc::from(user_input.firstname),
-                            lastname: Arc::from(user_input.lastname),
-                            username: Arc::from(user_input.username),
-                            user_id: Arc::new(user_uuid),
-                            job_title: user_input.job_title.map(Arc::from),
-                            phone: user_input.phone.map(Arc::from),
-                            salutation: user_input.salutation.map(Arc::from),
-                            enabled: user_input.enabled.unwrap_or(false),
-                        },
-                    }
-                    .create(&self.0.auth)?,
-                )
-                .await?,
-        );
-
-        self.0
-            .store
-            .cache()
-            .user()
-            .new_user(self.0.store.redis().as_ref(), k_user, db_user.clone())
-            .await?;
-        Ok(db_user)
+        let user = Arc::new(User {
+            id: Arc::from(user_uuid.to_string()),
+            username: Arc::from(user_input.username),
+            firstname: Arc::from(user_input.firstname),
+            lastname: Arc::from(user_input.lastname),
+            email: Arc::from(user_input.email),
+            enabled: user_input.enabled.unwrap(),
+            roles: Arc::from(user_roles),
+            groups: Arc::from(user_groups),
+            context,
+        });
+        cache.user().new_user(user.clone()).await;
+        Ok(user)
     }
 
-    pub async fn remove(&self, ids: Arc<[Arc<Uuid>]>) -> EntityResult<u64> {
+    pub async fn remove(&self, ids: Arc<[Arc<str>]>) -> EntityResult<u64> {
         let keycloak = self.0.store.keycloak();
         let mut user_ids = Vec::default();
         for id in ids.iter() {
-            let user_id = id.as_ref().to_string();
             match keycloak
-                .remove_user(keycloak.config().realm(), &user_id)
+                .remove_user(keycloak.config().realm(), id.as_ref())
                 .await
             {
                 Ok(_) => user_ids.push(id.as_ref()),
@@ -373,19 +428,7 @@ where
             }
         }
         if !user_ids.is_empty() {
-            let result = self
-                .0
-                .store
-                .users()
-                .remove_all_by_uuids("_id", &user_ids)
-                .await?;
-            self.0
-                .store
-                .cache()
-                .user()
-                .reload_users(keycloak, self.0.store, Some(self.0.store.redis().as_ref()))
-                .await?;
-            return Ok(result.deleted_count);
+            return Ok(user_ids.len() as u64);
         }
         Ok(0)
     }
@@ -420,11 +463,8 @@ where
         let auth_ctx = AuthCtx::<'_, Auth, Store, AccessLevel, Resource, Permission>::new(ctx)
             .await
             .extend()?;
-        let id = *auth_ctx
-            .auth
-            .user_id()
-            .ok_or(EntityError::unauthorized(&auth_ctx.auth).extend())?;
-        Ok(Ctx(auth_ctx).by_id(id).await)
+        let id = *auth_ctx.auth.user_id().unwrap();
+        Ok(Ctx(auth_ctx).by_id(&id.to_string()).await)
     }
 
     async fn user_by_id(
@@ -440,14 +480,14 @@ where
             .await
             .extend()?,
         )
-        .by_id(id)
+        .by_id(&id.to_string())
         .await)
     }
 
     async fn users(
         &self,
         ctx: &Context<'_>,
-        context: Option<ContextFilterInput>,
+        context: Option<InfraContext>,
         filter: Option<ListFilter>,
     ) -> async_graphql::FieldResult<UserList> {
         Ctx(
@@ -495,7 +535,7 @@ where
         built_in_group: Option<BuiltInGroup>,
         custom_group: Option<String>, // TODO: implement custom_groups in Cache and schema
         input: CreateUserInput,
-        context: Option<ContextFilterInput>,
+        context: Option<InfraContext>,
     ) -> async_graphql::FieldResult<Arc<User>> {
         if access_level.is_admin() && !SchemaConfig::new(ctx).allow_multiple_admin_users() {
             return err!(not_allowed("creating multiple admin users").extend());
@@ -526,7 +566,7 @@ where
             }
             if access_level.id_required() {
                 return err!(bad_request(
-                    "ContextFilterInput",
+                    "InfraContext",
                     "'context' is required for specified access level"
                 )
                 .extend());
@@ -574,15 +614,17 @@ where
         if ids.iter().any(|id| id.as_ref() == active_user_id) {
             return exerr!(bad_request("User", "User cannot remove himself"));
         }
-        let cache = auth_ctx.store.cache();
-        for id in ids.iter() {
-            let user = cache.user().db_user_by_uid(id.as_ref()).await;
+        let cache = auth_ctx.store.cache_db();
+        let mut user_ids = Vec::with_capacity(ids.len());
+        for id in ids.iter().map(ToString::to_string) {
+            let user = cache.user_by_id(&id).await;
             if let Some(user) = user {
-                auth_ctx.can_mutate(&user.owner).await.extend()?;
+                auth_ctx.can_mutate(user.context.as_ref()).await.extend()?;
+                user_ids.push(Arc::from(id));
             } else {
                 return exerr!(not_found_by_id::<User>(id.to_string()));
             }
         }
-        Ctx(auth_ctx).remove(ids).await.extend()
+        Ctx(auth_ctx).remove(Arc::from(user_ids)).await.extend()
     }
 }

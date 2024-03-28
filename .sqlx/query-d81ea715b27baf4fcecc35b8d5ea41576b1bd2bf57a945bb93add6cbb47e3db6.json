@@ -1,0 +1,62 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\nSELECT\n    v.id as id,\n    v.name as name,\n    v.customer_id as customer_id,\n    v.organization_id as organization_id,\n    v.created_by as created_by,\n    v.created_at as created_at,\n    v.updated_by as updated_by,\n    v.updated_at as updated_at\nFROM organization_units v",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 2,
+        "name": "customer_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 3,
+        "name": "organization_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 4,
+        "name": "created_by",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 5,
+        "name": "created_at",
+        "type_info": "Timestamp"
+      },
+      {
+        "ordinal": 6,
+        "name": "updated_by",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 7,
+        "name": "updated_at",
+        "type_info": "Timestamp"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "d81ea715b27baf4fcecc35b8d5ea41576b1bd2bf57a945bb93add6cbb47e3db6"
+}

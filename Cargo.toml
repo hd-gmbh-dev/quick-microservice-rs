@@ -41,21 +41,26 @@ deadpool-redis = "0.14.0"
 uuid = { version = "1.6.1", features = ["v4", "v7"]}
 glob = "0.3.1"
 async-graphql-axum = "7.0.1"
+sqlx = { version = "0.7.4", features = ["runtime-tokio", "postgres", "uuid", "time"]}
+time = { version = "0.3.14", features = ["formatting", "parsing", "macros", "serde"] }
 async-graphql = { version = "7.0.1", features = [
     "bson",
     "chrono",
     "chrono-tz",
     "uuid",
     "graphiql",
+    "time"
 ] }
 prometheus-client = "0.22.1"
 rdkafka = { version = "0.36.0" }
-
+hex = "0.4.3"
+serde_with = "3.7.0"
 qm-entity = { path = "crates/entity", version = "0.0.11" }
 qm-entity-derive = { path = "crates/entity-derive", version = "0.0.11" }
 qm-customer = { path = "crates/customer", version = "0.0.11" }
 qm-server = { path = "crates/server", version = "0.0.11" }
 qm-mongodb = { path = "crates/mongodb", version = "0.0.11" }
+qm-pg = { path = "crates/pg", version = "0.0.11" }
 qm-redis = { path = "crates/redis", version = "0.0.11" }
 qm-s3 = { path = "crates/s3", version = "0.0.11" }
 qm-kafka = { path = "crates/kafka", version = "0.0.11" }
@@ -84,6 +89,7 @@ qm-customer = { workspace = true, optional = true }
 qm-server = { workspace = true, optional = true }
 qm-mongodb = { workspace = true, optional = true }
 qm-redis = { workspace = true, optional = true }
+qm-pg = { workspace = true, optional = true }
 qm-s3 = { workspace = true, optional = true }
 qm-kafka = { workspace = true, optional = true }
 qm-keycloak = { workspace = true, optional = true }
@@ -98,6 +104,7 @@ default = [
   "server",
   "mongodb",
   "redis",
+  "pg",
   "s3",
   "kafka",
   "keycloak",
@@ -110,6 +117,7 @@ customer = ["qm-customer"]
 server = ["qm-server"]
 mongodb = ["qm-mongodb"]
 redis = ["qm-redis"]
+pg = ["qm-pg"]
 s3 = ["qm-s3"]
 kafka = ["qm-kafka"]
 keycloak = ["qm-keycloak"]

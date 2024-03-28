@@ -10,16 +10,16 @@ use qm_entity::UserId;
 pub use qm_kafka::producer::Producer;
 use qm_redis::Redis;
 
-use crate::cache::Cache;
-use crate::cache::CacheDB;
+// use crate::cache::Cache;
+// use crate::cache::CacheDB;
 use crate::groups::RelatedGroups;
-use crate::roles::RoleDB;
-use crate::schema::customer::CustomerDB;
-use crate::schema::institution::InstitutionDB;
-use crate::schema::organization::OrganizationDB;
-use crate::schema::organization_unit::OrganizationUnitDB;
+// use crate::roles::RoleDB;
+// use crate::schema::customer::CustomerDB;
+// use crate::schema::institution::InstitutionDB;
+// use crate::schema::organization::OrganizationDB;
+// use crate::schema::organization_unit::OrganizationUnitDB;
 use crate::schema::user::KeycloakClient;
-use crate::schema::user::UserDB;
+// use crate::schema::user::UserDB;
 use crate::worker::CleanupTaskProducer;
 
 pub trait MutationEventProducer {
@@ -29,11 +29,22 @@ pub trait MutationEventProducer {
 }
 
 pub trait InMemoryCache {
-    fn cache(&self) -> &Cache;
+    // fn cache(&self) -> &Cache;
+    fn cache_db(&self) -> &crate::cache::CacheDB;
 }
 
 pub trait RedisClient {
     fn redis(&self) -> &Redis;
+}
+
+pub trait KeycloakDB {
+    fn keycloak_db(&self) -> &qm_pg::DB;
+}
+pub trait CustomerDB {
+    fn customer_db(&self) -> &qm_pg::DB;
+}
+pub trait ObjectDB {
+    fn object_db(&self) -> &qm_mongodb::DB;
 }
 
 impl<T> RedisClient for T
@@ -46,17 +57,20 @@ where
 }
 
 pub trait RelatedStorage:
-    UserDB
+    // UserDB
+    // + CustomerDB
+    // + OrganizationDB
+    // + OrganizationUnitDB
+    // + InstitutionDB
+    // + RoleDB
+    // + UserDB
+    KeycloakDB
+    + AsRef<qm_mongodb::DB>
     + CustomerDB
-    + OrganizationDB
-    + OrganizationUnitDB
-    + InstitutionDB
-    + RoleDB
-    + UserDB
     + RedisClient
     + KeycloakClient
     + InMemoryCache
-    + CacheDB
+    // + CacheDB
     + MutationEventProducer
     + CleanupTaskProducer
     + Clone

@@ -219,7 +219,7 @@ where
             self.write_line(
                 1,
                 &format!(
-                    "#[strum(serialize = \"{}\")]",
+                    "#[strum(serialize = \"/{}\")]",
                     inflector::cases::snakecase::to_snake_case(group_name.as_ref())
                 ),
             )?;

@@ -7,6 +7,9 @@ pub use qm_redis as redis;
 #[cfg(feature = "kafka")]
 pub use qm_kafka as kafka;
 
+#[cfg(feature = "pg")]
+pub use qm_pg as pg;
+
 #[cfg(feature = "s3")]
 pub use qm_s3 as s3;
 

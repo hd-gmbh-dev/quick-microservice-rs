@@ -1,161 +1,496 @@
-use qm_keycloak::Keycloak;
+use prometheus_client::metrics::gauge::Gauge;
+use qm_entity::ids::PartialEqual;
+use qm_entity::ids::{CustomerId, CustomerOrOrganization, InfraContext, InfraId};
+use qm_entity::model::ListFilter;
+use std::sync::atomic::AtomicI64;
 use std::sync::Arc;
 use tokio::{runtime::Builder, task::LocalSet};
 
-pub mod customer;
+pub mod infra;
+pub mod update;
 pub mod user;
 
-use customer::CustomerCache;
-use user::UserCache;
-
-use crate::{
-    context::RelatedStorage,
-    model::{Customer, Institution, Organization, OrganizationUnit, Owner},
-};
-
-use self::{customer::CustomerCacheDB, user::UserCacheDB};
-
-pub trait CacheDB: Clone + CustomerCacheDB + UserCacheDB {}
+use crate::cache::infra::InfraDB;
+use crate::cache::user::UserDB;
+use crate::model::*;
 
 struct Inner {
-    customer: CustomerCache,
-    user: UserCache,
+    infra: InfraDB,
+    user: UserDB,
 }
 
 #[derive(Clone)]
-pub struct Cache {
+pub struct CacheDB {
     inner: Arc<Inner>,
 }
 
-impl Cache {
-    pub async fn new(prefix: &str, realm: &str) -> anyhow::Result<Self> {
-        Ok(Cache {
-            inner: Arc::new(Inner {
-                customer: CustomerCache::new(prefix).await?,
-                user: UserCache::new(prefix, realm).await?,
-            }),
+impl CacheDB {
+    pub async fn new(
+        customer_db: &qm_pg::DB,
+        keycloak_db: &qm_pg::DB,
+        realm: &str,
+    ) -> anyhow::Result<Self> {
+        let infra = InfraDB::new(customer_db).await?;
+        let user = UserDB::new(keycloak_db, realm).await?;
+        Ok(Self {
+            inner: Arc::new(Inner { infra, user }),
         })
     }
 
-    pub fn customer(&self) -> &CustomerCache {
-        &self.inner.customer
-    }
-
-    pub fn user(&self) -> &UserCache {
+    pub fn user(&self) -> &UserDB {
         &self.inner.user
     }
 
-    pub async fn reload_all(&self, keycloak: &Keycloak, db: &impl CacheDB) -> anyhow::Result<()> {
-        self.customer().reload(db, None).await?;
-        self.user().reload_users(keycloak, db, None).await?;
-        self.user().reload_groups(keycloak, None).await?;
-        self.user().reload_roles(db, None).await?;
-        Ok(())
+    pub fn infra(&self) -> &InfraDB {
+        &self.inner.infra
     }
 
-    pub async fn customer_by_owner(&self, owner: &Owner) -> Option<Arc<Customer>> {
-        if let Some(id) = owner.customer() {
-            self.customer().customer_by_id(id.as_ref()).await
+    pub fn customers_total(&self) -> &Gauge<i64, AtomicI64> {
+        &self.inner.infra.customers_total
+    }
+
+    pub fn organizations_total(&self) -> &Gauge<i64, AtomicI64> {
+        &self.inner.infra.organizations_total
+    }
+
+    pub fn organization_units_total(&self) -> &Gauge<i64, AtomicI64> {
+        &self.inner.infra.organization_units_total
+    }
+
+    pub fn institutions_total(&self) -> &Gauge<i64, AtomicI64> {
+        &self.inner.infra.institutions_total
+    }
+
+    pub async fn customer_list(&self, filter: Option<ListFilter>) -> CustomerList {
+        if let Some(filter) = filter {
+            let page = filter.page.unwrap_or(0);
+            let limit = filter.limit.unwrap_or(100);
+            let offset = page * limit;
+            let items: Arc<[Arc<Customer>]> = self
+                .inner
+                .infra
+                .customers
+                .read()
+                .await
+                .values()
+                .skip(offset)
+                .take(limit)
+                .cloned()
+                .collect();
+            CustomerList {
+                items,
+                limit: Some(limit as i64),
+                total: Some(self.inner.infra.customers_total.get()),
+                page: Some(page as i64),
+            }
         } else {
-            None
+            let items: Arc<[Arc<Customer>]> = self
+                .inner
+                .infra
+                .customers
+                .read()
+                .await
+                .values()
+                .cloned()
+                .collect();
+            CustomerList {
+                items,
+                limit: None,
+                total: Some(self.inner.infra.customers_total.get()),
+                page: Some(0),
+            }
         }
     }
-    pub async fn organization_by_owner(&self, owner: &Owner) -> Option<Arc<Organization>> {
-        if let Some(id) = owner.organization() {
-            self.customer().organization_by_id(&id).await
+
+    pub async fn organization_list(
+        &self,
+        customer_id: Option<CustomerId>,
+        filter: Option<ListFilter>,
+    ) -> OrganizationList {
+        if let Some(filter) = filter {
+            let page = filter.page.unwrap_or(0);
+            let limit = filter.limit.unwrap_or(100);
+            let offset = page * limit;
+
+            let v = self.inner.infra.organizations.read().await;
+            let items: Arc<[Arc<Organization>]> = if let Some(customer_id) = customer_id {
+                v.values()
+                    .filter(|v| v.as_ref().partial_equal(&customer_id))
+                    .skip(offset)
+                    .take(limit)
+                    .cloned()
+                    .collect()
+            } else {
+                v.values().skip(offset).take(limit).cloned().collect()
+            };
+            OrganizationList {
+                items,
+                limit: Some(limit as i64),
+                total: Some(self.inner.infra.organizations_total.get()),
+                page: Some(page as i64),
+            }
         } else {
-            None
+            let v = self.inner.infra.organizations.read().await;
+            let items: Arc<[Arc<Organization>]> = if let Some(customer_id) = customer_id {
+                v.values()
+                    .filter(|v| v.as_ref().partial_equal(&customer_id))
+                    .cloned()
+                    .collect()
+            } else {
+                v.values().cloned().collect()
+            };
+            OrganizationList {
+                items,
+                limit: None,
+                total: Some(self.inner.infra.organizations_total.get()),
+                page: Some(0),
+            }
         }
     }
-    pub async fn institution_by_owner(&self, owner: &Owner) -> Option<Arc<Institution>> {
-        if let Some(id) = owner.institution() {
-            self.customer().institution_by_id(&id).await
+
+    pub async fn organization_unit_list(
+        &self,
+        customer_or_organization: Option<CustomerOrOrganization>,
+        filter: Option<ListFilter>,
+    ) -> OrganizationUnitList {
+        let v = self.inner.infra.organization_units.read().await;
+        if let Some(filter) = filter {
+            let page = filter.page.unwrap_or(0);
+            let limit = filter.limit.unwrap_or(100);
+            let offset = page * limit;
+            let items: Arc<[Arc<OrganizationUnit>]> = match &customer_or_organization {
+                Some(CustomerOrOrganization::Customer(customer_id)) => v
+                    .values()
+                    .filter(|v| v.as_ref().partial_equal(customer_id))
+                    .skip(offset)
+                    .take(limit)
+                    .cloned()
+                    .collect(),
+                Some(CustomerOrOrganization::Organization(organization_id)) => v
+                    .values()
+                    .filter(|v| v.as_ref().partial_equal(organization_id))
+                    .skip(offset)
+                    .take(limit)
+                    .cloned()
+                    .collect(),
+                _ => v.values().skip(offset).take(limit).cloned().collect(),
+            };
+            OrganizationUnitList {
+                items,
+                limit: Some(limit as i64),
+                total: Some(self.inner.infra.organization_units_total.get()),
+                page: Some(page as i64),
+            }
         } else {
-            None
+            let items: Arc<[Arc<OrganizationUnit>]> = match &customer_or_organization {
+                Some(CustomerOrOrganization::Customer(customer_id)) => v
+                    .values()
+                    .filter(|v| v.as_ref().partial_equal(customer_id))
+                    .cloned()
+                    .collect(),
+                Some(CustomerOrOrganization::Organization(organization_id)) => v
+                    .values()
+                    .filter(|v| v.as_ref().partial_equal(organization_id))
+                    .cloned()
+                    .collect(),
+                _ => v.values().cloned().collect(),
+            };
+            OrganizationUnitList {
+                items,
+                limit: None,
+                total: Some(self.inner.infra.organization_units_total.get()),
+                page: Some(0),
+            }
         }
     }
-    pub async fn organization_unit_by_owner(&self, owner: &Owner) -> Option<Arc<OrganizationUnit>> {
-        if let Some(id) = owner.organization_unit() {
-            self.customer().organization_unit_by_id(&id).await
+
+    pub async fn institution_list(
+        &self,
+        customer_or_organization: Option<CustomerOrOrganization>,
+        filter: Option<ListFilter>,
+    ) -> InstitutionList {
+        let v = self.inner.infra.institutions.read().await;
+        if let Some(filter) = filter {
+            let page = filter.page.unwrap_or(0);
+            let limit = filter.limit.unwrap_or(100);
+            let offset = page * limit;
+            let items: Arc<[Arc<Institution>]> = match &customer_or_organization {
+                Some(CustomerOrOrganization::Customer(customer_id)) => v
+                    .values()
+                    .filter(|v| v.as_ref().partial_equal(customer_id))
+                    .skip(offset)
+                    .take(limit)
+                    .cloned()
+                    .collect(),
+                Some(CustomerOrOrganization::Organization(organization_id)) => v
+                    .values()
+                    .filter(|v| v.as_ref().partial_equal(organization_id))
+                    .skip(offset)
+                    .take(limit)
+                    .cloned()
+                    .collect(),
+                _ => v.values().skip(offset).take(limit).cloned().collect(),
+            };
+            InstitutionList {
+                items,
+                limit: Some(limit as i64),
+                total: Some(self.inner.infra.institutions_total.get()),
+                page: Some(page as i64),
+            }
         } else {
-            None
+            let items: Arc<[Arc<Institution>]> = match &customer_or_organization {
+                Some(CustomerOrOrganization::Customer(customer_id)) => v
+                    .values()
+                    .filter(|v| v.as_ref().partial_equal(customer_id))
+                    .cloned()
+                    .collect(),
+                Some(CustomerOrOrganization::Organization(organization_id)) => v
+                    .values()
+                    .filter(|v| v.as_ref().partial_equal(organization_id))
+                    .cloned()
+                    .collect(),
+                _ => v.values().cloned().collect(),
+            };
+            InstitutionList {
+                items,
+                limit: None,
+                total: Some(self.inner.infra.institutions_total.get()),
+                page: Some(0),
+            }
         }
+    }
+
+    pub async fn user_list(
+        &self,
+        context: Option<InfraContext>,
+        filter: Option<ListFilter>,
+    ) -> UserList {
+        let v = self.inner.user.users.read().await;
+        let _i = self.inner.infra.institution_id_map.read().await;
+        let o = self.inner.infra.organization_unit_id_map.read().await;
+        let institutions = match context {
+            Some(InfraContext::OrganizationUnit(v)) => {
+                let unit = o.get(&v.into());
+                unit.map(|u| u.members.as_ref()).unwrap_or(&[])
+            }
+            _ => &[],
+        };
+        if let Some(filter) = filter {
+            let page = filter.page.unwrap_or(0);
+            let limit = filter.limit.unwrap_or(100);
+            let offset = page * limit;
+            let items: Arc<[Arc<User>]> = if let Some(context) = context {
+                v.values()
+                    .filter(|v| {
+                        v.as_ref().partial_equal(&context)
+                            || institutions.iter().any(|i| v.as_ref().partial_equal(i))
+                    })
+                    .skip(offset)
+                    .take(limit)
+                    .cloned()
+                    .collect()
+            } else {
+                v.values().skip(offset).take(limit).cloned().collect()
+            };
+            UserList {
+                items,
+                limit: Some(limit as i64),
+                total: Some(self.inner.user.users_total.get()),
+                page: Some(page as i64),
+            }
+        } else {
+            let items: Arc<[Arc<User>]> = if let Some(context) = context {
+                v.values()
+                    .filter(|v| {
+                        v.as_ref().partial_equal(&context)
+                            || institutions.iter().any(|i| v.as_ref().partial_equal(i))
+                    })
+                    .cloned()
+                    .collect()
+            } else {
+                v.values().cloned().collect()
+            };
+            UserList {
+                items,
+                limit: None,
+                total: Some(self.inner.user.users_total.get()),
+                page: Some(0),
+            }
+        }
+    }
+
+    pub async fn customer_by_id(&self, id: &InfraId) -> Option<Arc<Customer>> {
+        self.inner
+            .infra
+            .customer_id_map
+            .read()
+            .await
+            .get(id)
+            .cloned()
+    }
+
+    pub async fn customer_by_name(&self, name: &str) -> Option<Arc<Customer>> {
+        self.inner.infra.customers.read().await.get(name).cloned()
+    }
+
+    pub async fn organization_by_id(&self, id: &InfraId) -> Option<Arc<Organization>> {
+        self.inner
+            .infra
+            .organization_id_map
+            .read()
+            .await
+            .get(id)
+            .cloned()
+    }
+
+    pub async fn organization_unit_by_name(
+        &self,
+        cid: InfraId,
+        oid: Option<InfraId>,
+        name: Arc<str>,
+    ) -> Option<Arc<OrganizationUnit>> {
+        self.inner
+            .infra
+            .organization_units
+            .read()
+            .await
+            .get(&(name, cid, oid))
+            .cloned()
+    }
+
+    pub async fn organization_by_name(
+        &self,
+        cid: InfraId,
+        name: Arc<str>,
+    ) -> Option<Arc<Organization>> {
+        self.inner
+            .infra
+            .organizations
+            .read()
+            .await
+            .get(&(name, cid))
+            .cloned()
+    }
+
+    pub async fn institution_by_name(
+        &self,
+        cid: InfraId,
+        oid: InfraId,
+        name: Arc<str>,
+    ) -> Option<Arc<Institution>> {
+        self.inner
+            .infra
+            .institutions
+            .read()
+            .await
+            .get(&(name, cid, oid))
+            .cloned()
+    }
+
+    pub async fn institution_by_id(&self, id: &InfraId) -> Option<Arc<Institution>> {
+        self.inner
+            .infra
+            .institution_id_map
+            .read()
+            .await
+            .get(id)
+            .cloned()
+    }
+
+    pub async fn organization_unit_by_id(&self, id: &InfraId) -> Option<Arc<OrganizationUnit>> {
+        self.inner
+            .infra
+            .organization_unit_id_map
+            .read()
+            .await
+            .get(id)
+            .cloned()
+    }
+
+    pub fn users_total(&self) -> &Gauge<i64, AtomicI64> {
+        &self.inner.user.users_total
+    }
+
+    pub fn roles_total(&self) -> &Gauge<i64, AtomicI64> {
+        &self.inner.user.roles_total
+    }
+
+    pub fn groups_total(&self) -> &Gauge<i64, AtomicI64> {
+        &self.inner.user.groups_total
+    }
+
+    pub async fn user_by_id(&self, id: &str) -> Option<Arc<User>> {
+        self.inner.user.user_id_map.read().await.get(id).cloned()
+    }
+
+    pub async fn user_by_username(&self, username: &str) -> Option<Arc<User>> {
+        self.inner.user.users.read().await.get(username).cloned()
+    }
+
+    pub async fn user_by_email(&self, email: &str) -> Option<Arc<User>> {
+        self.inner
+            .user
+            .user_email_map
+            .read()
+            .await
+            .get(email)
+            .cloned()
+    }
+
+    pub async fn users(&self) -> Arc<[Arc<User>]> {
+        self.inner
+            .user
+            .users
+            .read()
+            .await
+            .values()
+            .cloned()
+            .collect()
+    }
+
+    pub async fn get_group(&self, name: &str) -> Option<Arc<Group>> {
+        self.inner.user.groups.read().await.get(name).cloned()
+    }
+
+    pub async fn get_role(&self, name: &str) -> Option<Arc<Role>> {
+        self.inner.user.roles.read().await.get(name).cloned()
     }
 }
 
-#[inline]
-pub fn subscribe<T>(t: T)
-where
-    T: RelatedStorage + Send + Sync + 'static,
-{
-    let worker_client = t.redis().client().clone();
-    let worker_cache = t.cache().clone();
-    let cache_db = t.clone();
+pub fn subscribe(keycloak_db: qm_pg::DB, customer_db: qm_pg::DB, listener_instance: CacheDB) {
+    let keycloak_listener_instance = listener_instance.clone();
     std::thread::spawn(move || {
         let rt = Builder::new_current_thread().enable_all().build().unwrap();
         let local = LocalSet::new();
         local.spawn_local(async move {
-            let mut con = match worker_client.get_connection() {
-                Ok(con) => con,
-                Err(err) => {
-                    log::error!("{err}");
-                    std::process::exit(1);
-                }
-            };
-            let mut pubsub = con.as_pubsub();
-            if let Err(err) = pubsub.subscribe(worker_cache.customer().channel()) {
-                log::error!("{err}");
-                std::process::exit(1);
-            }
-            loop {
-                let msg = pubsub.get_message();
-                if let Err(err) = &msg {
-                    log::error!("{err}");
-                    std::process::exit(1);
-                } else if let Err(err) = worker_cache
-                    .customer()
-                    .process_event(&cache_db, msg.unwrap())
-                    .await
+            if let Err(err) = listener_instance.inner.infra.listen(&customer_db).await {
+                if !err
+                    .to_string()
+                    .contains("A Tokio 1.x context was found, but it is being shutdown.")
                 {
-                    log::error!("{err}");
-                    std::process::exit(1);
+                    log::error!("{err:#?}");
+                    std::process::exit(1)
                 }
             }
         });
         rt.block_on(local);
     });
-    let worker_client = t.redis().client().clone();
-    let worker_keycloak = t.keycloak().clone();
-    let worker_cache = t.cache().clone();
-    let cache_db = t.clone();
     std::thread::spawn(move || {
         let rt = Builder::new_current_thread().enable_all().build().unwrap();
         let local = LocalSet::new();
         local.spawn_local(async move {
-            let mut con = match worker_client.get_connection() {
-                Ok(con) => con,
-                Err(err) => {
-                    log::error!("{err}");
-                    std::process::exit(1);
-                }
-            };
-            let mut pubsub = con.as_pubsub();
-            if let Err(err) = pubsub.subscribe(worker_cache.user().channel()) {
-                log::error!("{err}");
-                std::process::exit(1);
-            }
-            loop {
-                let msg = pubsub.get_message();
-                if let Err(err) = &msg {
-                    log::error!("{err}");
-                    std::process::exit(1);
-                } else if let Err(err) = worker_cache
-                    .user()
-                    .process_event(&worker_keycloak, &cache_db, msg.unwrap())
-                    .await
+            if let Err(err) = keycloak_listener_instance
+                .inner
+                .user
+                .listen(&keycloak_db)
+                .await
+            {
+                if !err
+                    .to_string()
+                    .contains("A Tokio 1.x context was found, but it is being shutdown.")
                 {
-                    log::error!("{err}");
-                    std::process::exit(1);
+                    log::error!("{err:#?}");
+                    std::process::exit(1)
                 }
             }
         });

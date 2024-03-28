@@ -1,17 +1,80 @@
+use crate::model::CreateUserInput;
+use async_graphql::{InputObject, SimpleObject};
+use qm_entity::ids::OrganizationId;
+use qm_entity::ids::{CustomerId, InfraId, InstitutionId};
+use serde::{Deserialize, Serialize};
+use sqlx::types::time::PrimitiveDateTime;
+use sqlx::types::uuid::Uuid;
+use sqlx::FromRow;
+
 use std::sync::Arc;
 
-use async_graphql::{ComplexObject, Context, FieldResult, InputObject, SimpleObject};
-use qm_entity::list::NewList;
-use serde::{Deserialize, Serialize};
+pub struct InstitutionData(pub OrganizationId, pub String);
 
-use crate::cache::Cache;
-use crate::model::CreateUserInput;
-use qm_entity::error::{EntityError, EntityResult};
-use qm_entity::ids::{EntityId, InstitutionId, OrganizationId, OrganizationResourceId, ID};
-use qm_entity::model::Modification;
-use qm_entity::{Create, UserId};
+#[derive(Debug, Clone, SimpleObject)]
+pub struct InstitutionList {
+    pub items: Arc<[Arc<Institution>]>,
+    pub limit: Option<i64>,
+    pub total: Option<i64>,
+    pub page: Option<i64>,
+}
 
-use super::{Customer, Organization, Owner};
+#[derive(Debug, Clone, SimpleObject, FromRow, Serialize, Deserialize)]
+#[graphql(complex)]
+pub struct Institution {
+    #[graphql(skip)]
+    pub id: InfraId,
+    #[graphql(skip)]
+    pub customer_id: InfraId,
+    #[graphql(skip)]
+    pub organization_id: InfraId,
+    pub name: Arc<str>,
+    pub created_by: Uuid,
+    pub created_at: PrimitiveDateTime,
+    pub updated_by: Option<Uuid>,
+    pub updated_at: Option<PrimitiveDateTime>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InstitutionUpdate {
+    pub id: InfraId,
+    pub customer_id: InfraId,
+    pub organization_id: InfraId,
+    pub name: Arc<str>,
+    pub created_by: Uuid,
+    pub created_at: String,
+    pub updated_by: Option<Uuid>,
+    pub updated_at: Option<String>,
+}
+
+pub struct RemoveInstitutionPayload {
+    pub id: InfraId,
+    pub customer_id: InfraId,
+    pub organization_id: InfraId,
+    pub name: Arc<str>,
+}
+
+impl From<InstitutionUpdate> for RemoveInstitutionPayload {
+    fn from(value: InstitutionUpdate) -> Self {
+        Self {
+            id: value.id,
+            customer_id: value.customer_id,
+            organization_id: value.organization_id,
+            name: value.name,
+        }
+    }
+}
+
+impl<'a> From<&'a Institution> for RemoveInstitutionPayload {
+    fn from(value: &'a Institution) -> Self {
+        Self {
+            id: value.id,
+            customer_id: value.customer_id,
+            organization_id: value.organization_id,
+            name: value.name.clone(),
+        }
+    }
+}
 
 #[derive(Debug, InputObject)]
 pub struct CreateInstitutionInput {
@@ -24,141 +87,26 @@ pub struct UpdateInstitutionInput {
     pub name: Option<String>,
 }
 
-#[derive(Debug, Clone, SimpleObject, Serialize, Deserialize)]
-#[graphql(complex)]
-pub struct Institution {
-    #[graphql(skip)]
-    #[serde(rename = "_id", skip_serializing_if = "Option::is_none")]
-    pub id: Option<ID>,
-    pub name: String,
-    #[graphql(skip)]
-    pub owner: Owner,
-    pub created: Modification,
-    pub modified: Option<Modification>,
-}
-
-impl TryInto<InstitutionId> for Institution {
-    type Error = anyhow::Error;
-    fn try_into(self) -> Result<InstitutionId, Self::Error> {
-        let organization = self.owner.organization().ok_or(anyhow::anyhow!(
-            "institution '{}' requires organization as owner",
-            self.name
-        ))?;
-        Ok(InstitutionId {
-            cid: organization.cid,
-            oid: organization.id,
-            id: self
-                .id
-                .ok_or(anyhow::anyhow!("institution '{}' has no id", self.name))?,
-        })
+impl<'a> From<&'a Institution> for InstitutionId {
+    fn from(val: &'a Institution) -> Self {
+        let cid: i64 = val.customer_id.into();
+        let oid: i64 = val.organization_id.into();
+        let iid: i64 = val.id.into();
+        (cid, oid, iid).into()
     }
 }
 
-#[derive(Default, Debug, Clone, SimpleObject, Serialize, Deserialize)]
-pub struct InstitutionList {
-    pub items: Vec<Institution>,
-    pub limit: Option<i64>,
-    pub total: Option<i64>,
-    pub page: Option<i64>,
-}
-
-impl Institution {
-    pub fn as_id(&self) -> InstitutionId {
-        self.owner
-            .organization()
-            .zip(self.id.clone())
-            .map(|(rid, id)| InstitutionId {
-                cid: rid.cid,
-                oid: rid.id,
-                id,
-            })
-            .unwrap_or_else(|| panic!("institution '{}' is invalid", &self.name))
+impl<'a> From<&'a Institution> for OrganizationId {
+    fn from(val: &'a Institution) -> Self {
+        let cid: i64 = val.customer_id.into();
+        let oid: i64 = val.organization_id.into();
+        (cid, oid).into()
     }
 }
 
-#[ComplexObject]
-impl Institution {
-    async fn id(&self) -> FieldResult<InstitutionId> {
-        Ok(self.as_id())
-    }
-
-    async fn customer(&self, ctx: &Context<'_>) -> Option<Arc<Customer>> {
-        let cache = ctx.data::<Cache>().ok();
-        if cache.is_none() {
-            log::warn!("qm::customer::Cache is not installed in schema context");
-            return None;
-        }
-        let cache = cache.unwrap();
-        if let Some(id) = self.owner.customer() {
-            cache.customer().customer_by_id(&id.id).await
-        } else {
-            None
-        }
-    }
-
-    async fn organization(&self, ctx: &Context<'_>) -> Option<Arc<Organization>> {
-        let cache = ctx.data::<Cache>().ok();
-        if cache.is_none() {
-            log::warn!("qm::customer::Cache is not installed in schema context");
-            return None;
-        }
-        let cache = cache.unwrap();
-        if let Some(v) = self.owner.organization() {
-            cache.customer().organization_by_id(&v).await
-        } else {
-            None
-        }
-    }
-}
-
-impl AsMut<Option<ID>> for Institution {
-    fn as_mut(&mut self) -> &mut Option<ID> {
-        &mut self.id
-    }
-}
-
-pub struct InstitutionData(pub OrganizationId, pub String);
-
-impl<C> Create<Institution, C> for InstitutionData
-where
-    C: UserId,
-{
-    fn create(self, c: &C) -> EntityResult<Institution> {
-        let user_id = c.user_id().ok_or(EntityError::Forbidden)?.to_owned();
-        Ok(Institution {
-            id: None,
-            owner: Owner::Organization(EntityId {
-                cid: Some(self.0.cid),
-                oid: Some(self.0.id),
-                ..Default::default()
-            }),
-            name: self.1,
-            created: Modification::new(user_id),
-            modified: None,
-        })
-    }
-}
-
-impl<'a> TryInto<OrganizationResourceId> for &'a Institution {
-    type Error = anyhow::Error;
-
-    fn try_into(self) -> Result<OrganizationResourceId, Self::Error> {
-        Ok(self.as_id())
-    }
-}
-
-impl NewList<Institution> for InstitutionList {
-    fn new(
-        items: Vec<Institution>,
-        limit: Option<i64>,
-        total: Option<i64>,
-        page: Option<i64>,
-    ) -> Self {
-        Self {
-            items,
-            limit,
-            total,
-            page,
-        }
+impl<'a> From<&'a Institution> for CustomerId {
+    fn from(val: &'a Institution) -> Self {
+        let cid: i64 = val.customer_id.into();
+        cid.into()
     }
 }

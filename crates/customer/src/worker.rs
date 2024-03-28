@@ -6,45 +6,40 @@ use crate::context::RelatedPermission;
 use crate::context::RelatedResource;
 use crate::context::RelatedStorage;
 use crate::marker::Marker;
-use crate::model::Institution;
-use crate::model::Organization;
-use crate::model::OrganizationUnit;
-use crate::schema::customer::CustomerDB;
-use crate::schema::institution::InstitutionDB;
-use crate::schema::organization::OrganizationDB;
-use crate::schema::organization_unit::OrganizationUnitDB;
-use crate::schema::user::UserDB;
+
+use std::collections::BTreeSet;
 use std::sync::Arc;
 
-use futures::{StreamExt, TryStreamExt};
-
 use crate::cleanup::CleanupTask;
-use qm_entity::ids::select_ids;
-use qm_entity::ids::Cid;
+use qm_entity::ids::CustomerId;
 use qm_entity::ids::CustomerIds;
-use qm_entity::ids::Iid;
+
 use qm_entity::ids::InstitutionId;
-use qm_entity::ids::InstitutionIdRef;
 use qm_entity::ids::InstitutionIds;
-use qm_entity::ids::Oid;
+
 use qm_entity::ids::OrganizationId;
 use qm_entity::ids::OrganizationIds;
+
 use qm_entity::ids::OrganizationUnitId;
 use qm_entity::ids::OrganizationUnitIds;
-use qm_entity::ids::Uid;
+
+use qm_entity::ids::CUSTOMER_UNIT_ID_PREFIX;
+use qm_entity::ids::INSTITUTION_ID_PREFIX;
+use qm_entity::ids::INSTITUTION_UNIT_ID_PREFIX;
+use qm_entity::ids::ORGANIZATION_ID_PREFIX;
 use qm_kafka::producer::EventNs;
 use qm_mongodb::bson::doc;
+
 use qm_mongodb::bson::Document;
-use qm_mongodb::bson::Uuid;
 use qm_mongodb::ClientSession;
 use qm_mongodb::DB;
+use sqlx::types::Uuid;
+
 use qm_redis::AsyncWorker;
 pub use qm_redis::Producer;
 use qm_redis::Work;
 use qm_redis::WorkerContext;
 use qm_redis::Workers;
-use serde::de::DeserializeOwned;
-use std::collections::BTreeSet;
 
 lazy_static::lazy_static! {
     static ref PREFIX: String = {
@@ -104,28 +99,6 @@ where
     }
 }
 
-async fn extend_roles<T>(
-    collection: &qm_mongodb::Collection<T>,
-    roles: &mut BTreeSet<String>,
-    session: &mut ClientSession,
-    query: &Document,
-    cb: impl Fn(T) -> anyhow::Result<Vec<String>>,
-) -> anyhow::Result<()>
-where
-    T: DeserializeOwned,
-{
-    let mut items = collection
-        .find_with_session(query.clone(), None, session)
-        .await?;
-    let mut s = items.stream(session);
-    while let Some(v) = s.next().await {
-        if let Ok(v) = v {
-            roles.extend(cb(v)?);
-        }
-    }
-    anyhow::Ok(())
-}
-
 async fn remove_documents(
     db: &DB,
     session: &mut ClientSession,
@@ -138,37 +111,6 @@ async fn remove_documents(
         .delete_many_with_session(query.clone(), None, session)
         .await?;
     Ok(result.deleted_count)
-}
-
-async fn remove_users(
-    db: &impl UserDB,
-    session: &mut ClientSession,
-    query: &Document,
-) -> anyhow::Result<u64> {
-    let result = db
-        .users()
-        .as_ref()
-        .delete_many_with_session(query.clone(), None, session)
-        .await?;
-    Ok(result.deleted_count)
-}
-
-async fn update_organization_units(
-    db: &impl OrganizationUnitDB,
-    session: &mut ClientSession,
-    v: InstitutionIdRef<'_>,
-) -> anyhow::Result<()> {
-    let InstitutionIdRef { cid, oid, iid } = v;
-    db.organization_units()
-        .as_ref()
-        .update_many_with_session(
-            doc! { "members.cid": cid, "members.oid": oid },
-            doc! { "$pull": { "members": { "cid": cid, "oid": oid, "iid": iid } }},
-            None,
-            session,
-        )
-        .await?;
-    Ok(())
 }
 
 async fn cleanup_customers<Auth, Store, AccessLevel, Resource, Permission>(
@@ -188,98 +130,74 @@ where
     let db: &DB = store.as_ref();
     let mut session = db.session().await?;
     let mut roles = BTreeSet::new();
+    let existing_roles = store.cache_db().user().roles().await;
+    let access_roles: Vec<_> = existing_roles
+        .keys()
+        .filter(|k| k.contains("access@"))
+        .collect();
     for cid in cids.iter() {
         roles.insert(
             qm_role::Access::new(AccessLevel::customer())
                 .with_fmt_id(Some(cid))
                 .to_string(),
         );
+        extend_roles_with_children(
+            cid,
+            &[
+                INSTITUTION_ID_PREFIX,
+                INSTITUTION_UNIT_ID_PREFIX,
+                ORGANIZATION_ID_PREFIX,
+                CUSTOMER_UNIT_ID_PREFIX,
+            ],
+            &access_roles,
+            &mut roles,
+        );
     }
-    let ids: Vec<_> = cids.iter().map(|v| (v.as_ref())).collect();
+    let cids: Vec<i64> = cids.iter().map(CustomerId::unzip).collect();
     let query = doc! {
         "owner.entityId.cid": {
-            "$in": &ids
-        }
+            "$in": &cids
+        },
     };
-    extend_roles::<OrganizationUnit>(
-        worker_ctx.ctx().store.organization_units().as_ref(),
-        &mut roles,
-        &mut session,
-        &query,
-        |v| {
-            Ok(vec![qm_role::Access::new(AccessLevel::organization_unit())
-                .with_fmt_id(Some(&v.as_id()))
-                .to_string()])
-        },
-    )
-    .await?;
-    extend_roles::<Organization>(
-        worker_ctx.ctx().store.organizations().as_ref(),
-        &mut roles,
-        &mut session,
-        &query,
-        |v| {
-            Ok(vec![qm_role::Access::new(AccessLevel::organization())
-                .with_fmt_id(Some(&v.as_id()))
-                .to_string()])
-        },
-    )
-    .await?;
-    extend_roles::<Institution>(
-        worker_ctx.ctx().store.institutions().as_ref(),
-        &mut roles,
-        &mut session,
-        &query,
-        |v| {
-            Ok(vec![qm_role::Access::new(AccessLevel::institution())
-                .with_fmt_id(Some(&v.as_id()))
-                .to_string()])
-        },
-    )
-    .await?;
     for collection in db
         .get()
         .list_collection_names_with_session(None, &mut session)
         .await?
     {
-        if collection == UserDB::collection(store) {
-            remove_users(store, &mut session, &query).await?;
-        } else {
-            log::debug!("remove all organization related resources from db {collection}");
-            remove_documents(db, &mut session, &collection, &query).await?;
-        }
+        log::debug!("remove all organization related resources from db {collection}");
+        remove_documents(db, &mut session, &collection, &query).await?;
     }
     log::debug!("cleanup roles");
-    cleanup_roles(
-        store,
-        store.redis().as_ref(),
-        store.keycloak(),
-        store.cache().user(),
-        roles,
-        &mut session,
-    )
-    .await?;
-    log::debug!("trigger reload event user_cache");
-    store
-        .cache()
-        .user()
-        .reload_users(store.keycloak(), store, Some(store.redis().as_ref()))
-        .await?;
-    log::debug!("trigger reload event customer_cache");
-    store
-        .cache()
-        .customer()
-        .reload(store, Some(store.redis().as_ref()))
-        .await?;
+    cleanup_roles(store.keycloak(), roles).await?;
     // Emit the Kafka event
     if let Some(producer) = store.mutation_event_producer() {
         producer
-            .delete_event(&EventNs::Customer, CustomerDB::collection(store), cids)
+            .delete_event(&EventNs::Customer, "customer", cids)
             .await?;
     }
     worker_ctx.complete().await?;
     log::debug!("finished cleanup task '{ty}' with id '{id}'");
     Ok(())
+}
+
+fn extend_roles_with_children(
+    v: &impl std::fmt::Display,
+    allowed_prefixes: &[char],
+    access_roles: &[&Arc<str>],
+    roles: &mut BTreeSet<String>,
+) {
+    let id = v.to_string();
+    for role in access_roles.iter() {
+        if let Some((_, role_id)) = role.rsplit_once("access@") {
+            if !role_id.is_empty()
+                && !id.is_empty()
+                && allowed_prefixes.iter().any(|v| role_id.starts_with(*v))
+                && role_id[1..].starts_with(&id[1..])
+            {
+                roles.insert(role.to_string());
+            }
+        }
+    }
 }
 
 async fn cleanup_organizations<Auth, Store, AccessLevel, Resource, Permission>(
@@ -299,15 +217,25 @@ where
     let db: &DB = store.as_ref();
     let mut session = db.session().await?;
     let mut roles = BTreeSet::new();
+    let existing_roles = store.cache_db().user().roles().await;
+    let access_roles: Vec<_> = existing_roles
+        .keys()
+        .filter(|k| k.contains("access@"))
+        .collect();
     for v in strict_oids.iter() {
         roles.insert(
             qm_role::Access::new(AccessLevel::organization())
                 .with_fmt_id(Some(&v))
                 .to_string(),
         );
+        extend_roles_with_children(
+            v,
+            &[INSTITUTION_ID_PREFIX, INSTITUTION_UNIT_ID_PREFIX],
+            &access_roles,
+            &mut roles,
+        );
     }
-    let cids = select_ids::<OrganizationId, Cid>(strict_oids);
-    let oids = select_ids::<OrganizationId, Oid>(strict_oids);
+    let (cids, oids): (Vec<i64>, Vec<i64>) = strict_oids.iter().map(OrganizationId::unzip).unzip();
     let query = doc! {
         "owner.entityId.cid": {
             "$in": &cids
@@ -316,79 +244,20 @@ where
             "$in": &oids
         }
     };
-    let institution_ids: InstitutionIds = async {
-        let mut items = store
-            .institutions()
-            .as_ref()
-            .find_with_session(query.clone(), None, &mut session)
-            .await?;
-        let s = items.stream(&mut session);
-        let s: Vec<Institution> = s.try_collect().await?;
-        anyhow::Ok(s.into_iter().filter_map(|v| v.try_into().ok()).collect())
-    }
-    .await?;
-    for id in institution_ids.iter() {
-        update_organization_units(store, &mut session, id.into()).await?;
-        roles.insert(
-            qm_role::Access::new(AccessLevel::institution())
-                .with_fmt_id(Some(&id))
-                .to_string(),
-        );
-    }
-    extend_roles::<OrganizationUnit>(
-        worker_ctx.ctx().store.organization_units().as_ref(),
-        &mut roles,
-        &mut session,
-        &query,
-        |v| {
-            Ok(vec![qm_role::Access::new(AccessLevel::organization_unit())
-                .with_fmt_id(Some(&v.as_id()))
-                .to_string()])
-        },
-    )
-    .await?;
     for collection in db
         .get()
         .list_collection_names_with_session(None, &mut session)
         .await?
     {
-        if collection == UserDB::collection(store) {
-            remove_users(store, &mut session, &query).await?;
-        } else {
-            log::debug!("remove all organization related resources from db {collection}");
-            remove_documents(db, &mut session, &collection, &query).await?;
-        }
+        log::debug!("remove all organization related resources from db {collection}");
+        remove_documents(db, &mut session, &collection, &query).await?;
     }
     log::debug!("cleanup roles");
-    cleanup_roles(
-        store,
-        store.redis().as_ref(),
-        store.keycloak(),
-        store.cache().user(),
-        roles,
-        &mut session,
-    )
-    .await?;
-    log::debug!("trigger reload event user_cache");
-    store
-        .cache()
-        .user()
-        .reload_users(store.keycloak(), store, Some(store.redis().as_ref()))
-        .await?;
-    log::debug!("trigger reload event customer_cache");
-    store
-        .cache()
-        .customer()
-        .reload(store, Some(store.redis().as_ref()))
-        .await?;
-    // Emit the Kafka event
+    cleanup_roles(store.keycloak(), roles).await?;
+    // // Emit the Kafka event
     if let Some(producer) = store.mutation_event_producer() {
         producer
-            .delete_event(
-                &EventNs::Organization,
-                OrganizationDB::collection(store),
-                cids,
-            )
+            .delete_event(&EventNs::Organization, "organization", cids)
             .await?;
     }
     worker_ctx.complete().await?;
@@ -410,22 +279,18 @@ where
     Permission: RelatedPermission,
 {
     let store: &Store = &worker_ctx.ctx().store;
-    let db: &DB = store.as_ref();
+    let db = store.as_ref();
     let mut session = db.session().await?;
     let mut roles = BTreeSet::new();
-
     for id in strict_iids.iter() {
         roles.insert(
             qm_role::Access::new(AccessLevel::institution())
                 .with_fmt_id(Some(&id))
                 .to_string(),
         );
-        update_organization_units(store, &mut session, id.into()).await?;
     }
-    let cids = select_ids::<InstitutionId, Cid>(strict_iids);
-    let oids = select_ids::<InstitutionId, Oid>(strict_iids);
-    let iids = select_ids::<InstitutionId, Iid>(strict_iids);
-
+    let (cids, (oids, iids)): (Vec<i64>, (Vec<i64>, Vec<i64>)) =
+        strict_iids.iter().map(InstitutionId::untuple).unzip();
     let query = doc! {
         "owner.entityId.cid": {
             "$in": &cids
@@ -442,43 +307,15 @@ where
         .list_collection_names_with_session(None, &mut session)
         .await?
     {
-        if collection == UserDB::collection(store) {
-            remove_users(store, &mut session, &query).await?;
-        } else {
-            log::debug!("remove all organization related resources from db {collection}");
-            remove_documents(db, &mut session, &collection, &query).await?;
-        }
+        log::debug!("remove all organization related resources from db {collection}");
+        remove_documents(db, &mut session, &collection, &query).await?;
     }
     log::debug!("cleanup roles");
-    cleanup_roles(
-        store,
-        store.redis().as_ref(),
-        store.keycloak(),
-        store.cache().user(),
-        roles,
-        &mut session,
-    )
-    .await?;
-    log::debug!("trigger reload event user_cache");
-    store
-        .cache()
-        .user()
-        .reload_users(store.keycloak(), store, Some(store.redis().as_ref()))
-        .await?;
-    log::debug!("trigger reload event customer_cache");
-    store
-        .cache()
-        .customer()
-        .reload(store, Some(store.redis().as_ref()))
-        .await?;
-    // Emit the Kafka event
+    cleanup_roles(store.keycloak(), roles).await?;
+    // // Emit the Kafka event
     if let Some(producer) = store.mutation_event_producer() {
         producer
-            .delete_event(
-                &EventNs::Institution,
-                InstitutionDB::collection(store),
-                strict_iids,
-            )
+            .delete_event(&EventNs::Institution, "institution", strict_iids)
             .await?;
     }
     worker_ctx.complete().await?;
@@ -510,43 +347,30 @@ where
                 .to_string(),
         );
     }
-    let cids = select_ids::<OrganizationUnitId, Cid>(strict_uids);
-    let iids = select_ids::<OrganizationUnitId, Uid>(strict_uids);
+    let (cids, uids): (Vec<i64>, Vec<i64>) =
+        strict_uids.iter().map(OrganizationUnitId::untuple).unzip();
     let query = doc! {
-        "owner.entityId.cid": &cids,
-        "owner.entityId.iid": &iids,
+        "owner.entityId.cid": {
+            "$in": &cids
+        },
+        "owner.entityId.uid": {
+            "$in": &uids
+        }
     };
-    remove_users(store, &mut session, &query).await?;
+    for collection in db
+        .get()
+        .list_collection_names_with_session(None, &mut session)
+        .await?
+    {
+        log::debug!("remove all organization unit related resources from db {collection}");
+        remove_documents(db, &mut session, &collection, &query).await?;
+    }
     log::debug!("cleanup roles");
-    cleanup_roles(
-        store,
-        store.redis().as_ref(),
-        store.keycloak(),
-        store.cache().user(),
-        roles,
-        &mut session,
-    )
-    .await?;
-    log::debug!("trigger reload event user_cache");
-    store
-        .cache()
-        .user()
-        .reload_users(store.keycloak(), store, Some(store.redis().as_ref()))
-        .await?;
-    log::debug!("trigger reload event customer_cache");
-    store
-        .cache()
-        .customer()
-        .reload(store, Some(store.redis().as_ref()))
-        .await?;
+    cleanup_roles(store.keycloak(), roles).await?;
     // Emit the Kafka event
     if let Some(producer) = store.mutation_event_producer() {
         producer
-            .delete_event(
-                &EventNs::OrganizationUnit,
-                OrganizationUnitDB::collection(store),
-                strict_uids,
-            )
+            .delete_event(&EventNs::OrganizationUnit, "organization_unit", strict_uids)
             .await?;
     }
     worker_ctx.complete().await?;

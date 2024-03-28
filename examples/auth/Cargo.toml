@@ -14,6 +14,7 @@ constcat.workspace = true
 axum.workspace = true
 async-graphql.workspace = true
 async-trait.workspace = true
+sqlx.workspace = true
 tower-http.workspace = true
 qm = { workspace = true, default-features = false, features = [
     "mongodb",
