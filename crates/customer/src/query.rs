@@ -66,10 +66,15 @@ pub async fn fetch_groups(db: &DB, realm: &str) -> anyhow::Result<Vec<KcGroupQue
         r#"
 SELECT
     g.id AS group_id,
-    g.name AS group_name
+    g.name AS group_name,
+    a.value AS context,
+    b.value AS built_in
 FROM realm re
     JOIN public.keycloak_group g ON g.realm_id = re.id
-    WHERE re.name = $1;"#,
+    LEFT JOIN public.group_attribute a ON a.group_id = g.id AND a.name = 'context'
+    LEFT JOIN public.group_attribute b ON b.group_id = g.id AND b.name = 'built_in'
+WHERE re.name = $1;
+    "#,
         realm
     )
     .fetch_all(db.pool())
@@ -82,9 +87,13 @@ pub async fn fetch_user_groups(db: &DB, user_id: &str) -> anyhow::Result<Vec<KcG
         r#"
 SELECT
     r0.group_id as group_id,
-    r1.name as group_name
+    r1.name as group_name,
+    a.value AS context,
+    b.value AS built_in
 FROM user_group_membership r0
 JOIN keycloak_group r1 on r1.id = r0.group_id
+LEFT JOIN public.group_attribute a ON a.group_id = r1.id AND a.name = 'context'
+LEFT JOIN public.group_attribute b ON b.group_id = r1.id AND b.name = 'built_in'
     WHERE user_id = $1;"#,
         user_id
     )
@@ -94,6 +103,8 @@ JOIN keycloak_group r1 on r1.id = r0.group_id
     .map(|v| KcGroupQuery {
         group_name: v.group_name.map(|n| format!("/{n}")),
         group_id: v.group_id,
+        built_in: v.built_in,
+        context: v.context,
     })
     .collect())
 }

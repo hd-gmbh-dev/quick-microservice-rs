@@ -80,7 +80,7 @@ impl UserDB {
                     let id: Arc<str> = Arc::from(id);
                     state
                         .entry(id.clone())
-                        .or_insert_with(|| Arc::new(Group { id, name }));
+                        .or_insert_with(|| Arc::new(Group { id, name, built_in: true, context: row.context.and_then(|c| c.parse().ok()) }));
                 }
                 state
             },
@@ -225,6 +225,18 @@ impl UserDB {
         }
     }
 
+    pub async fn new_group(&self, group: Arc<Group>) {
+        self.groups
+            .write()
+            .await
+            .insert(group.name.clone(), group.clone());
+        self.group_id_map
+            .write()
+            .await
+            .insert(group.id.clone(), group);
+        self.groups_total.set(self.groups.read().await.len() as i64);
+    }
+
     pub async fn new_roles(&self, roles: Vec<RoleRepresentation>) -> anyhow::Result<()> {
         for role in roles {
             if let Some((name, id)) = role.name.zip(role.id) {
@@ -252,6 +264,7 @@ impl UserDB {
                 "keycloak_group_update",
                 "user_role_mapping_update",
                 "user_group_membership_update",
+                "group_attribute_update",
             ])
             .await?;
 
@@ -268,6 +281,9 @@ impl UserDB {
                 }
                 "keycloak_group_update" => {
                     self.keycloak_group_update(notification.payload()).await?;
+                }
+                "group_attribute_update" => {
+                    self.group_attribute_update(notification.payload()).await?;
                 }
                 "user_role_mapping_update" => {
                     self.user_role_mapping_update(notification.payload())
@@ -478,15 +494,10 @@ impl UserDB {
                     let group = Arc::new(Group {
                         id: new.id,
                         name: Arc::from(format!("/{}", new.name)),
+                        built_in: true,
+                        context: None,
                     });
-                    self.groups
-                        .write()
-                        .await
-                        .insert(group.name.clone(), group.clone());
-                    self.group_id_map
-                        .write()
-                        .await
-                        .insert(group.id.clone(), group);
+                    self.new_group(group).await;
                 }
             }
             (Op::Delete, None, Some(old)) => {
@@ -534,6 +545,43 @@ impl UserDB {
                     .await;
                     for updated_user in updated_users {
                         self.new_user(updated_user).await;
+                    }
+                }
+            }
+            _ => {}
+        }
+        Ok(())
+    }
+    
+    async fn group_attribute_update(&self, payload: &str) -> anyhow::Result<()> {
+        let payload: Payload<GroupAttributeUpdate> = serde_json::from_str(payload)?;
+        match (payload.op, payload.new, payload.old) {
+            (Op::Insert, Some(new), None) => {
+                let group = self.group_id_map.read().await.get(&new.group_id).cloned();
+                if let Some(group) = group {
+                    let group = match new.name.as_deref().zip(new.value) {
+                        Some(("access_level", access_level)) => Some(Group {
+                            id: group.id.clone(),
+                            name: group.name.clone(),
+                            built_in: group.built_in.clone(),
+                            context: group.context.clone(),
+                        }),
+                        Some(("built_in", built_in)) => Some(Group {
+                            id: group.id.clone(),
+                            name: group.name.clone(),
+                            built_in: &built_in == "1",
+                            context: group.context.clone(),
+                        }),
+                        Some(("context", context)) => Some(Group {
+                            id: group.id.clone(),
+                            name: group.name.clone(),
+                            built_in: group.built_in.clone(),
+                            context: context.parse().ok(),
+                        }),
+                        _ => None
+                    };
+                    if let Some(group) = group {
+                        self.new_group(Arc::new(group)).await;
                     }
                 }
             }

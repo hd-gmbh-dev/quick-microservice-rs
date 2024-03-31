@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 pub trait CreateCustomerOwnerGroup<A, R, P>
 where
     R: std::fmt::Debug,
@@ -43,6 +45,6 @@ where
 }
 
 pub trait RelatedBuiltInGroup:
-    AsRef<str> + async_graphql::InputType + Send + Sync + 'static
+    AsRef<str> + async_graphql::InputType + FromStr + Eq + PartialEq + Send + Sync + 'static
 {
 }

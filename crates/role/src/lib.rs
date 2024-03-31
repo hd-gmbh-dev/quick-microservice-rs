@@ -1,5 +1,6 @@
 use std::{collections::BTreeSet, str::FromStr, sync::Arc};
 
+use strum::{AsRefStr, EnumString};
 use tokio::sync::RwLock;
 
 #[macro_export]
@@ -18,6 +19,41 @@ macro_rules! role {
         $crate::Role::new($resource, Some($permission))
     };
 }
+
+#[derive(Default, Clone, Debug, Copy, EnumString, async_graphql::Enum, AsRefStr, Ord, PartialOrd, Eq, PartialEq)]
+pub enum AccessLevel {
+    #[default]
+    #[strum(serialize = "none")]
+    None,
+    #[strum(serialize = "admin")]
+    Admin,
+    #[strum(serialize = "support")]
+    Support,
+    #[strum(serialize = "customer")]
+    Customer,
+    #[strum(serialize = "organization")]
+    Organization,
+    #[strum(serialize = "customer_unit")]
+    CustomerUnit,
+    #[strum(serialize = "institution_unit")]
+    InstitutionUnit,
+    #[strum(serialize = "institution")]
+    Institution,
+}
+
+impl AccessLevel {
+    pub fn as_number(&self) -> u32 {
+        match self {
+            Self::Admin => u32::MAX,
+            Self::Support => u32::MAX - 1,
+            Self::Customer => u32::MAX - 2,
+            Self::Organization | Self::CustomerUnit  => u32::MAX - 3,
+            Self::Institution | Self::InstitutionUnit => u32::MAX - 4,
+            Self::None => 0,
+        }
+    }
+}
+
 
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq)]
 pub struct Access<T> {
@@ -265,8 +301,9 @@ where
     P: std::fmt::Debug,
 {
     pub name: String,
+    pub path: String,
     resource_roles: Vec<Role<R, P>>,
-    access_level: A,
+    allowed_access_levels: Vec<A>,
 }
 
 impl<A, R, P> Group<A, R, P>
@@ -274,29 +311,22 @@ where
     R: std::fmt::Debug,
     P: std::fmt::Debug,
 {
-    pub fn new(name: String, access_level: A, resource_roles: Vec<Role<R, P>>) -> Self {
+    pub fn new(name: String, path: String, allowed_access_levels: Vec<A>, resource_roles: Vec<Role<R, P>>) -> Self {
         Self {
             name,
+            path,
             resource_roles,
-            access_level,
+            allowed_access_levels,
         }
     }
-}
 
-impl<A, R, P> Group<A, R, P>
-where
-    A: Copy,
-    R: std::fmt::Debug,
-    P: std::fmt::Debug,
-{
-    pub fn access_role(&self) -> Access<A> {
-        Access::new(*&self.access_level)
+    pub fn allowed_access_levels(&self) -> &[A] {
+        &self.allowed_access_levels
     }
 }
 
 impl<A, R, P> Group<A, R, P>
 where
-    A: AsRef<str>,
     R: AsRef<str> + std::fmt::Debug,
     P: AsRef<str> + std::fmt::Debug,
 {

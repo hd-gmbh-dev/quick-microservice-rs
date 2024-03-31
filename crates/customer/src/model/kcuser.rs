@@ -2,6 +2,7 @@ use crate::model::Group;
 use crate::model::Role;
 use async_graphql::{Enum, InputObject, SimpleObject};
 use qm_entity::ids::{InfraContext, InstitutionId, PartialEqual};
+use qm_entity::IsAdmin;
 use sqlx::types::Uuid;
 use sqlx::FromRow;
 use std::collections::{HashMap, HashSet};
@@ -128,6 +129,13 @@ pub struct UserGroupMembershipUpdate {
     pub user_id: Arc<str>,
 }
 
+#[derive(Debug, serde::Deserialize)]
+pub struct GroupAttributeUpdate {
+    pub group_id: Arc<str>,
+    pub name: Option<String>,
+    pub value: Option<String>,
+}
+
 #[derive(Debug, Clone, SimpleObject)]
 pub struct UserList {
     pub items: Arc<[Arc<User>]>,
@@ -158,5 +166,11 @@ impl PartialEqual<'_, InstitutionId> for User {
         } else {
             false
         }
+    }
+}
+
+impl IsAdmin for User {
+    fn is_admin(&self) -> bool {
+        self.roles.iter().any(|r| r.name.as_ref() == "admin" || r.name.as_ref() == "administration")
     }
 }

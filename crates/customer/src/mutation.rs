@@ -419,21 +419,3 @@ pub async fn remove_organization_units(pool: &PgPool, ids: &[i64]) -> anyhow::Re
     .rows_affected() as u64;
     Ok(result)
 }
-
-#[cfg(test)]
-mod tests {
-    use sqlx::Execute;
-
-    #[test]
-    fn print_query() {
-        let ids: [i64; 3] = [1, 2, 3];
-        eprintln!(
-            "{}",
-            sqlx::query!(
-                "DELETE FROM institutions WHERE id IN (SELECT unnest($1::int8[]))",
-                &ids[..] as &[i64],
-            )
-            .sql()
-        );
-    }
-}

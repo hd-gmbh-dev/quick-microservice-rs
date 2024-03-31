@@ -31,17 +31,19 @@ mod test {
 
 | Group                 | Name                  |
 | --------------------- | --------------------- |
-| Admin                 | /administration/owner |
-| InstitutionOwner      | /institution/owner    |
-| Reader                | /employee/reader      |
+| Admin                 | /administration_owner |
+| CustomerOwner         | /customer_owner       |
+| InstitutionOwner      | /institution_owner    |
+| Reader                | /employee_reader      |
 
 # Access Levels `access_levels`
 
-| Group                 | Access Level   |
-| --------------------- | -------------- |
-| Admin                 | Admin          |
-| InstitutionOwner      | Institution    |
-| Reader                | Institution    |
+| Group                 | Access Levels            |
+| --------------------- | ------------------------ |
+| Admin                 | Admin                    |
+| CustomerOwner         | Customer                 |
+| InstitutionOwner      | Institution              |
+| Reader                | Customer, Institution    |
 
 # Role Mappings `roles`
 
@@ -67,23 +69,25 @@ mod test {
             Table {
                 headers: vec!["Group".to_string(), "Name".to_string()],
                 rows: vec![
-                    vec!["Admin".to_string(), "/administration/owner".to_string()],
+                    vec!["Admin".to_string(), "/administration_owner".to_string()],
+                    vec!["CustomerOwner".to_string(), "/customer_owner".to_string()],
                     vec![
                         "InstitutionOwner".to_string(),
-                        "/institution/owner".to_string()
+                        "/institution_owner".to_string()
                     ],
-                    vec!["Reader".to_string(), "/employee/reader".to_string()],
+                    vec!["Reader".to_string(), "/employee_reader".to_string()],
                 ],
             }
         );
         assert_eq!(
             result.access_levels,
             Table {
-                headers: vec!["Group".to_string(), "Access Level".to_string()],
+                headers: vec!["Group".to_string(), "Access Levels".to_string()],
                 rows: vec![
                     vec!["Admin".to_string(), "Admin".to_string()],
+                    vec!["CustomerOwner".to_string(), "Customer".to_string()],
                     vec!["InstitutionOwner".to_string(), "Institution".to_string()],
-                    vec!["Reader".to_string(), "Institution".to_string()],
+                    vec!["Reader".to_string(), "Customer, Institution".to_string()],
                 ],
             }
         );
@@ -178,12 +182,16 @@ mod test {
                 name: Rc::from("Admin"),
             },
             AccessLevelMapping {
+                user_group: Rc::from("CustomerOwner"),
+                name: Rc::from("Customer"),
+            },
+            AccessLevelMapping {
                 user_group: Rc::from("InstitutionOwner"),
                 name: Rc::from("Institution"),
             },
             AccessLevelMapping {
                 user_group: Rc::from("Reader"),
-                name: Rc::from("Institution"),
+                name: Rc::from("Customer, Institution"),
             },
         ];
         assert_eq!(&expected[..], &result.access_level_mappings[..]);

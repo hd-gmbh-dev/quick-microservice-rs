@@ -99,6 +99,7 @@ pub trait RelatedAuth<A, R, P>:
     + Sync
     + 'static
 where
+    A: AsRef<str>,
     R: std::fmt::Debug,
     P: std::fmt::Debug,
 {

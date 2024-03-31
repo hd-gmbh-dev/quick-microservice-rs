@@ -29,7 +29,7 @@ impl DB {
         let pool = PgPoolOptions::new()
             .min_connections(1)
             .max_connections(cfg.max_connections())
-            .acquire_timeout(Duration::from_secs(5))
+            .acquire_timeout(Duration::from_secs(cfg.acquire_timeout()))
             .connect(cfg.address())
             .await?;
         Ok(Self {

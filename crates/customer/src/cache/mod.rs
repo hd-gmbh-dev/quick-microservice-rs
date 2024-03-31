@@ -319,6 +319,65 @@ impl CacheDB {
         }
     }
 
+    pub async fn group_list(
+        &self,
+        context: Option<InfraContext>,
+        filter: Option<ListFilter>,
+    ) -> GroupList {
+        let v = self.inner.user.groups.read().await;
+        let _i = self.inner.infra.institution_id_map.read().await;
+        let o = self.inner.infra.organization_unit_id_map.read().await;
+        let institutions = match context {
+            Some(InfraContext::OrganizationUnit(v)) => {
+                let unit = o.get(&v.into());
+                unit.map(|u| u.members.as_ref()).unwrap_or(&[])
+            }
+            _ => &[],
+        };
+        if let Some(filter) = filter {
+            let page = filter.page.unwrap_or(0);
+            let limit = filter.limit.unwrap_or(100);
+            let offset = page * limit;
+            let items: Arc<[Arc<Group>]> = if let Some(context) = context {
+                v.values()
+                    .filter(|v| {
+                        v.as_ref().partial_equal(&context)
+                            || institutions.iter().any(|i| v.as_ref().partial_equal(i))
+                    })
+                    .skip(offset)
+                    .take(limit)
+                    .cloned()
+                    .collect()
+            } else {
+                v.values().skip(offset).take(limit).cloned().collect()
+            };
+            GroupList {
+                items,
+                limit: Some(limit as i64),
+                total: Some(self.inner.user.groups_total.get()),
+                page: Some(page as i64),
+            }
+        } else {
+            let items: Arc<[Arc<Group>]> = if let Some(context) = context {
+                v.values()
+                    .filter(|v| {
+                        v.as_ref().partial_equal(&context)
+                            || institutions.iter().any(|i| v.as_ref().partial_equal(i))
+                    })
+                    .cloned()
+                    .collect()
+            } else {
+                v.values().cloned().collect()
+            };
+            GroupList {
+                items,
+                limit: None,
+                total: Some(self.inner.user.groups_total.get()),
+                page: Some(0),
+            }
+        }
+    }
+
     pub async fn customer_by_id(&self, id: &InfraId) -> Option<Arc<Customer>> {
         self.inner
             .infra

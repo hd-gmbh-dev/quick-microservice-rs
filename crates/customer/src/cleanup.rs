@@ -75,6 +75,7 @@ pub async fn cleanup_roles(keycloak: &Keycloak, roles: BTreeSet<String>) -> anyh
         for role in roles.clone().into_iter() {
             let keycloak = keycloak.clone();
             let permit = semaphore.clone().acquire_owned().await.unwrap();
+
             role_remove_tasks.push(tokio::spawn(async move {
                 let realm = keycloak.config().realm();
                 log::debug!("remove users with role from keycloak {role}");
