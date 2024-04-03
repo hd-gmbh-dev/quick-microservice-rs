@@ -4,14 +4,13 @@ use async_graphql::ResultExt;
 use qm::{
     customer::{
         context::{
-            AdminContext, CustomerAccess, CustomerResource, IdRequired, InstitutionAccess,
-            InstitutionResource, OrganizationAccess, OrganizationResource, OrganizationUnitAccess,
+            AdminContext, CustomerResource, InstitutionResource, OrganizationResource,
             OrganizationUnitResource, RelatedAuth, RelatedPermission, RelatedResource, UserContext,
             UserResource,
         },
         groups::{
-            CreateCustomerOwnerGroup, CreateInstitutionOwnerGroup, CreateOrganizationOwnerGroup,
-            CreateOrganizationUnitOwnerGroup, RelatedBuiltInGroup, RelatedGroups,
+            CustomerOwnerGroup, CustomerUnitOwnerGroup, InstitutionOwnerGroup,
+            InstitutionUnitOwnerGroup, OrganizationOwnerGroup, RelatedBuiltInGroup, RelatedGroups,
         },
     },
     entity::{
@@ -19,31 +18,18 @@ use qm::{
         QueryPermissions, SessionAccess, UserId,
     },
     keycloak::token::jwt::Claims,
+    role::{Access, AccessLevel},
 };
 use qm_example_ctx::Storage;
 use roles::BuiltInGroup;
 use sqlx::types::Uuid;
 
 pub mod roles;
-use crate::roles::{AccessLevel, Permission, Resource, BUILT_IN_GROUPS};
+use crate::roles::{Permission, Resource, BUILT_IN_GROUPS};
 
 pub type AuthContainer = qm::role::AuthContainer<Authorization>;
-pub type Access = qm::role::Access<AccessLevel>;
 pub type Role = qm::role::Role<Resource, Permission>;
-pub type Group = qm::role::Group<AccessLevel, Resource, Permission>;
-
-impl AsNumber for AccessLevel {
-    fn as_number(&self) -> u32 {
-        match self {
-            Self::Admin => u32::MAX,
-            Self::Customer => u32::MAX - 1,
-            // Self::Organization => u32::MAX -2,
-            // Self::OrganizationUnit => u32::MAX -3,
-            Self::Institution => u32::MAX - 3,
-            Self::None => 0,
-        }
-    }
-}
+pub type Group = qm::role::Group<Resource, Permission>;
 
 #[derive(Default)]
 struct Inner {
@@ -108,9 +94,9 @@ impl IsAdmin for Authorization {
     }
 }
 
-impl IsAdmin for AccessLevel {
+impl IsAdmin for Resource {
     fn is_admin(&self) -> bool {
-        matches!(self, AccessLevel::Admin)
+        matches!(self, Resource::Administration)
     }
 }
 
@@ -125,30 +111,8 @@ impl HasRole<Resource, Permission> for Authorization {
     fn has_role(&self, r: &Resource, p: &Permission) -> bool {
         self.inner.roles.contains(&Role::from((*r, *p)))
     }
-}
-
-impl CreateCustomerOwnerGroup<AccessLevel, Resource, Permission> for Authorization {
-    fn create_customer_owner_group() -> Group {
-        roles::customer_owner_group()
-    }
-}
-
-impl CreateOrganizationOwnerGroup<AccessLevel, Resource, Permission> for Authorization {
-    fn create_organization_owner_group() -> Group {
-        roles::customer_owner_group()
-    }
-}
-
-impl CreateOrganizationUnitOwnerGroup<AccessLevel, Resource, Permission> for Authorization {
-    fn create_organization_unit_owner_group() -> qm::role::Group<AccessLevel, Resource, Permission>
-    {
-        roles::customer_owner_group()
-    }
-}
-
-impl CreateInstitutionOwnerGroup<AccessLevel, Resource, Permission> for Authorization {
-    fn create_institution_owner_group() -> qm::role::Group<AccessLevel, Resource, Permission> {
-        roles::institution_owner_group()
+    fn has_role_object(&self, role: &qm::role::Role<Resource, Permission>) -> bool {
+        self.inner.roles.contains(role)
     }
 }
 
@@ -161,33 +125,6 @@ impl AsNumber for Authorization {
             .unwrap_or(0)
     }
 }
-
-impl CustomerAccess for AccessLevel {
-    fn customer() -> Self {
-        Self::Customer
-    }
-}
-impl OrganizationUnitAccess for AccessLevel {
-    fn organization_unit() -> Self {
-        Self::Customer
-    }
-}
-impl OrganizationAccess for AccessLevel {
-    fn organization() -> Self {
-        Self::Customer
-    }
-}
-impl InstitutionAccess for AccessLevel {
-    fn institution() -> Self {
-        Self::Institution
-    }
-}
-impl IdRequired for AccessLevel {
-    fn id_required(&self) -> bool {
-        matches!(self, AccessLevel::Customer | AccessLevel::Institution)
-    }
-}
-impl qm::customer::context::RelatedAccessLevel for AccessLevel {}
 
 impl CustomerResource for Resource {
     fn customer() -> Self {
@@ -240,23 +177,51 @@ impl QueryPermissions for Permission {
     }
 }
 impl RelatedPermission for Permission {}
-impl HasAccess<AccessLevel> for Authorization {
-    fn has_access(&self, a: &qm::role::Access<AccessLevel>) -> bool {
+impl HasAccess for Authorization {
+    fn has_access(&self, a: &qm::role::Access) -> bool {
         self.inner.access.as_ref().map(|v| a == v).unwrap_or(false)
     }
 }
+impl CustomerOwnerGroup<Resource, Permission> for Authorization {
+    fn customer_owner_group() -> Option<&'static str> {
+        Some(roles::CUSTOMER_OWNER_PATH)
+    }
+}
 
-impl UserContext<AccessLevel, Resource, Permission> for Authorization {}
-impl RelatedGroups<AccessLevel, Resource, Permission> for Authorization {
+impl OrganizationOwnerGroup<Resource, Permission> for Authorization {
+    fn organization_owner_group() -> Option<&'static str> {
+        None
+    }
+}
+
+impl InstitutionOwnerGroup<Resource, Permission> for Authorization {
+    fn institution_owner_group() -> Option<&'static str> {
+        Some(roles::INSTITUTION_OWNER_PATH)
+    }
+}
+
+impl CustomerUnitOwnerGroup<Resource, Permission> for Authorization {
+    fn customer_unit_owner_group() -> Option<&'static str> {
+        None
+    }
+}
+
+impl InstitutionUnitOwnerGroup<Resource, Permission> for Authorization {
+    fn institution_unit_owner_group() -> Option<&'static str> {
+        None
+    }
+}
+
+impl UserContext<Resource, Permission> for Authorization {}
+impl RelatedGroups<Resource, Permission> for Authorization {
     fn built_in_groups() -> &'static [&'static str] {
         &BUILT_IN_GROUPS
     }
 }
-impl SessionAccess<AccessLevel> for Authorization {
-    fn session_access(&self) -> Option<&qm::role::Access<AccessLevel>> {
+impl SessionAccess for Authorization {
+    fn session_access(&self) -> Option<&qm::role::Access> {
         self.inner.access.as_ref()
     }
 }
-impl RelatedAuth<AccessLevel, Resource, Permission> for Authorization {}
-
+impl RelatedAuth<Resource, Permission> for Authorization {}
 impl RelatedBuiltInGroup for BuiltInGroup {}

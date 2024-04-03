@@ -12,4 +12,4 @@ repository = "https://github.com/hd-gmbh-dev/quick-microservice-rs"
 
 [dependencies]
 anyhow.workspace = true
-Inflector = "0.11.4"
+Inflector.workspace = true

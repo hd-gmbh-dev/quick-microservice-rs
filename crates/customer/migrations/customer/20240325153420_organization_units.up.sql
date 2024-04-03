@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS organization_units
     customer_id    BIGINT NOT NULL,
     organization_id    BIGINT,
     name           VARCHAR(255) NOT NULL,
+    ty             VARCHAR(255) NOT NULL,
     created_by     uuid NOT NULL,
     created_at     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_by     uuid,

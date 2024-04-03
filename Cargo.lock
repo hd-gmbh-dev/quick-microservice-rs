@@ -2540,6 +2540,7 @@ dependencies = [
 name = "qm-customer"
 version = "0.0.13"
 dependencies = [
+ "Inflector",
  "anyhow",
  "async-graphql",
  "async-trait",
@@ -2548,6 +2549,7 @@ dependencies = [
  "deadpool-redis",
  "envy",
  "futures",
+ "itertools",
  "lazy_static",
  "log",
  "prometheus-client",
@@ -2765,6 +2767,7 @@ name = "qm-role"
 version = "0.0.13"
 dependencies = [
  "anyhow",
+ "async-graphql",
  "axum",
  "strum 0.26.2",
  "tokio",

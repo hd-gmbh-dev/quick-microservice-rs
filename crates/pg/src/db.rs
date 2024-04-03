@@ -27,9 +27,11 @@ impl DB {
             );
         }
         let pool = PgPoolOptions::new()
-            .min_connections(1)
+            .min_connections(cfg.min_connections())
             .max_connections(cfg.max_connections())
-            .acquire_timeout(Duration::from_secs(5))
+            .acquire_timeout(Duration::from_secs(cfg.acquire_timeout()))
+            .idle_timeout(Duration::from_secs(cfg.idle_timeout()))
+            .max_lifetime(Duration::from_secs(cfg.max_lifetime()))
             .connect(cfg.address())
             .await?;
         Ok(Self {
@@ -40,19 +42,19 @@ impl DB {
     pub async fn new_root(app_name: &str, cfg: &Config) -> anyhow::Result<Self> {
         if let Some(database) = cfg.root_database() {
             log::info!(
-                "'{app_name}' -> connects to postgresql '{database}' with {} max_connections",
+                "'{app_name}' -> connects as root to postgresql '{database}' with {} max_connections",
                 cfg.max_connections(),
             );
         } else {
             log::info!(
-                "'{app_name}' -> connects to postgresql with {} max_connections",
+                "'{app_name}' -> connects as root to postgresql with {} max_connections",
                 cfg.max_connections(),
             );
         }
         let pool = PgPoolOptions::new()
             .min_connections(1)
             .max_connections(2)
-            .acquire_timeout(Duration::from_secs(5))
+            .acquire_timeout(Duration::from_secs(cfg.acquire_timeout()))
             .connect(cfg.root_address())
             .await?;
         Ok(Self {

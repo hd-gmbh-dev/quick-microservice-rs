@@ -6,6 +6,10 @@ pub struct Config {
     host: Option<Arc<str>>,
     port: Option<u16>,
     max_connections: Option<u32>,
+    min_connections: Option<u32>,
+    acquire_timeout: Option<u64>,
+    idle_timeout: Option<u64>,
+    max_lifetime: Option<u64>,
     username: Option<Arc<str>>,
     password: Option<Arc<str>>,
     database: Option<Arc<str>>,
@@ -29,6 +33,22 @@ impl Config {
 
     pub fn max_connections(&self) -> u32 {
         self.max_connections.unwrap_or(32)
+    }
+
+    pub fn min_connections(&self) -> u32 {
+        self.min_connections.unwrap_or(0)
+    }
+
+    pub fn acquire_timeout(&self) -> u64 {
+        self.acquire_timeout.unwrap_or(30)
+    }
+
+    pub fn idle_timeout(&self) -> u64 {
+        self.idle_timeout.unwrap_or(10 * 60)
+    }
+
+    pub fn max_lifetime(&self) -> u64 {
+        self.max_lifetime.unwrap_or(30 * 60)
     }
 
     pub fn database(&self) -> Option<&str> {

@@ -1,5 +1,7 @@
 use std::{collections::BTreeSet, str::FromStr, sync::Arc};
 
+use async_graphql::{InputValueError, InputValueResult, Scalar, ScalarType, Value};
+use strum::{AsRefStr, EnumString};
 use tokio::sync::RwLock;
 
 #[macro_export]
@@ -19,14 +21,76 @@ macro_rules! role {
     };
 }
 
-#[derive(Debug, Ord, PartialOrd, Eq, PartialEq)]
-pub struct Access<T> {
-    ty: T,
+#[derive(
+    Default,
+    Clone,
+    Debug,
+    Copy,
+    EnumString,
+    async_graphql::Enum,
+    AsRefStr,
+    Hash,
+    Ord,
+    PartialOrd,
+    Eq,
+    PartialEq,
+)]
+pub enum AccessLevel {
+    #[default]
+    #[strum(serialize = "none")]
+    None,
+    #[strum(serialize = "admin")]
+    Admin,
+    #[strum(serialize = "support")]
+    Support,
+    #[strum(serialize = "customer")]
+    Customer,
+    #[strum(serialize = "organization")]
+    Organization,
+    #[strum(serialize = "customer_unit")]
+    CustomerUnit,
+    #[strum(serialize = "institution_unit")]
+    InstitutionUnit,
+    #[strum(serialize = "institution")]
+    Institution,
+}
+
+impl AccessLevel {
+    pub fn is_admin(&self) -> bool {
+        matches!(self, AccessLevel::Admin)
+    }
+
+    pub fn id_required(&self) -> bool {
+        matches!(
+            self,
+            AccessLevel::Customer
+                | AccessLevel::Organization
+                | AccessLevel::CustomerUnit
+                | AccessLevel::InstitutionUnit
+                | AccessLevel::Institution
+        )
+    }
+
+    pub fn as_number(&self) -> u32 {
+        match self {
+            Self::Admin => u32::MAX,
+            Self::Support => u32::MAX - 1,
+            Self::Customer => u32::MAX - 2,
+            Self::Organization | Self::CustomerUnit => u32::MAX - 3,
+            Self::Institution | Self::InstitutionUnit => u32::MAX - 4,
+            Self::None => 0,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
+pub struct Access {
+    ty: AccessLevel,
     id: Option<Arc<str>>,
 }
 
-impl<T> Access<T> {
-    pub fn new(ty: T) -> Self {
+impl Access {
+    pub fn new(ty: AccessLevel) -> Self {
         Self { ty, id: None }
     }
 
@@ -42,7 +106,7 @@ impl<T> Access<T> {
         self
     }
 
-    pub fn ty(&self) -> &T {
+    pub fn ty(&self) -> &AccessLevel {
         &self.ty
     }
 
@@ -51,10 +115,7 @@ impl<T> Access<T> {
     }
 }
 
-impl<T> std::fmt::Display for Access<T>
-where
-    T: AsRef<str>,
-{
+impl std::fmt::Display for Access {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if let Some(id) = &self.id {
             write!(f, "{}:access@{id}", self.ty.as_ref())
@@ -64,44 +125,39 @@ where
     }
 }
 
-impl<T> FromStr for Access<T>
-where
-    T: FromStr<Err = anyhow::Error>,
-{
+impl FromStr for Access {
     type Err = anyhow::Error;
 
     fn from_str(v: &str) -> Result<Self, Self::Err> {
-        let mut s = v.split("@");
+        let mut s = v.split('@');
         if let Some((access, id)) = s.next().zip(s.next()) {
-            if let Some((access, method)) = access.split_once(":") {
+            if let Some((access, method)) = access.split_once(':') {
                 if method == "access" {
-                    let ty = T::from_str(access)?;
+                    let ty = AccessLevel::from_str(access)?;
                     return Ok(Access {
                         ty,
                         id: Some(Arc::from(id.to_string())),
                     });
                 }
             }
-        } else {
-            if let Some((access, method)) = v.split_once(":") {
-                if method == "access" {
-                    let ty = T::from_str(access)?;
-                    return Ok(Access { ty, id: None });
-                }
+        } else if let Some((access, method)) = v.split_once(':') {
+            if method == "access" {
+                let ty = AccessLevel::from_str(access)?;
+                return Ok(Access { ty, id: None });
             }
         }
         anyhow::bail!("invalid access role {v}");
     }
 }
 
-#[derive(Debug, Ord, PartialOrd, Eq, PartialEq)]
+#[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Hash)]
 pub struct Role<R, P>
 where
     R: std::fmt::Debug,
     P: std::fmt::Debug,
 {
-    ty: R,
-    permission: Option<P>,
+    pub ty: R,
+    pub permission: Option<P>,
 }
 
 impl<R, P> Role<R, P>
@@ -129,14 +185,14 @@ where
 
 impl<R, P> FromStr for Role<R, P>
 where
-    R: FromStr<Err = anyhow::Error> + std::fmt::Debug,
-    P: FromStr<Err = anyhow::Error> + std::fmt::Debug,
+    R: FromStr<Err = strum::ParseError> + std::fmt::Debug,
+    P: FromStr<Err = strum::ParseError> + std::fmt::Debug,
 {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if s.contains(":") {
-            let mut s = s.split(":");
+        if s.contains(':') {
+            let mut s = s.split(':');
             if let Some((role, permission)) = s.next().zip(s.next()) {
                 return Ok(Self {
                     ty: R::from_str(role)?,
@@ -168,62 +224,81 @@ where
     }
 }
 
+#[Scalar]
+impl<R, P> ScalarType for Role<R, P>
+where
+    R: FromStr<Err = strum::ParseError> + AsRef<str> + std::fmt::Debug + Send + Sync + 'static,
+    P: FromStr<Err = strum::ParseError> + AsRef<str> + std::fmt::Debug + Send + Sync + 'static,
+{
+    fn parse(value: Value) -> InputValueResult<Self> {
+        if let Value::String(value) = &value {
+            // Parse the integer value
+            Ok(Role::<R, P>::from_str(value)
+                .map_err(|err| InputValueError::custom(err.to_string()))?)
+        } else {
+            // If the type does not match
+            Err(InputValueError::expected_type(value))
+        }
+    }
+
+    fn to_value(&self) -> Value {
+        Value::String(self.to_string())
+    }
+}
+
 #[derive(Ord, PartialOrd, Eq, PartialEq)]
-pub enum AccessOrRole<A, R, P>
+pub enum AccessOrRole<R, P>
 where
     R: std::fmt::Debug,
     P: std::fmt::Debug,
 {
-    Access(Access<A>),
+    Access(Access),
     Role(Role<R, P>),
 }
 
-impl<A, R, P> FromStr for AccessOrRole<A, R, P>
+impl<R, P> FromStr for AccessOrRole<R, P>
 where
-    A: FromStr<Err = strum::ParseError>,
     R: FromStr<Err = strum::ParseError> + std::fmt::Debug,
     P: FromStr<Err = strum::ParseError> + std::fmt::Debug,
 {
     type Err = anyhow::Error;
     fn from_str(v: &str) -> Result<Self, Self::Err> {
-        let mut s = v.split("@");
+        let mut s = v.split('@');
         if let Some((access, id)) = s.next().zip(s.next()) {
-            if let Some((access, method)) = access.split_once(":") {
+            if let Some((access, method)) = access.split_once(':') {
                 if method == "access" {
-                    let ty = A::from_str(access)?;
+                    let ty = AccessLevel::from_str(access)?;
                     return Ok(AccessOrRole::Access(Access {
                         ty,
                         id: Some(Arc::from(id.to_string())),
                     }));
                 }
             }
+        } else if let Some((role, permission)) = v.split_once(':') {
+            return Ok(AccessOrRole::Role(Role {
+                ty: R::from_str(role)?,
+                permission: Some(P::from_str(permission)?),
+            }));
         } else {
-            if let Some((role, permission)) = v.split_once(":") {
-                return Ok(AccessOrRole::Role(Role {
-                    ty: R::from_str(role)?,
-                    permission: Some(P::from_str(permission)?),
-                }));
-            } else {
-                return Ok(AccessOrRole::Role(Role {
-                    ty: R::from_str(v)?,
-                    permission: None,
-                }));
-            }
+            return Ok(AccessOrRole::Role(Role {
+                ty: R::from_str(v)?,
+                permission: None,
+            }));
         }
         anyhow::bail!("invalid access or role {v}");
     }
 }
 
-pub struct ParseResult<A, R, P>
+pub struct ParseResult<R, P>
 where
     R: std::fmt::Debug,
     P: std::fmt::Debug,
 {
-    pub access: BTreeSet<Access<A>>,
+    pub access: BTreeSet<Access>,
     pub roles: BTreeSet<Role<R, P>>,
 }
 
-impl<A, R, P> Default for ParseResult<A, R, P>
+impl<R, P> Default for ParseResult<R, P>
 where
     R: std::fmt::Debug,
     P: std::fmt::Debug,
@@ -236,16 +311,15 @@ where
     }
 }
 
-pub fn parse<A, R, P>(roles: &[Arc<str>]) -> ParseResult<A, R, P>
+pub fn parse<R, P>(roles: &[Arc<str>]) -> ParseResult<R, P>
 where
-    A: Ord + FromStr<Err = strum::ParseError>,
     R: Ord + FromStr<Err = strum::ParseError> + std::fmt::Debug,
     P: Ord + FromStr<Err = strum::ParseError> + std::fmt::Debug,
 {
     roles
         .iter()
-        .fold(ParseResult::<A, R, P>::default(), |mut state, s| {
-            if let Ok(v) = AccessOrRole::<A, R, P>::from_str(s) {
+        .fold(ParseResult::<R, P>::default(), |mut state, s| {
+            if let Ok(v) = AccessOrRole::<R, P>::from_str(s) {
                 match v {
                     AccessOrRole::Access(v) => {
                         state.access.insert(v);
@@ -259,44 +333,43 @@ where
         })
 }
 
-pub struct Group<A, R, P>
+pub struct Group<R, P>
 where
     R: std::fmt::Debug,
     P: std::fmt::Debug,
 {
     pub name: String,
+    pub path: String,
     resource_roles: Vec<Role<R, P>>,
-    access_level: A,
+    allowed_access_levels: Vec<AccessLevel>,
 }
 
-impl<A, R, P> Group<A, R, P>
+impl<R, P> Group<R, P>
 where
     R: std::fmt::Debug,
     P: std::fmt::Debug,
 {
-    pub fn new(name: String, access_level: A, resource_roles: Vec<Role<R, P>>) -> Self {
+    pub fn new(
+        name: String,
+        path: String,
+        allowed_access_levels: Vec<AccessLevel>,
+        resource_roles: Vec<Role<R, P>>,
+    ) -> Self {
         Self {
             name,
+            path,
             resource_roles,
-            access_level,
+            allowed_access_levels,
         }
     }
-}
 
-impl<A, R, P> Group<A, R, P>
-where
-    A: Copy,
-    R: std::fmt::Debug,
-    P: std::fmt::Debug,
-{
-    pub fn access_role(&self) -> Access<A> {
-        Access::new(*&self.access_level)
+    pub fn allowed_access_levels(&self) -> &[AccessLevel] {
+        &self.allowed_access_levels
     }
 }
 
-impl<A, R, P> Group<A, R, P>
+impl<R, P> Group<R, P>
 where
-    A: AsRef<str>,
     R: AsRef<str> + std::fmt::Debug,
     P: AsRef<str> + std::fmt::Debug,
 {

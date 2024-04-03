@@ -5,34 +5,31 @@ use qm_entity::ids::InfraContext;
 
 use qm_entity::model::ListFilter;
 use qm_keycloak::RoleRepresentation;
-use qm_role::Access;
+use qm_role::{Access, AccessLevel};
 use std::collections::HashMap;
+use std::str::FromStr;
 use std::sync::Arc;
 
+use crate::cache::CacheDB;
+use crate::config::SchemaConfig;
+use crate::groups::RelatedBuiltInGroup;
+use crate::marker::Marker;
+use crate::model::User;
+use crate::model::UserList;
+use crate::model::{CreateUserInput, Customer};
+use crate::model::{CreateUserPayload, Institution, Organization, OrganizationUnit, UserDetails};
+use crate::model::{Group, RequiredUserAction, Role, UserGroup};
 use qm_entity::err;
 use qm_entity::error::EntityError;
 use qm_entity::error::EntityResult;
+use qm_entity::IsAdmin;
 use qm_keycloak::CredentialRepresentation;
 use qm_keycloak::Keycloak;
 use qm_keycloak::KeycloakError;
 use qm_keycloak::UserRepresentation;
 use sqlx::types::Uuid;
 
-use crate::cache::CacheDB;
-use crate::config::SchemaConfig;
-use crate::groups::RelatedBuiltInGroup;
-use crate::marker::Marker;
-use crate::model::CreateUserPayload;
-use crate::model::RequiredUserAction;
-use crate::model::User;
-use crate::model::UserList;
-use crate::model::{CreateUserInput, Customer, Institution, Organization, OrganizationUnit};
-
-// use crate::model::User;
-// use crate::model::{CreateUserInput, CreateUserPayload, UserList};
-// use crate::model::{RequiredUserAction, UserData, UserDetails};
 use crate::schema::auth::AuthCtx;
-use crate::schema::RelatedAccessLevel;
 use crate::schema::RelatedAuth;
 use crate::schema::RelatedPermission;
 use crate::schema::RelatedResource;
@@ -50,18 +47,6 @@ where
         self.as_ref()
     }
 }
-
-// pub const DEFAULT_COLLECTION: &str = "users";
-
-// pub trait UserDB: AsRef<DB> {
-//     fn collection(&self) -> &str {
-//         DEFAULT_COLLECTION
-//     }
-//     fn users(&self) -> qm_entity::Collection<User> {
-//         let collection = self.collection();
-//         qm_entity::Collection(self.as_ref().get().collection::<User>(collection))
-//     }
-// }
 
 fn set_attributes(attributes: HashMap<&str, Option<String>>, u: &mut UserRepresentation) {
     if u.attributes.is_none() {
@@ -227,7 +212,7 @@ pub async fn create_keycloak_user(
 }
 
 #[ComplexObject]
-impl User {
+impl UserDetails {
     async fn customer(&self, ctx: &Context<'_>) -> Option<Arc<Customer>> {
         let cache = ctx.data::<CacheDB>().ok();
         if cache.is_none() {
@@ -287,45 +272,42 @@ impl User {
         }
         None
     }
+
+    async fn roles(&self, ctx: &Context<'_>) -> Option<Arc<[Arc<Role>]>> {
+        let cache = ctx.data::<CacheDB>().ok();
+        if cache.is_none() {
+            log::warn!("qm::customer::cache::CacheDB is not installed in schema context");
+            return None;
+        }
+        let cache = cache.unwrap();
+        cache.roles_by_user_id(&self.user.id).await
+    }
+
+    async fn groups(&self, ctx: &Context<'_>) -> Option<Arc<[UserGroup]>> {
+        let cache = ctx.data::<CacheDB>().ok();
+        if cache.is_none() {
+            log::warn!("qm::customer::cache::CacheDB is not installed in schema context");
+            return None;
+        }
+        let cache = cache.unwrap();
+        cache.groups_by_user_id(&self.user.id).await
+    }
 }
 
-// fetch("https://keycloak.shapth.local/admin/realms/shapth/users/402903af-cb74-4b97-8cd6-42a2b0876bbc/groups/7869fe5c-24d4-4e01-9745-6b33f55a93a3", {
-//     "headers": {
-//       "accept": "application/json, text/plain, */*",
-//       "accept-language": "de-DE,de;q=0.9,en-US;q=0.8,en;q=0.7",
-//       "authorization": "Bearer eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICJWWXc2WkhMWkloNmhUbXlYcDdPRnFDZkVyblFXdXlRY0JvOTYwNmF1UldrIn0.eyJleHAiOjE3MTE1OTkxNTYsImlhdCI6MTcxMTU5OTA5NiwiYXV0aF90aW1lIjoxNzExNTk4NTUzLCJqdGkiOiIzMmUwYzNiZS0xZDJlLTQ1MWUtYmU2MS1kMDJhOTRhMWU1ZWIiLCJpc3MiOiJodHRwczovL2F1dGguc2hhcHRoLmxvY2FsL3JlYWxtcy9tYXN0ZXIiLCJzdWIiOiJlNThkZDU3ZS0wZTNmLTRkYjQtYjhkMS0xODYxNmMzNjRlYWYiLCJ0eXAiOiJCZWFyZXIiLCJhenAiOiJzZWN1cml0eS1hZG1pbi1jb25zb2xlIiwibm9uY2UiOiIyZjBlYTQ3Ny0wMjYxLTQzYzYtODI0OS03ODAwMzEyNzk3MTMiLCJzZXNzaW9uX3N0YXRlIjoiNDM2ODE5NzItMTQwNS00NDQ4LWFiZDQtNDUxOTczNWFkMWM4IiwiYWNyIjoiMSIsImFsbG93ZWQtb3JpZ2lucyI6WyJodHRwczovL2tleWNsb2FrLnNoYXB0aC5sb2NhbCJdLCJzY29wZSI6Im9wZW5pZCBlbWFpbCBwcm9maWxlIiwic2lkIjoiNDM2ODE5NzItMTQwNS00NDQ4LWFiZDQtNDUxOTczNWFkMWM4IiwiZW1haWxfdmVyaWZpZWQiOmZhbHNlLCJwcmVmZXJyZWRfdXNlcm5hbWUiOiJhZG1pbiJ9.Is6k62PhKF3njKyf-pShcq_ZAt0Y0yTaZpqLzEYlO1Gcj-WPqQ5QKs5-X4x2Bc3jAPVoHDGb_VY_wwuPjnA-ldX9DgP_4R_eqgPxC3WJrGAwCsryYESKTQlFxgMfiEU3w-H1sGBECe76mkKVRu_3Qf-0QuFMjlZF9n7AsD2JvyWYOUrTMAYp9z6Dx1WXmC22-3mDv_15TVdSW1fbniVuhsBYLI6gbZYXXw_TfG_fKhtVXYl6zc6XJ2_Lr_vWr0Ya4cVl0ozElNPFL3iRbhD_68MEMCqEPIHp79x6iCuIAOCNLfEpmzxYb3DXGnDSMKJPKT3HhRMRysZd8cR1N-_KNw",
-//       "cache-control": "no-cache",
-//       "content-type": "application/json",
-//       "pragma": "no-cache",
-//       "sec-ch-ua": "\"Google Chrome\";v=\"123\", \"Not:A-Brand\";v=\"8\", \"Chromium\";v=\"123\"",
-//       "sec-ch-ua-mobile": "?0",
-//       "sec-ch-ua-platform": "\"macOS\"",
-//       "sec-fetch-dest": "empty",
-//       "sec-fetch-mode": "cors",
-//       "sec-fetch-site": "same-origin"
-//     },
-//     "referrerPolicy": "no-referrer",
-//     "body": "{}",
-//     "method": "PUT",
-//     "mode": "cors",
-//     "credentials": "include"
-//   });
-
-pub struct Ctx<'a, Auth, Store, AccessLevel, Resource, Permission>(
-    pub AuthCtx<'a, Auth, Store, AccessLevel, Resource, Permission>,
+pub struct Ctx<'a, Auth, Store, Resource, Permission>(
+    pub &'a AuthCtx<'a, Auth, Store, Resource, Permission>,
 )
 where
-    Auth: RelatedAuth<AccessLevel, Resource, Permission>,
+    Auth: RelatedAuth<Resource, Permission>,
     Store: RelatedStorage,
-    AccessLevel: RelatedAccessLevel,
+
     Resource: RelatedResource,
     Permission: RelatedPermission;
-impl<'a, Auth, Store, AccessLevel, Resource, Permission>
-    Ctx<'a, Auth, Store, AccessLevel, Resource, Permission>
+impl<'a, Auth, Store, Resource, Permission> Ctx<'a, Auth, Store, Resource, Permission>
 where
-    Auth: RelatedAuth<AccessLevel, Resource, Permission>,
+    Auth: RelatedAuth<Resource, Permission>,
     Store: RelatedStorage,
-    AccessLevel: RelatedAccessLevel,
+
     Resource: RelatedResource,
     Permission: RelatedPermission,
 {
@@ -346,8 +328,8 @@ where
         let CreateUserPayload {
             user: mut user_input,
             access,
-            group,
-            context,
+            group_id,
+            context: _,
         } = input;
         let mut conflict_fields = Vec::new();
         let user_exists_by_username = self
@@ -391,8 +373,8 @@ where
         })?;
         let mut user_groups = vec![];
         let cache = self.0.store.cache_db();
-        if let Some(group) = group.as_ref() {
-            if let Some(group) = cache.get_group(group).await {
+        if let Some(group_id) = group_id.as_ref() {
+            if let Some(group) = cache.group_by_id(group_id).await {
                 log::info!(
                     "add user {} to group {group:#?}",
                     user_input.username.as_str()
@@ -405,7 +387,7 @@ where
         }
         let mut user_roles = vec![];
         if let Some(access) = access.as_ref() {
-            if let Some(role) = cache.get_role(access).await {
+            if let Some(role) = cache.role_by_name(access).await {
                 keycloak
                     .add_user_role(
                         realm,
@@ -427,9 +409,6 @@ where
             lastname: Arc::from(user_input.lastname),
             email: Arc::from(user_input.email),
             enabled: user_input.enabled.unwrap(),
-            roles: Arc::from(user_roles),
-            groups: Arc::from(user_groups),
-            context,
         });
         cache.user().new_user(user.clone()).await;
         Ok(user)
@@ -456,12 +435,12 @@ where
     }
 }
 
-pub struct UserQueryRoot<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup> {
-    _marker: Marker<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup>,
+pub struct UserQueryRoot<Auth, Store, Resource, Permission, BuiltInGroup> {
+    _marker: Marker<Auth, Store, Resource, Permission, BuiltInGroup>,
 }
 
-impl<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup> Default
-    for UserQueryRoot<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup>
+impl<Auth, Store, Resource, Permission, BuiltInGroup> Default
+    for UserQueryRoot<Auth, Store, Resource, Permission, BuiltInGroup>
 {
     fn default() -> Self {
         Self {
@@ -471,22 +450,22 @@ impl<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup> Default
 }
 
 #[Object]
-impl<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup>
-    UserQueryRoot<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup>
+impl<Auth, Store, Resource, Permission, BuiltInGroup>
+    UserQueryRoot<Auth, Store, Resource, Permission, BuiltInGroup>
 where
-    Auth: RelatedAuth<AccessLevel, Resource, Permission>,
+    Auth: RelatedAuth<Resource, Permission>,
     Store: RelatedStorage,
-    AccessLevel: RelatedAccessLevel,
+
     Resource: RelatedResource,
     Permission: RelatedPermission,
     BuiltInGroup: RelatedBuiltInGroup,
 {
     async fn me(&self, ctx: &Context<'_>) -> async_graphql::FieldResult<Option<Arc<User>>> {
-        let auth_ctx = AuthCtx::<'_, Auth, Store, AccessLevel, Resource, Permission>::new(ctx)
+        let auth_ctx = AuthCtx::<'_, Auth, Store, Resource, Permission>::new(ctx)
             .await
             .extend()?;
         let id = *auth_ctx.auth.user_id().unwrap();
-        Ok(Ctx(auth_ctx).by_id(&id.to_string()).await)
+        Ok(Ctx(&auth_ctx).by_id(&id.to_string()).await)
     }
 
     async fn user_by_id(
@@ -495,7 +474,7 @@ where
         id: Uuid,
     ) -> async_graphql::FieldResult<Option<Arc<User>>> {
         Ok(Ctx(
-            AuthCtx::<'_, Auth, Store, AccessLevel, Resource, Permission>::new_with_role(
+            &AuthCtx::<'_, Auth, Store, Resource, Permission>::new_with_role(
                 ctx,
                 (Resource::user(), Permission::view()),
             )
@@ -513,7 +492,7 @@ where
         filter: Option<ListFilter>,
     ) -> async_graphql::FieldResult<UserList> {
         Ctx(
-            AuthCtx::<'_, Auth, Store, AccessLevel, Resource, Permission>::new_with_role(
+            &AuthCtx::<'_, Auth, Store, Resource, Permission>::new_with_role(
                 ctx,
                 (Resource::user(), Permission::list()),
             )
@@ -525,12 +504,12 @@ where
     }
 }
 
-pub struct UserMutationRoot<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup> {
-    _marker: Marker<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup>,
+pub struct UserMutationRoot<Auth, Store, Resource, Permission, BuiltInGroup> {
+    _marker: Marker<Auth, Store, Resource, Permission, BuiltInGroup>,
 }
 
-impl<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup> Default
-    for UserMutationRoot<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup>
+impl<Auth, Store, Resource, Permission, BuiltInGroup> Default
+    for UserMutationRoot<Auth, Store, Resource, Permission, BuiltInGroup>
 {
     fn default() -> Self {
         Self {
@@ -540,12 +519,12 @@ impl<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup> Default
 }
 
 #[Object]
-impl<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup>
-    UserMutationRoot<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup>
+impl<Auth, Store, Resource, Permission, BuiltInGroup>
+    UserMutationRoot<Auth, Store, Resource, Permission, BuiltInGroup>
 where
-    Auth: RelatedAuth<AccessLevel, Resource, Permission>,
+    Auth: RelatedAuth<Resource, Permission>,
     Store: RelatedStorage,
-    AccessLevel: RelatedAccessLevel,
+
     Resource: RelatedResource,
     Permission: RelatedPermission,
     BuiltInGroup: RelatedBuiltInGroup,
@@ -554,26 +533,64 @@ where
         &self,
         ctx: &Context<'_>,
         access_level: AccessLevel,
-        built_in_group: Option<BuiltInGroup>,
-        custom_group: Option<String>, // TODO: implement custom_groups in Cache and schema
+        group_id: Option<String>,
         input: CreateUserInput,
         context: Option<InfraContext>,
     ) -> async_graphql::FieldResult<Arc<User>> {
-        if access_level.is_admin() && !SchemaConfig::new(ctx).allow_multiple_admin_users() {
+        let auth_ctx = AuthCtx::<'_, Auth, Store, Resource, Permission>::new_with_role(
+            ctx,
+            (Resource::user(), Permission::create()),
+        )
+        .await?;
+        if !SchemaConfig::new(ctx).allow_multiple_admin_users() && access_level.is_admin() {
             return err!(not_allowed("creating multiple admin users").extend());
         }
-        let auth_ctx =
-            AuthCtx::<'_, Auth, Store, AccessLevel, Resource, Permission>::new_with_role(
-                ctx,
-                (Resource::user(), Permission::create()),
-            )
-            .await?;
+        if let Some(group_id) = group_id.as_ref() {
+            let group = auth_ctx
+                .store
+                .cache_db()
+                .group_detail_by_id(group_id)
+                .await
+                .ok_or(EntityError::not_found_by_id::<Group>(group_id))
+                .extend()?;
+            if group
+                .allowed_access_levels
+                .as_ref()
+                .map(|lvls| !lvls.iter().any(|l| l == &access_level))
+                .unwrap_or(false)
+            {
+                return err!(not_allowed("invalid access level for selected group").extend());
+            }
+
+            let group_roles = auth_ctx
+                .store
+                .cache_db()
+                .roles_by_group_id(group_id)
+                .await
+                .ok_or(EntityError::not_found_by_id::<Group>(group_id))
+                .extend()?;
+
+            for role in group_roles.iter() {
+                if let Ok(role) =
+                    qm_role::Role::<Resource, Permission>::from_str(role.name.as_ref())
+                {
+                    if role.ty.is_admin() {
+                        return err!(not_allowed("invalid group selected").extend());
+                    }
+                    if !auth_ctx.is_admin && !auth_ctx.auth.has_role_object(&role) {
+                        return err!(not_allowed("invalid group selected").extend());
+                    }
+                } else {
+                    return err!(internal().extend());
+                }
+            }
+        }
+        let user_access_level_u32 = auth_ctx.auth.as_number();
         let access_level_u32 = access_level.as_number();
         let access = if let Some(context) = context.as_ref() {
             let access = Access::new(access_level).with_fmt_id(Some(&context));
-            if auth_ctx.auth.as_number() < access_level_u32
-                || (auth_ctx.auth.as_number() == access_level_u32
-                    && !auth_ctx.auth.has_access(&access))
+            if (user_access_level_u32 < access_level_u32)
+                || (user_access_level_u32 == access_level_u32 && !auth_ctx.auth.has_access(&access))
             {
                 return err!(unauthorized(&auth_ctx.auth).extend());
             }
@@ -595,11 +612,11 @@ where
             }
             Access::new(access_level)
         };
-        Ctx(auth_ctx)
+        Ctx(&auth_ctx)
             .create(CreateUserPayload {
                 access: Some(access.to_string()),
                 user: input,
-                group: custom_group.or_else(|| built_in_group.map(|v| v.as_ref().to_string())),
+                group_id,
                 context,
             })
             .await
@@ -623,12 +640,11 @@ where
         ctx: &Context<'_>,
         ids: Arc<[Arc<Uuid>]>,
     ) -> async_graphql::FieldResult<u64> {
-        let auth_ctx =
-            AuthCtx::<'_, Auth, Store, AccessLevel, Resource, Permission>::new_with_role(
-                ctx,
-                (Resource::user(), Permission::delete()),
-            )
-            .await?;
+        let auth_ctx = AuthCtx::<'_, Auth, Store, Resource, Permission>::new_with_role(
+            ctx,
+            (Resource::user(), Permission::delete()),
+        )
+        .await?;
         let active_user_id = auth_ctx
             .auth
             .user_id()
@@ -638,15 +654,19 @@ where
         }
         let cache = auth_ctx.store.cache_db();
         let mut user_ids = Vec::with_capacity(ids.len());
-        for id in ids.iter().map(ToString::to_string) {
-            let user = cache.user_by_id(&id).await;
+        for id in ids.as_ref().iter() {
+            let id = id.to_string();
+            let user = cache.user_details_by_id(&id).await;
             if let Some(user) = user {
+                if user.is_admin() {
+                    return exerr!(unauthorized(&auth_ctx.auth));
+                }
                 auth_ctx.can_mutate(user.context.as_ref()).await.extend()?;
                 user_ids.push(Arc::from(id));
             } else {
                 return exerr!(not_found_by_id::<User>(id.to_string()));
             }
         }
-        Ctx(auth_ctx).remove(Arc::from(user_ids)).await.extend()
+        Ctx(&auth_ctx).remove(Arc::from(user_ids)).await.extend()
     }
 }

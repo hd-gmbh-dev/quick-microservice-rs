@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\nSELECT\n    r0.role_id as role_id,\n    r1.name as role_name\nFROM user_role_mapping r0\nJOIN keycloak_role r1 on r1.id = r0.role_id\n    WHERE user_id = $1;",
+  "query": "\nSELECT\n    r.id AS role_id,\n    g.group_id AS group_id\nFROM realm re\n            JOIN keycloak_role r ON r.realm_id = re.id\n            JOIN group_role_mapping g ON g.role_id = r.id\nWHERE re.name = $1",
   "describe": {
     "columns": [
       {
@@ -10,7 +10,7 @@
       },
       {
         "ordinal": 1,
-        "name": "role_name",
+        "name": "group_id",
         "type_info": "Varchar"
       }
     ],
@@ -21,8 +21,8 @@
     },
     "nullable": [
       false,
-      true
+      false
     ]
   },
-  "hash": "40af60cef08d3f0551953d5fb5f89932cc84c14c6851b8e8526617710bac4290"
+  "hash": "fb3a5afde42d2fd8cfa0c49af69c7ffb60805a8d3baf32e88f6ba0aff332c283"
 }

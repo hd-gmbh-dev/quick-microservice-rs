@@ -5,32 +5,32 @@ use async_graphql::{Context, Object};
 
 use async_graphql::ComplexObject;
 use async_graphql::ErrorExtensions;
-use qm_entity::error::EntityResult;
-use qm_entity::ids::OrganizationId;
+use qm_entity::error::{EntityError, EntityResult};
 use qm_entity::ids::{CustomerOrOrganization, InstitutionIds};
 use qm_entity::ids::{InfraContext, InstitutionId};
+use qm_entity::ids::{InfraId, OrganizationId};
 use qm_entity::model::ListFilter;
 use qm_entity::{err, exerr};
 use qm_mongodb::bson::doc;
+use qm_role::AccessLevel;
 use sqlx::types::Uuid;
 
 use crate::cache::CacheDB;
 
 use crate::cleanup::{CleanupTask, CleanupTaskType};
-use crate::context::RelatedAccessLevel;
 use crate::context::RelatedAuth;
 use crate::context::RelatedPermission;
 use crate::context::RelatedResource;
 use crate::context::RelatedStorage;
 use crate::groups::RelatedBuiltInGroup;
 use crate::marker::Marker;
-use crate::model::CreateInstitutionInput;
 use crate::model::CreateUserPayload;
 use crate::model::Customer;
 use crate::model::Institution;
 use crate::model::Organization;
+use crate::model::{CreateInstitutionInput, UpdateInstitutionInput};
 use crate::model::{InstitutionData, InstitutionList};
-use crate::mutation::remove_institutions;
+use crate::mutation::{remove_institutions, update_institution};
 use crate::roles;
 use crate::schema::auth::AuthCtx;
 
@@ -61,21 +61,18 @@ impl Institution {
     }
 }
 
-pub struct Ctx<'a, Auth, Store, AccessLevel, Resource, Permission>(
-    pub AuthCtx<'a, Auth, Store, AccessLevel, Resource, Permission>,
+pub struct Ctx<'a, Auth, Store, Resource, Permission>(
+    pub &'a AuthCtx<'a, Auth, Store, Resource, Permission>,
 )
 where
-    Auth: RelatedAuth<AccessLevel, Resource, Permission>,
+    Auth: RelatedAuth<Resource, Permission>,
     Store: RelatedStorage,
-    AccessLevel: RelatedAccessLevel,
     Resource: RelatedResource,
     Permission: RelatedPermission;
-impl<'a, Auth, Store, AccessLevel, Resource, Permission>
-    Ctx<'a, Auth, Store, AccessLevel, Resource, Permission>
+impl<'a, Auth, Store, Resource, Permission> Ctx<'a, Auth, Store, Resource, Permission>
 where
-    Auth: RelatedAuth<AccessLevel, Resource, Permission>,
+    Auth: RelatedAuth<Resource, Permission>,
     Store: RelatedStorage,
-    AccessLevel: RelatedAccessLevel,
     Resource: RelatedResource,
     Permission: RelatedPermission,
 {
@@ -83,6 +80,7 @@ where
         &self,
         mut context: Option<CustomerOrOrganization>,
         filter: Option<ListFilter>,
+        ty: Option<String>,
     ) -> async_graphql::FieldResult<InstitutionList> {
         context = self
             .0
@@ -93,7 +91,7 @@ where
             .0
             .store
             .cache_db()
-            .institution_list(context, filter)
+            .institution_list(context, filter, ty)
             .await)
     }
 
@@ -105,6 +103,7 @@ where
         let user_id = self.0.auth.user_id().unwrap();
         let (cid, oid) = institution.0.unzip();
         let name: Arc<str> = Arc::from(institution.1.clone());
+        let ty = institution.2;
         let lock_key = format!("v1_institution_lock_{cid:X}_{oid:X}_{name}",);
         let lock = self.0.store.redis().lock(&lock_key, 5000, 20, 250).await?;
         let (result, exists) = async {
@@ -121,18 +120,19 @@ where
                     let result = crate::mutation::create_institution(
                         self.0.store.customer_db().pool(),
                         &name,
+                        ty.as_deref(),
                         cid.into(),
                         oid.into(),
                         user_id,
                     )
                     .await?;
                     let id: InstitutionId = (&result).into();
-                    let access = qm_role::Access::new(AccessLevel::institution())
+                    let access = qm_role::Access::new(AccessLevel::Institution)
                         .with_fmt_id(Some(&id))
                         .to_string();
                     let roles =
                         roles::ensure(self.0.store.keycloak(), Some(access).into_iter()).await?;
-                    self.0.store.cache_db().user().new_roles(roles).await?;
+                    self.0.store.cache_db().user().new_roles(roles).await;
                     if let Some(producer) = self.0.store.mutation_event_producer() {
                         producer
                             .create_event(
@@ -161,6 +161,24 @@ where
         Ok(result)
     }
 
+    pub async fn update(&self, id: InstitutionId, name: String) -> EntityResult<Arc<Institution>> {
+        let user_id = self.0.auth.user_id().unwrap();
+        let id: InfraId = id.into();
+        let old = self.0.store.cache_db().institution_by_id(&id).await.ok_or(
+            EntityError::not_found_by_field::<Institution>("name", &name),
+        )?;
+        let result =
+            update_institution(self.0.store.customer_db().pool(), id, &name, user_id).await?;
+        let new = Arc::new(result);
+        self.0
+            .store
+            .cache_db()
+            .infra()
+            .update_institution(new.clone(), old.as_ref().into())
+            .await;
+        Ok(new)
+    }
+
     pub async fn remove(&self, ids: InstitutionIds) -> EntityResult<u64> {
         let v: Vec<i64> = ids.iter().map(InstitutionId::id).collect();
         let delete_count = remove_institutions(self.0.store.customer_db().pool(), &v).await?;
@@ -181,12 +199,12 @@ where
     }
 }
 
-pub struct InstitutionQueryRoot<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup> {
-    _marker: Marker<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup>,
+pub struct InstitutionQueryRoot<Auth, Store, Resource, Permission, BuiltInGroup> {
+    _marker: Marker<Auth, Store, Resource, Permission, BuiltInGroup>,
 }
 
-impl<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup> Default
-    for InstitutionQueryRoot<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup>
+impl<Auth, Store, Resource, Permission, BuiltInGroup> Default
+    for InstitutionQueryRoot<Auth, Store, Resource, Permission, BuiltInGroup>
 {
     fn default() -> Self {
         Self {
@@ -196,12 +214,11 @@ impl<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup> Default
 }
 
 #[Object]
-impl<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup>
-    InstitutionQueryRoot<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup>
+impl<Auth, Store, Resource, Permission, BuiltInGroup>
+    InstitutionQueryRoot<Auth, Store, Resource, Permission, BuiltInGroup>
 where
-    Auth: RelatedAuth<AccessLevel, Resource, Permission>,
+    Auth: RelatedAuth<Resource, Permission>,
     Store: RelatedStorage,
-    AccessLevel: RelatedAccessLevel,
     Resource: RelatedResource,
     Permission: RelatedPermission,
     BuiltInGroup: RelatedBuiltInGroup,
@@ -212,7 +229,7 @@ where
         id: InstitutionId,
     ) -> async_graphql::FieldResult<Option<Arc<Institution>>> {
         Ok(Ctx(
-            AuthCtx::<'_, Auth, Store, AccessLevel, Resource, Permission>::new_with_role(
+            &AuthCtx::<'_, Auth, Store, Resource, Permission>::new_with_role(
                 ctx,
                 (Resource::institution(), Permission::view()),
             )
@@ -228,26 +245,27 @@ where
         ctx: &Context<'_>,
         context: Option<CustomerOrOrganization>,
         filter: Option<ListFilter>,
+        ty: Option<String>,
     ) -> async_graphql::FieldResult<InstitutionList> {
         Ctx(
-            AuthCtx::<'_, Auth, Store, AccessLevel, Resource, Permission>::new_with_role(
+            &AuthCtx::<'_, Auth, Store, Resource, Permission>::new_with_role(
                 ctx,
                 (Resource::institution(), Permission::list()),
             )
             .await?,
         )
-        .list(context, filter)
+        .list(context, filter, ty)
         .await
         .extend()
     }
 }
 
-pub struct InstitutionMutationRoot<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup> {
-    _marker: Marker<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup>,
+pub struct InstitutionMutationRoot<Auth, Store, Resource, Permission, BuiltInGroup> {
+    _marker: Marker<Auth, Store, Resource, Permission, BuiltInGroup>,
 }
 
-impl<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup> Default
-    for InstitutionMutationRoot<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup>
+impl<Auth, Store, Resource, Permission, BuiltInGroup> Default
+    for InstitutionMutationRoot<Auth, Store, Resource, Permission, BuiltInGroup>
 {
     fn default() -> Self {
         Self {
@@ -257,12 +275,11 @@ impl<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup> Default
 }
 
 #[Object]
-impl<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup>
-    InstitutionMutationRoot<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup>
+impl<Auth, Store, Resource, Permission, BuiltInGroup>
+    InstitutionMutationRoot<Auth, Store, Resource, Permission, BuiltInGroup>
 where
-    Auth: RelatedAuth<AccessLevel, Resource, Permission>,
+    Auth: RelatedAuth<Resource, Permission>,
     Store: RelatedStorage,
-    AccessLevel: RelatedAccessLevel,
     Resource: RelatedResource,
     Permission: RelatedPermission,
     BuiltInGroup: RelatedBuiltInGroup,
@@ -273,71 +290,75 @@ where
         context: OrganizationId,
         input: CreateInstitutionInput,
     ) -> async_graphql::FieldResult<Arc<Institution>> {
-        let result = Ctx(
-            AuthCtx::<Auth, Store, AccessLevel, Resource, Permission>::mutate_with_role(
-                ctx,
-                qm_entity::ids::InfraContext::Organization(context),
-                (Resource::institution(), Permission::create()),
-            )
-            .await?,
+        let group_path = Auth::institution_owner_group()
+            .ok_or(EntityError::bad_request(
+                "Institution",
+                "create institution is not activated",
+            ))
+            .extend()?;
+        let auth_ctx = AuthCtx::<Auth, Store, Resource, Permission>::mutate_with_role(
+            ctx,
+            qm_entity::ids::InfraContext::Organization(context),
+            (Resource::institution(), Permission::create()),
         )
-        .create(InstitutionData(context, input.name))
-        .await
-        .extend()?;
-        if let Some(user) = input.initial_user {
-            let id: InstitutionId = result.as_ref().into();
-            crate::schema::user::Ctx(
-                AuthCtx::<'_, Auth, Store, AccessLevel, Resource, Permission>::new_with_role(
-                    ctx,
-                    (Resource::user(), Permission::create()),
-                )
-                .await?,
-            )
-            .create(CreateUserPayload {
-                access: Some(
-                    qm_role::Access::new(AccessLevel::institution())
-                        .with_fmt_id(Some(&id))
-                        .to_string(),
-                ),
-                user,
-                group: Some(Auth::create_institution_owner_group().name),
-                context: Some(qm_entity::ids::InfraContext::Institution(id)),
-            })
+        .await?;
+        let group_id = auth_ctx
+            .store
+            .cache_db()
+            .group_id_by_path(group_path)
+            .await
+            .ok_or(EntityError::internal())
+            .extend()?;
+        let result = Ctx(&auth_ctx)
+            .create(InstitutionData(context, input.name, input.ty))
             .await
             .extend()?;
+        if let Some(user) = input.initial_user {
+            let id: InstitutionId = result.as_ref().into();
+            crate::schema::user::Ctx(&auth_ctx)
+                .create(CreateUserPayload {
+                    access: Some(
+                        qm_role::Access::new(AccessLevel::Institution)
+                            .with_fmt_id(Some(&id))
+                            .to_string(),
+                    ),
+                    user,
+                    group_id: Some(group_id),
+                    context: Some(qm_entity::ids::InfraContext::Institution(id)),
+                })
+                .await
+                .extend()?;
         }
         Ok(result)
     }
 
-    // async fn update_institution(
-    //     &self,
-    //     ctx: &Context<'_>,
-    //     context: InstitutionFilter,
-    //     input: UpdateInstitutionInput,
-    // ) -> async_graphql::FieldResult<Institution> {
-    //     Ctx(
-    //         AuthCtx::<'_, Auth, Store, AccessLevel, Resource, Permission>::new_with_role(
-    //             ctx,
-    //             (Resource::institution(), Permission::update()),
-    //         )
-    //         .await?,
-    //     )
-    //     .update(context, input)
-    //     .await
-    //     .extend()
-    // }
+    async fn update_institution(
+        &self,
+        ctx: &Context<'_>,
+        context: InstitutionId,
+        input: UpdateInstitutionInput,
+    ) -> async_graphql::FieldResult<Arc<Institution>> {
+        let auth_ctx = AuthCtx::<'_, Auth, Store, Resource, Permission>::new_with_role(
+            ctx,
+            (Resource::institution(), Permission::update()),
+        )
+        .await?;
+        auth_ctx
+            .can_mutate(Some(&InfraContext::Institution(context)))
+            .await?;
+        Ctx(&auth_ctx).update(context, input.name).await.extend()
+    }
 
     async fn remove_institutions(
         &self,
         ctx: &Context<'_>,
         ids: InstitutionIds,
     ) -> async_graphql::FieldResult<u64> {
-        let auth_ctx =
-            AuthCtx::<'_, Auth, Store, AccessLevel, Resource, Permission>::new_with_role(
-                ctx,
-                (Resource::institution(), Permission::delete()),
-            )
-            .await?;
+        let auth_ctx = AuthCtx::<'_, Auth, Store, Resource, Permission>::new_with_role(
+            ctx,
+            (Resource::institution(), Permission::delete()),
+        )
+        .await?;
         let cache = auth_ctx.store.cache_db();
         for id in ids.iter() {
             let infra_id = id.into();
@@ -348,6 +369,6 @@ where
                 return exerr!(not_found_by_id::<Institution>(id.to_string()));
             }
         }
-        Ctx(auth_ctx).remove(ids).await.extend()
+        Ctx(&auth_ctx).remove(ids).await.extend()
     }
 }

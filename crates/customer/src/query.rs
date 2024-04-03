@@ -7,9 +7,7 @@ pub async fn fetch_users(db: &DB, realm: &str) -> anyhow::Result<Vec<KcUserQuery
         KcUserQuery,
         r#"
 SELECT
-    u.id AS user_id,
-    gm.group_id AS group_id,
-    rm.role_id AS role_id,
+    u.id AS id,
     u.first_name AS firstname,
     u.last_name AS lastname,
     u.username AS username,
@@ -17,10 +15,23 @@ SELECT
     u.enabled AS enabled
 FROM realm re
     JOIN user_entity u on re.id = u.realm_id
-    JOIN public.user_group_membership gm ON gm.user_id = u.id
-    JOIN public.user_role_mapping rm ON rm.user_id = u.id
-    JOIN public.keycloak_group g ON g.id = gm.group_id
-    JOIN public.keycloak_role r ON r.id = rm.role_id
+WHERE re.name = $1;"#,
+        realm
+    )
+    .fetch_all(db.pool())
+    .await?)
+}
+
+pub async fn fetch_user_groups(db: &DB, realm: &str) -> anyhow::Result<Vec<KcUserGroupQuery>> {
+    Ok(query_as!(
+        KcUserGroupQuery,
+        r#"
+SELECT
+    gm.user_id as user_id,
+    gm.group_id as group_id
+FROM realm re
+        JOIN keycloak_group g ON re.id = g.realm_id
+        JOIN user_group_membership gm ON g.id = gm.group_id
 WHERE re.name = $1;"#,
         realm
     )
@@ -36,7 +47,7 @@ SELECT
     r.id AS role_id,
     r.name AS role_name
 FROM realm re
-    JOIN public.keycloak_role r ON r.realm_id = re.id
+    JOIN keycloak_role r ON r.realm_id = re.id
     WHERE re.name = $1;"#,
         realm
     )
@@ -44,17 +55,35 @@ FROM realm re
     .await?)
 }
 
-pub async fn fetch_user_roles(db: &DB, user_id: &str) -> anyhow::Result<Vec<KcRoleQuery>> {
+pub async fn fetch_user_roles(db: &DB, user_id: &str) -> anyhow::Result<Vec<KcUserRoleQuery>> {
     Ok(query_as!(
-        KcRoleQuery,
+        KcUserRoleQuery,
         r#"
 SELECT
-    r0.role_id as role_id,
-    r1.name as role_name
-FROM user_role_mapping r0
-JOIN keycloak_role r1 on r1.id = r0.role_id
-    WHERE user_id = $1;"#,
+    rm.user_id AS user_id,
+    rm.role_id AS role_id
+FROM realm re
+        JOIN keycloak_role r ON r.realm_id = re.id
+        JOIN user_role_mapping rm ON rm.role_id = r.id
+WHERE re.name = $1;"#,
         user_id
+    )
+    .fetch_all(db.pool())
+    .await?)
+}
+
+pub async fn fetch_group_roles(db: &DB, realm: &str) -> anyhow::Result<Vec<KcGroupRoleQuery>> {
+    Ok(query_as!(
+        KcGroupRoleQuery,
+        r#"
+SELECT
+    r.id AS role_id,
+    g.group_id AS group_id
+FROM realm re
+            JOIN keycloak_role r ON r.realm_id = re.id
+            JOIN group_role_mapping g ON g.role_id = r.id
+WHERE re.name = $1"#,
+        realm
     )
     .fetch_all(db.pool())
     .await?)
@@ -65,37 +94,71 @@ pub async fn fetch_groups(db: &DB, realm: &str) -> anyhow::Result<Vec<KcGroupQue
         KcGroupQuery,
         r#"
 SELECT
-    g.id AS group_id,
-    g.name AS group_name
+    g.id AS id,
+    g.parent_group AS parent_group,
+    g.name AS name
 FROM realm re
-    JOIN public.keycloak_group g ON g.realm_id = re.id
-    WHERE re.name = $1;"#,
+    JOIN keycloak_group g ON g.realm_id = re.id
+WHERE re.name = $1;
+    "#,
         realm
     )
     .fetch_all(db.pool())
     .await?)
 }
 
-pub async fn fetch_user_groups(db: &DB, user_id: &str) -> anyhow::Result<Vec<KcGroupQuery>> {
+pub async fn fetch_group_by_id(db: &DB, id: &str) -> anyhow::Result<KcGroupByIdQuery> {
     Ok(query_as!(
-        KcGroupQuery,
+        KcGroupByIdQuery,
         r#"
 SELECT
-    r0.group_id as group_id,
-    r1.name as group_name
-FROM user_group_membership r0
-JOIN keycloak_group r1 on r1.id = r0.group_id
-    WHERE user_id = $1;"#,
-        user_id
+    g.id as group_id,
+    g.parent_group as parent_group,
+    p.name as parent_name,
+    g.name as name,
+    a.value as context,
+    b.value as allowed_access_levels,
+    c.value as display_name,
+    d.value as built_in
+FROM keycloak_group g
+    LEFT OUTER JOIN keycloak_group p ON p.id = g.parent_group
+    LEFT JOIN group_attribute a ON a.group_id = g.id AND a.name = 'context'
+    LEFT JOIN group_attribute b ON b.group_id = g.id AND b.name = 'allowed_access_levels'
+    LEFT JOIN group_attribute c ON c.group_id = g.id AND c.name = 'display_name'
+    LEFT JOIN group_attribute d ON d.group_id = g.id AND d.name = 'built_in'
+WHERE g.id = $1;
+    "#,
+        id,
+    )
+    .fetch_one(db.pool())
+    .await?)
+}
+
+pub async fn fetch_group_attributes(
+    db: &DB,
+    realm: &str,
+) -> anyhow::Result<Vec<KcGroupDetailsQuery>> {
+    Ok(query_as!(
+        KcGroupDetailsQuery,
+        r#"
+SELECT
+    g.id as group_id,
+    a.value as context,
+    b.value as allowed_access_levels,
+    c.value as display_name,
+    d.value as built_in
+FROM realm re
+    JOIN keycloak_group g ON g.realm_id = re.id
+    LEFT JOIN group_attribute a ON a.group_id = g.id AND a.name = 'context'
+    LEFT JOIN group_attribute b ON b.group_id = g.id AND b.name = 'allowed_access_levels'
+    LEFT JOIN group_attribute c ON c.group_id = g.id AND c.name = 'display_name'
+    LEFT JOIN group_attribute d ON d.group_id = g.id AND d.name = 'built_in'
+WHERE re.name = $1;
+    "#,
+        realm
     )
     .fetch_all(db.pool())
-    .await?
-    .into_iter()
-    .map(|v| KcGroupQuery {
-        group_name: v.group_name.map(|n| format!("/{n}")),
-        group_id: v.group_id,
-    })
-    .collect())
+    .await?)
 }
 
 pub async fn fetch_realm_info(db: &DB, name: &str) -> anyhow::Result<Option<KcRealmQuery>> {
@@ -119,6 +182,7 @@ pub async fn fetch_customers(db: &DB) -> anyhow::Result<Vec<Customer>> {
 SELECT
     id,
     name,
+    ty,
     created_by,
     created_at,
     updated_by,
@@ -136,6 +200,7 @@ pub async fn fetch_organizations(db: &DB) -> anyhow::Result<Vec<Organization>> {
 SELECT
     id,
     name,
+    ty,
     customer_id,
     created_by,
     created_at,
@@ -154,6 +219,7 @@ pub async fn fetch_institutions(db: &DB) -> anyhow::Result<Vec<Institution>> {
 SELECT
     id,
     name,
+    ty,
     customer_id,
     organization_id,
     created_by,
@@ -173,6 +239,7 @@ pub async fn fetch_organization_units(db: &DB) -> anyhow::Result<Vec<Organizatio
 SELECT
     v.id as id,
     v.name as name,
+    ty,
     v.customer_id as customer_id,
     v.organization_id as organization_id,
     v.created_by as created_by,

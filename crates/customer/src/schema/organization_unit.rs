@@ -7,19 +7,22 @@ use async_graphql::{Context, Object};
 use futures::stream;
 use futures::StreamExt;
 use qm_entity::err;
+use qm_entity::error::EntityError;
 use qm_entity::error::EntityResult;
 use qm_entity::exerr;
 use qm_entity::ids::CustomerOrOrganization;
+use qm_entity::ids::InfraContext;
+use qm_entity::ids::InfraId;
 use qm_entity::ids::OrganizationUnitId;
 use qm_entity::ids::OrganizationUnitIds;
 use qm_entity::model::ListFilter;
 use qm_mongodb::bson::doc;
+use qm_role::AccessLevel;
 use sqlx::types::Uuid;
 
 use crate::cache::CacheDB;
 use crate::cleanup::CleanupTask;
 use crate::cleanup::CleanupTaskType;
-use crate::context::RelatedAccessLevel;
 use crate::context::RelatedAuth;
 use crate::context::RelatedPermission;
 use crate::context::RelatedResource;
@@ -32,7 +35,9 @@ use crate::model::Institution;
 use crate::model::OrganizationUnit;
 use crate::model::OrganizationUnitData;
 use crate::model::OrganizationUnitList;
+use crate::model::UpdateOrganizationUnitInput;
 use crate::mutation::remove_organization_units;
+use crate::mutation::update_organization_unit;
 use crate::roles;
 use crate::schema::auth::AuthCtx;
 
@@ -57,21 +62,18 @@ impl OrganizationUnit {
     }
 }
 
-pub struct Ctx<'a, Auth, Store, AccessLevel, Resource, Permission>(
-    pub AuthCtx<'a, Auth, Store, AccessLevel, Resource, Permission>,
+pub struct Ctx<'a, Auth, Store, Resource, Permission>(
+    pub &'a AuthCtx<'a, Auth, Store, Resource, Permission>,
 )
 where
-    Auth: RelatedAuth<AccessLevel, Resource, Permission>,
+    Auth: RelatedAuth<Resource, Permission>,
     Store: RelatedStorage,
-    AccessLevel: RelatedAccessLevel,
     Resource: RelatedResource,
     Permission: RelatedPermission;
-impl<'a, Auth, Store, AccessLevel, Resource, Permission>
-    Ctx<'a, Auth, Store, AccessLevel, Resource, Permission>
+impl<'a, Auth, Store, Resource, Permission> Ctx<'a, Auth, Store, Resource, Permission>
 where
-    Auth: RelatedAuth<AccessLevel, Resource, Permission>,
+    Auth: RelatedAuth<Resource, Permission>,
     Store: RelatedStorage,
-    AccessLevel: RelatedAccessLevel,
     Resource: RelatedResource,
     Permission: RelatedPermission,
 {
@@ -79,6 +81,7 @@ where
         &self,
         mut context: Option<CustomerOrOrganization>,
         filter: Option<ListFilter>,
+        ty: Option<String>,
     ) -> async_graphql::FieldResult<OrganizationUnitList> {
         context = self
             .0
@@ -88,7 +91,7 @@ where
             .0
             .store
             .cache_db()
-            .organization_unit_list(context, filter)
+            .organization_unit_list(context, filter, ty)
             .await)
     }
 
@@ -102,12 +105,14 @@ where
 
     pub async fn create(
         &self,
+        access_level: AccessLevel,
         organization_unit: OrganizationUnitData,
     ) -> EntityResult<Arc<OrganizationUnit>> {
         let user_id = self.0.auth.user_id().unwrap();
         let cid = organization_unit.cid;
         let oid = organization_unit.oid;
         let name: Arc<str> = Arc::from(organization_unit.name.clone());
+        let ty = organization_unit.ty;
         let lock_key = format!("v1_organization_unit_lock_{:X}_{name}", cid.as_ref());
         let lock = self.0.store.redis().lock(&lock_key, 5000, 20, 250).await?;
         let (result, exists) = async {
@@ -124,6 +129,7 @@ where
                     let result = crate::mutation::create_organization_unit(
                         self.0.store.customer_db().pool(),
                         &name,
+                        ty.as_deref(),
                         cid,
                         oid,
                         user_id,
@@ -131,12 +137,12 @@ where
                     )
                     .await?;
                     let id: OrganizationUnitId = (&result).into();
-                    let access = qm_role::Access::new(AccessLevel::organization_unit())
+                    let access = qm_role::Access::new(access_level)
                         .with_fmt_id(Some(&id))
                         .to_string();
                     let roles =
                         roles::ensure(self.0.store.keycloak(), Some(access).into_iter()).await?;
-                    self.0.store.cache_db().user().new_roles(roles).await?;
+                    self.0.store.cache_db().user().new_roles(roles).await;
                     if let Some(producer) = self.0.store.mutation_event_producer() {
                         producer
                             .create_event(
@@ -165,6 +171,34 @@ where
         Ok(result)
     }
 
+    pub async fn update(
+        &self,
+        id: OrganizationUnitId,
+        name: String,
+    ) -> EntityResult<Arc<OrganizationUnit>> {
+        let user_id = self.0.auth.user_id().unwrap();
+        let id: InfraId = id.into();
+        let old = self
+            .0
+            .store
+            .cache_db()
+            .organization_unit_by_id(&id)
+            .await
+            .ok_or(EntityError::not_found_by_field::<OrganizationUnit>(
+                "name", &name,
+            ))?;
+        let result =
+            update_organization_unit(self.0.store.customer_db().pool(), id, &name, user_id).await?;
+        let new = Arc::new(result);
+        self.0
+            .store
+            .cache_db()
+            .infra()
+            .update_organization_unit(new.clone(), old.as_ref().into())
+            .await;
+        Ok(new)
+    }
+
     pub async fn remove(&self, ids: OrganizationUnitIds) -> EntityResult<u64> {
         let v: Vec<i64> = ids.iter().map(OrganizationUnitId::id).collect();
         let delete_count = remove_organization_units(self.0.store.customer_db().pool(), &v).await?;
@@ -185,12 +219,12 @@ where
     }
 }
 
-pub struct OrganizationUnitQueryRoot<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup> {
-    _marker: Marker<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup>,
+pub struct OrganizationUnitQueryRoot<Auth, Store, Resource, Permission, BuiltInGroup> {
+    _marker: Marker<Auth, Store, Resource, Permission, BuiltInGroup>,
 }
 
-impl<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup> Default
-    for OrganizationUnitQueryRoot<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup>
+impl<Auth, Store, Resource, Permission, BuiltInGroup> Default
+    for OrganizationUnitQueryRoot<Auth, Store, Resource, Permission, BuiltInGroup>
 {
     fn default() -> Self {
         Self {
@@ -200,12 +234,11 @@ impl<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup> Default
 }
 
 #[Object]
-impl<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup>
-    OrganizationUnitQueryRoot<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup>
+impl<Auth, Store, Resource, Permission, BuiltInGroup>
+    OrganizationUnitQueryRoot<Auth, Store, Resource, Permission, BuiltInGroup>
 where
-    Auth: RelatedAuth<AccessLevel, Resource, Permission>,
+    Auth: RelatedAuth<Resource, Permission>,
     Store: RelatedStorage,
-    AccessLevel: RelatedAccessLevel,
     Resource: RelatedResource,
     Permission: RelatedPermission,
     BuiltInGroup: RelatedBuiltInGroup,
@@ -216,7 +249,7 @@ where
         id: OrganizationUnitId,
     ) -> async_graphql::FieldResult<Option<Arc<OrganizationUnit>>> {
         Ok(Ctx(
-            AuthCtx::<'_, Auth, Store, AccessLevel, Resource, Permission>::new_with_role(
+            &AuthCtx::<'_, Auth, Store, Resource, Permission>::new_with_role(
                 ctx,
                 (Resource::organization_unit(), Permission::view()),
             )
@@ -232,33 +265,27 @@ where
         ctx: &Context<'_>,
         context: Option<CustomerOrOrganization>,
         filter: Option<ListFilter>,
+        ty: Option<String>,
     ) -> async_graphql::FieldResult<OrganizationUnitList> {
         Ctx(
-            AuthCtx::<'_, Auth, Store, AccessLevel, Resource, Permission>::new_with_role(
+            &AuthCtx::<'_, Auth, Store, Resource, Permission>::new_with_role(
                 ctx,
                 (Resource::organization_unit(), Permission::list()),
             )
             .await?,
         )
-        .list(context, filter)
+        .list(context, filter, ty)
         .await
         .extend()
     }
 }
 
-pub struct OrganizationUnitMutationRoot<
-    Auth,
-    Store,
-    AccessLevel,
-    Resource,
-    Permission,
-    BuiltInGroup,
-> {
-    _marker: Marker<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup>,
+pub struct OrganizationUnitMutationRoot<Auth, Store, Resource, Permission, BuiltInGroup> {
+    _marker: Marker<Auth, Store, Resource, Permission, BuiltInGroup>,
 }
 
-impl<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup> Default
-    for OrganizationUnitMutationRoot<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup>
+impl<Auth, Store, Resource, Permission, BuiltInGroup> Default
+    for OrganizationUnitMutationRoot<Auth, Store, Resource, Permission, BuiltInGroup>
 {
     fn default() -> Self {
         Self {
@@ -268,12 +295,11 @@ impl<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup> Default
 }
 
 #[Object]
-impl<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup>
-    OrganizationUnitMutationRoot<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup>
+impl<Auth, Store, Resource, Permission, BuiltInGroup>
+    OrganizationUnitMutationRoot<Auth, Store, Resource, Permission, BuiltInGroup>
 where
-    Auth: RelatedAuth<AccessLevel, Resource, Permission>,
+    Auth: RelatedAuth<Resource, Permission>,
     Store: RelatedStorage,
-    AccessLevel: RelatedAccessLevel,
     Resource: RelatedResource,
     Permission: RelatedPermission,
     BuiltInGroup: RelatedBuiltInGroup,
@@ -284,99 +310,127 @@ where
         context: CustomerOrOrganization,
         input: CreateOrganizationUnitInput,
     ) -> async_graphql::FieldResult<Arc<OrganizationUnit>> {
-        let result = match context {
+        let (result, auth_ctx, access_level, group_id) = match context {
             CustomerOrOrganization::Customer(context) => {
-                Ctx(
-                    AuthCtx::<Auth, Store, AccessLevel, Resource, Permission>::mutate_with_role(
-                        ctx,
-                        qm_entity::ids::InfraContext::Customer(context),
-                        (Resource::organization_unit(), Permission::create()),
-                    )
-                    .await?,
+                let group_path = Auth::customer_unit_owner_group()
+                    .ok_or(EntityError::bad_request(
+                        "OrganizationUnit",
+                        "create OrganizationUnit::Customer is not activated",
+                    ))
+                    .extend()?;
+                let auth_ctx = AuthCtx::<Auth, Store, Resource, Permission>::mutate_with_role(
+                    ctx,
+                    qm_entity::ids::InfraContext::Customer(context),
+                    (Resource::organization_unit(), Permission::create()),
                 )
-                .create(OrganizationUnitData {
-                    cid: context.into(),
-                    oid: None,
-                    name: input.name,
-                    members: input.members,
-                })
-                .await
-                .extend()?
+                .await?;
+                let group_id = auth_ctx
+                    .store
+                    .cache_db()
+                    .group_id_by_path(group_path)
+                    .await
+                    .ok_or(EntityError::internal())
+                    .extend()?;
+                let access_level = AccessLevel::CustomerUnit;
+                let result = Ctx(&auth_ctx)
+                    .create(
+                        access_level,
+                        OrganizationUnitData {
+                            cid: context.into(),
+                            oid: None,
+                            name: input.name,
+                            ty: input.ty,
+                            members: input.members,
+                        },
+                    )
+                    .await
+                    .extend()?;
+                (result, auth_ctx, access_level, group_id)
             }
             CustomerOrOrganization::Organization(context) => {
+                let group_path = Auth::institution_unit_owner_group()
+                    .ok_or(EntityError::bad_request(
+                        "OrganizationUnit",
+                        "create OrganizationUnit::Organization is not activated",
+                    ))
+                    .extend()?;
                 let (cid, oid) = context.unzip();
-                Ctx(
-                    AuthCtx::<Auth, Store, AccessLevel, Resource, Permission>::mutate_with_role(
-                        ctx,
-                        qm_entity::ids::InfraContext::Organization(context),
-                        (Resource::organization_unit(), Permission::create()),
-                    )
-                    .await?,
+                let auth_ctx = AuthCtx::<Auth, Store, Resource, Permission>::mutate_with_role(
+                    ctx,
+                    qm_entity::ids::InfraContext::Organization(context),
+                    (Resource::organization_unit(), Permission::create()),
                 )
-                .create(OrganizationUnitData {
-                    cid: cid.into(),
-                    oid: Some(oid.into()),
-                    name: input.name,
-                    members: input.members,
-                })
-                .await
-                .extend()?
+                .await?;
+                let group_id = auth_ctx
+                    .store
+                    .cache_db()
+                    .group_id_by_path(group_path)
+                    .await
+                    .ok_or(EntityError::internal())
+                    .extend()?;
+                let access_level = AccessLevel::InstitutionUnit;
+                let result = Ctx(&auth_ctx)
+                    .create(
+                        access_level,
+                        OrganizationUnitData {
+                            cid: cid.into(),
+                            oid: Some(oid.into()),
+                            name: input.name,
+                            ty: input.ty,
+                            members: input.members,
+                        },
+                    )
+                    .await
+                    .extend()?;
+                (result, auth_ctx, access_level, group_id)
             }
         };
         if let Some(user) = input.initial_user {
             let id: OrganizationUnitId = result.as_ref().into();
-            crate::schema::user::Ctx(
-                AuthCtx::<'_, Auth, Store, AccessLevel, Resource, Permission>::new_with_role(
-                    ctx,
-                    (Resource::user(), Permission::create()),
-                )
-                .await?,
-            )
-            .create(CreateUserPayload {
-                access: Some(
-                    qm_role::Access::new(AccessLevel::organization_unit())
-                        .with_fmt_id(Some(&id))
-                        .to_string(),
-                ),
-                user,
-                group: Some(Auth::create_organization_unit_owner_group().name),
-                context: Some(qm_entity::ids::InfraContext::OrganizationUnit(id)),
-            })
-            .await
-            .extend()?;
+            crate::schema::user::Ctx(&auth_ctx)
+                .create(CreateUserPayload {
+                    access: Some(
+                        qm_role::Access::new(access_level)
+                            .with_fmt_id(Some(&id))
+                            .to_string(),
+                    ),
+                    user,
+                    group_id: Some(group_id),
+                    context: Some(qm_entity::ids::InfraContext::OrganizationUnit(id)),
+                })
+                .await
+                .extend()?;
         }
         Ok(result)
     }
 
-    // async fn update_organization_unit(
-    //     &self,
-    //     ctx: &Context<'_>,
-    //     context: OrganizationUnitFilter,
-    //     input: UpdateOrganizationUnitInput,
-    // ) -> async_graphql::FieldResult<OrganizationUnit> {
-    //     Ctx(
-    //         AuthCtx::<'_, Auth, Store, AccessLevel, Resource, Permission>::new_with_role(
-    //             ctx,
-    //             (Resource::organization_unit(), Permission::update()),
-    //         )
-    //         .await?,
-    //     )
-    //     .update(context, input)
-    //     .await
-    //     .extend()
-    // }
+    async fn update_organization_unit(
+        &self,
+        ctx: &Context<'_>,
+        context: OrganizationUnitId,
+        input: UpdateOrganizationUnitInput,
+    ) -> async_graphql::FieldResult<Arc<OrganizationUnit>> {
+        let auth_ctx = AuthCtx::<'_, Auth, Store, Resource, Permission>::new_with_role(
+            ctx,
+            (Resource::organization_unit(), Permission::update()),
+        )
+        .await?;
+        auth_ctx
+            .can_mutate(Some(&InfraContext::OrganizationUnit(context)))
+            .await?;
+        Ctx(&auth_ctx).update(context, input.name).await.extend()
+    }
 
     async fn remove_organization_units(
         &self,
         ctx: &Context<'_>,
         ids: OrganizationUnitIds,
     ) -> async_graphql::FieldResult<u64> {
-        let auth_ctx =
-            AuthCtx::<'_, Auth, Store, AccessLevel, Resource, Permission>::new_with_role(
-                ctx,
-                (Resource::organization_unit(), Permission::delete()),
-            )
-            .await?;
+        let auth_ctx = AuthCtx::<'_, Auth, Store, Resource, Permission>::new_with_role(
+            ctx,
+            (Resource::organization_unit(), Permission::delete()),
+        )
+        .await?;
         let cache = auth_ctx.store.cache_db();
         for id in ids.iter() {
             let infra_id = id.into();
@@ -387,6 +441,6 @@ where
                 return exerr!(not_found_by_id::<OrganizationUnit>(id.to_string()));
             }
         }
-        Ctx(auth_ctx).remove(ids).await.extend()
+        Ctx(&auth_ctx).remove(ids).await.extend()
     }
 }

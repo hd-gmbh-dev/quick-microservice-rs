@@ -1,6 +1,5 @@
 use crate::cleanup::cleanup_roles;
 use crate::cleanup::CleanupTaskType;
-use crate::context::RelatedAccessLevel;
 use crate::context::RelatedAuth;
 use crate::context::RelatedPermission;
 use crate::context::RelatedResource;
@@ -33,6 +32,7 @@ use qm_mongodb::bson::doc;
 use qm_mongodb::bson::Document;
 use qm_mongodb::ClientSession;
 use qm_mongodb::DB;
+use qm_role::AccessLevel;
 use sqlx::types::Uuid;
 
 use qm_redis::AsyncWorker;
@@ -70,14 +70,12 @@ impl AsRef<Producer> for CleanupProducer {
     }
 }
 
-pub struct CleanupWorkerCtx<Auth, Store, AccessLevel, Resource, Permission> {
+pub struct CleanupWorkerCtx<Auth, Store, Resource, Permission> {
     pub store: Store,
-    _marker: Marker<Auth, Store, AccessLevel, Resource, Permission, ()>,
+    _marker: Marker<Auth, Store, Resource, Permission, ()>,
 }
 
-impl<Auth, Store, AccessLevel, Resource, Permission>
-    CleanupWorkerCtx<Auth, Store, AccessLevel, Resource, Permission>
-{
+impl<Auth, Store, Resource, Permission> CleanupWorkerCtx<Auth, Store, Resource, Permission> {
     pub fn new(store: Store) -> Self {
         Self {
             store,
@@ -86,8 +84,8 @@ impl<Auth, Store, AccessLevel, Resource, Permission>
     }
 }
 
-impl<Auth, Store, AccessLevel, Resource, Permission> Clone
-    for CleanupWorkerCtx<Auth, Store, AccessLevel, Resource, Permission>
+impl<Auth, Store, Resource, Permission> Clone
+    for CleanupWorkerCtx<Auth, Store, Resource, Permission>
 where
     Store: RelatedStorage,
 {
@@ -113,16 +111,15 @@ async fn remove_documents(
     Ok(result.deleted_count)
 }
 
-async fn cleanup_customers<Auth, Store, AccessLevel, Resource, Permission>(
-    worker_ctx: WorkerContext<CleanupWorkerCtx<Auth, Store, AccessLevel, Resource, Permission>>,
+async fn cleanup_customers<Auth, Store, Resource, Permission>(
+    worker_ctx: WorkerContext<CleanupWorkerCtx<Auth, Store, Resource, Permission>>,
     ty: &str,
     id: Uuid,
     cids: &CustomerIds,
 ) -> anyhow::Result<()>
 where
-    Auth: RelatedAuth<AccessLevel, Resource, Permission>,
+    Auth: RelatedAuth<Resource, Permission>,
     Store: RelatedStorage,
-    AccessLevel: RelatedAccessLevel,
     Resource: RelatedResource,
     Permission: RelatedPermission,
 {
@@ -130,14 +127,15 @@ where
     let db: &DB = store.as_ref();
     let mut session = db.session().await?;
     let mut roles = BTreeSet::new();
-    let existing_roles = store.cache_db().user().roles().await;
-    let access_roles: Vec<_> = existing_roles
-        .keys()
-        .filter(|k| k.contains("access@"))
+    let existing_roles = store.cache_db().roles().await;
+    let access_roles: Vec<&str> = existing_roles
+        .iter()
+        .filter(|k| k.name.contains("access@"))
+        .map(|v| v.name.as_ref())
         .collect();
     for cid in cids.iter() {
         roles.insert(
-            qm_role::Access::new(AccessLevel::customer())
+            qm_role::Access::new(AccessLevel::Customer)
                 .with_fmt_id(Some(cid))
                 .to_string(),
         );
@@ -183,7 +181,7 @@ where
 fn extend_roles_with_children(
     v: &impl std::fmt::Display,
     allowed_prefixes: &[char],
-    access_roles: &[&Arc<str>],
+    access_roles: &[&str],
     roles: &mut BTreeSet<String>,
 ) {
     let id = v.to_string();
@@ -200,16 +198,15 @@ fn extend_roles_with_children(
     }
 }
 
-async fn cleanup_organizations<Auth, Store, AccessLevel, Resource, Permission>(
-    worker_ctx: WorkerContext<CleanupWorkerCtx<Auth, Store, AccessLevel, Resource, Permission>>,
+async fn cleanup_organizations<Auth, Store, Resource, Permission>(
+    worker_ctx: WorkerContext<CleanupWorkerCtx<Auth, Store, Resource, Permission>>,
     ty: &str,
     id: Uuid,
     strict_oids: &OrganizationIds,
 ) -> anyhow::Result<()>
 where
-    Auth: RelatedAuth<AccessLevel, Resource, Permission>,
+    Auth: RelatedAuth<Resource, Permission>,
     Store: RelatedStorage,
-    AccessLevel: RelatedAccessLevel,
     Resource: RelatedResource,
     Permission: RelatedPermission,
 {
@@ -217,14 +214,15 @@ where
     let db: &DB = store.as_ref();
     let mut session = db.session().await?;
     let mut roles = BTreeSet::new();
-    let existing_roles = store.cache_db().user().roles().await;
-    let access_roles: Vec<_> = existing_roles
-        .keys()
-        .filter(|k| k.contains("access@"))
+    let existing_roles = store.cache_db().roles().await;
+    let access_roles: Vec<&str> = existing_roles
+        .iter()
+        .filter(|k| k.name.contains("access@"))
+        .map(|v| v.name.as_ref())
         .collect();
     for v in strict_oids.iter() {
         roles.insert(
-            qm_role::Access::new(AccessLevel::organization())
+            qm_role::Access::new(AccessLevel::Organization)
                 .with_fmt_id(Some(&v))
                 .to_string(),
         );
@@ -265,16 +263,15 @@ where
     Ok(())
 }
 
-async fn cleanup_institutions<Auth, Store, AccessLevel, Resource, Permission>(
-    worker_ctx: WorkerContext<CleanupWorkerCtx<Auth, Store, AccessLevel, Resource, Permission>>,
+async fn cleanup_institutions<Auth, Store, Resource, Permission>(
+    worker_ctx: WorkerContext<CleanupWorkerCtx<Auth, Store, Resource, Permission>>,
     ty: &str,
     id: Uuid,
     strict_iids: &InstitutionIds,
 ) -> anyhow::Result<()>
 where
-    Auth: RelatedAuth<AccessLevel, Resource, Permission>,
+    Auth: RelatedAuth<Resource, Permission>,
     Store: RelatedStorage,
-    AccessLevel: RelatedAccessLevel,
     Resource: RelatedResource,
     Permission: RelatedPermission,
 {
@@ -284,7 +281,7 @@ where
     let mut roles = BTreeSet::new();
     for id in strict_iids.iter() {
         roles.insert(
-            qm_role::Access::new(AccessLevel::institution())
+            qm_role::Access::new(AccessLevel::Institution)
                 .with_fmt_id(Some(&id))
                 .to_string(),
         );
@@ -323,16 +320,15 @@ where
     Ok(())
 }
 
-async fn cleanup_organization_units<Auth, Store, AccessLevel, Resource, Permission>(
-    worker_ctx: WorkerContext<CleanupWorkerCtx<Auth, Store, AccessLevel, Resource, Permission>>,
+async fn cleanup_organization_units<Auth, Store, Resource, Permission>(
+    worker_ctx: WorkerContext<CleanupWorkerCtx<Auth, Store, Resource, Permission>>,
     ty: &str,
     id: Uuid,
     strict_uids: &OrganizationUnitIds,
 ) -> anyhow::Result<()>
 where
-    Auth: RelatedAuth<AccessLevel, Resource, Permission>,
+    Auth: RelatedAuth<Resource, Permission>,
     Store: RelatedStorage,
-    AccessLevel: RelatedAccessLevel,
     Resource: RelatedResource,
     Permission: RelatedPermission,
 {
@@ -341,11 +337,22 @@ where
     let mut session = db.session().await?;
     let mut roles = BTreeSet::new();
     for id in strict_uids.iter() {
-        roles.insert(
-            qm_role::Access::new(AccessLevel::organization_unit())
-                .with_fmt_id(Some(id))
-                .to_string(),
-        );
+        match id {
+            OrganizationUnitId::Customer(_) => {
+                roles.insert(
+                    qm_role::Access::new(AccessLevel::CustomerUnit)
+                        .with_fmt_id(Some(id))
+                        .to_string(),
+                );
+            }
+            OrganizationUnitId::Organization(_) => {
+                roles.insert(
+                    qm_role::Access::new(AccessLevel::InstitutionUnit)
+                        .with_fmt_id(Some(id))
+                        .to_string(),
+                );
+            }
+        }
     }
     let (cids, uids): (Vec<i64>, Vec<i64>) =
         strict_uids.iter().map(OrganizationUnitId::untuple).unzip();
@@ -381,19 +388,17 @@ where
 pub struct CleanupWorker;
 
 #[async_trait::async_trait]
-impl<Auth, Store, AccessLevel, Resource, Permission>
-    Work<CleanupWorkerCtx<Auth, Store, AccessLevel, Resource, Permission>, CleanupTask>
-    for CleanupWorker
+impl<Auth, Store, Resource, Permission>
+    Work<CleanupWorkerCtx<Auth, Store, Resource, Permission>, CleanupTask> for CleanupWorker
 where
-    Auth: RelatedAuth<AccessLevel, Resource, Permission>,
+    Auth: RelatedAuth<Resource, Permission>,
     Store: RelatedStorage,
-    AccessLevel: RelatedAccessLevel,
     Resource: RelatedResource,
     Permission: RelatedPermission,
 {
     async fn run(
         &self,
-        ctx: WorkerContext<CleanupWorkerCtx<Auth, Store, AccessLevel, Resource, Permission>>,
+        ctx: WorkerContext<CleanupWorkerCtx<Auth, Store, Resource, Permission>>,
         item: CleanupTask,
     ) -> anyhow::Result<()> {
         log::debug!(
@@ -422,15 +427,14 @@ where
     }
 }
 
-pub async fn run<Auth, Store, AccessLevel, Resource, Permission>(
+pub async fn run<Auth, Store, Resource, Permission>(
     workers: &Workers,
-    ctx: CleanupWorkerCtx<Auth, Store, AccessLevel, Resource, Permission>,
+    ctx: CleanupWorkerCtx<Auth, Store, Resource, Permission>,
     num_workers: usize,
 ) -> anyhow::Result<()>
 where
-    Auth: RelatedAuth<AccessLevel, Resource, Permission>,
+    Auth: RelatedAuth<Resource, Permission>,
     Store: RelatedStorage,
-    AccessLevel: RelatedAccessLevel,
     Resource: RelatedResource,
     Permission: RelatedPermission,
 {

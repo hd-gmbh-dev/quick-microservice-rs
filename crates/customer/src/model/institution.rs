@@ -9,7 +9,7 @@ use sqlx::FromRow;
 
 use std::sync::Arc;
 
-pub struct InstitutionData(pub OrganizationId, pub String);
+pub struct InstitutionData(pub OrganizationId, pub String, pub Option<String>);
 
 #[derive(Debug, Clone, SimpleObject)]
 pub struct InstitutionList {
@@ -29,6 +29,7 @@ pub struct Institution {
     #[graphql(skip)]
     pub organization_id: InfraId,
     pub name: Arc<str>,
+    pub ty: Arc<str>,
     pub created_by: Uuid,
     pub created_at: PrimitiveDateTime,
     pub updated_by: Option<Uuid>,
@@ -41,6 +42,7 @@ pub struct InstitutionUpdate {
     pub customer_id: InfraId,
     pub organization_id: InfraId,
     pub name: Arc<str>,
+    pub ty: Arc<str>,
     pub created_by: Uuid,
     pub created_at: String,
     pub updated_by: Option<Uuid>,
@@ -79,12 +81,13 @@ impl<'a> From<&'a Institution> for RemoveInstitutionPayload {
 #[derive(Debug, InputObject)]
 pub struct CreateInstitutionInput {
     pub name: String,
+    pub ty: Option<String>,
     pub initial_user: Option<CreateUserInput>,
 }
 
 #[derive(Debug, InputObject)]
 pub struct UpdateInstitutionInput {
-    pub name: Option<String>,
+    pub name: String,
 }
 
 impl<'a> From<&'a Institution> for InstitutionId {

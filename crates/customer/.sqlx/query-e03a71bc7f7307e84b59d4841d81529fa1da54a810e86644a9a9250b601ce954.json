@@ -1,0 +1,52 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\nSELECT\n    u.id AS id,\n    u.first_name AS firstname,\n    u.last_name AS lastname,\n    u.username AS username,\n    u.email AS email,\n    u.enabled AS enabled\nFROM realm re\n    JOIN user_entity u on re.id = u.realm_id\nWHERE re.name = $1;",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 1,
+        "name": "firstname",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 2,
+        "name": "lastname",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 3,
+        "name": "username",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 4,
+        "name": "email",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 5,
+        "name": "enabled",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      true,
+      true,
+      true,
+      false
+    ]
+  },
+  "hash": "e03a71bc7f7307e84b59d4841d81529fa1da54a810e86644a9a9250b601ce954"
+}

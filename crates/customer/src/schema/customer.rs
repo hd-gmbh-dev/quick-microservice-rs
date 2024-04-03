@@ -12,11 +12,11 @@ use qm_entity::ids::CustomerIds;
 use qm_entity::ids::InfraId;
 use qm_entity::model::ListFilter;
 use qm_mongodb::bson::doc;
+use qm_role::AccessLevel;
 use sqlx::types::Uuid;
 
 use crate::cleanup::CleanupTask;
 use crate::cleanup::CleanupTaskType;
-use crate::context::RelatedAccessLevel;
 use crate::context::RelatedStorage;
 use crate::context::{RelatedAuth, RelatedPermission, RelatedResource};
 use crate::groups::RelatedBuiltInGroup;
@@ -40,29 +40,27 @@ impl Customer {
     }
 }
 
-pub struct Ctx<'a, Auth, Store, AccessLevel, Resource, Permission>(
-    pub AuthCtx<'a, Auth, Store, AccessLevel, Resource, Permission>,
+pub struct Ctx<'a, Auth, Store, Resource, Permission>(
+    pub &'a AuthCtx<'a, Auth, Store, Resource, Permission>,
 )
 where
-    Auth: RelatedAuth<AccessLevel, Resource, Permission>,
+    Auth: RelatedAuth<Resource, Permission>,
     Store: RelatedStorage,
-    AccessLevel: RelatedAccessLevel,
     Resource: RelatedResource,
     Permission: RelatedPermission;
-impl<'a, Auth, Store, AccessLevel, Resource, Permission>
-    Ctx<'a, Auth, Store, AccessLevel, Resource, Permission>
+impl<'a, Auth, Store, Resource, Permission> Ctx<'a, Auth, Store, Resource, Permission>
 where
-    Auth: RelatedAuth<AccessLevel, Resource, Permission>,
+    Auth: RelatedAuth<Resource, Permission>,
     Store: RelatedStorage,
-    AccessLevel: RelatedAccessLevel,
     Resource: RelatedResource,
     Permission: RelatedPermission,
 {
     pub async fn list(
         &self,
         filter: Option<ListFilter>,
+        ty: Option<String>,
     ) -> async_graphql::FieldResult<CustomerList> {
-        Ok(self.0.store.cache_db().customer_list(filter).await)
+        Ok(self.0.store.cache_db().customer_list(filter, ty).await)
     }
 
     pub async fn by_id(&self, id: CustomerId) -> Option<Arc<Customer>> {
@@ -72,6 +70,7 @@ where
     pub async fn create(&self, customer: CustomerData) -> EntityResult<Arc<Customer>> {
         let user_id = self.0.auth.user_id().unwrap();
         let name = customer.0.clone();
+        let ty = customer.1;
         let lock_key = format!("v1_customer_lock_{name}");
         let lock = self.0.store.redis().lock(&lock_key, 5000, 20, 250).await?;
         let (result, exists) = async {
@@ -82,16 +81,17 @@ where
                     let result = crate::mutation::create_customer(
                         self.0.store.customer_db().pool(),
                         &name,
+                        ty.as_deref(),
                         user_id,
                     )
                     .await?;
                     let id: CustomerId = (&result).into();
-                    let access = qm_role::Access::new(AccessLevel::customer())
+                    let access = qm_role::Access::new(AccessLevel::Customer)
                         .with_fmt_id(Some(&id))
                         .to_string();
                     let roles =
                         roles::ensure(self.0.store.keycloak(), Some(access).into_iter()).await?;
-                    self.0.store.cache_db().user().new_roles(roles).await?;
+                    self.0.store.cache_db().user().new_roles(roles).await;
                     if let Some(producer) = self.0.store.mutation_event_producer() {
                         producer
                             .create_event(
@@ -123,7 +123,7 @@ where
     pub async fn update(&self, id: CustomerId, name: String) -> EntityResult<Arc<Customer>> {
         let user_id = self.0.auth.user_id().unwrap();
         let id: InfraId = id.into();
-        let old_customer = self
+        let old = self
             .0
             .store
             .cache_db()
@@ -131,14 +131,14 @@ where
             .await
             .ok_or(EntityError::not_found_by_field::<Customer>("name", &name))?;
         let result = update_customer(self.0.store.customer_db().pool(), id, &name, user_id).await?;
-        let new_customer = Arc::new(result);
+        let new = Arc::new(result);
         self.0
             .store
             .cache_db()
             .infra()
-            .update_customer(new_customer.clone(), old_customer.as_ref().into())
+            .update_customer(new.clone(), old.as_ref().into())
             .await;
-        Ok(new_customer)
+        Ok(new)
     }
 
     pub async fn remove(&self, ids: CustomerIds) -> EntityResult<u64> {
@@ -161,12 +161,12 @@ where
     }
 }
 
-pub struct CustomerQueryRoot<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup> {
-    _marker: Marker<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup>,
+pub struct CustomerQueryRoot<Auth, Store, Resource, Permission, BuiltInGroup> {
+    _marker: Marker<Auth, Store, Resource, Permission, BuiltInGroup>,
 }
 
-impl<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup> Default
-    for CustomerQueryRoot<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup>
+impl<Auth, Store, Resource, Permission, BuiltInGroup> Default
+    for CustomerQueryRoot<Auth, Store, Resource, Permission, BuiltInGroup>
 {
     fn default() -> Self {
         Self {
@@ -176,12 +176,11 @@ impl<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup> Default
 }
 
 #[Object]
-impl<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup>
-    CustomerQueryRoot<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup>
+impl<Auth, Store, Resource, Permission, BuiltInGroup>
+    CustomerQueryRoot<Auth, Store, Resource, Permission, BuiltInGroup>
 where
-    Auth: RelatedAuth<AccessLevel, Resource, Permission>,
+    Auth: RelatedAuth<Resource, Permission>,
     Store: RelatedStorage,
-    AccessLevel: RelatedAccessLevel,
     Resource: RelatedResource,
     Permission: RelatedPermission,
     BuiltInGroup: RelatedBuiltInGroup,
@@ -192,7 +191,7 @@ where
         id: CustomerId,
     ) -> async_graphql::FieldResult<Option<Arc<Customer>>> {
         Ok(Ctx(
-            AuthCtx::<'_, Auth, Store, AccessLevel, Resource, Permission>::new_with_role(
+            &AuthCtx::<'_, Auth, Store, Resource, Permission>::new_with_role(
                 ctx,
                 (Resource::customer(), Permission::view()),
             )
@@ -207,26 +206,27 @@ where
         &self,
         ctx: &Context<'_>,
         filter: Option<ListFilter>,
+        ty: Option<String>,
     ) -> async_graphql::FieldResult<CustomerList> {
         Ctx(
-            AuthCtx::<'_, Auth, Store, AccessLevel, Resource, Permission>::new_with_role(
+            &AuthCtx::<'_, Auth, Store, Resource, Permission>::new_with_role(
                 ctx,
                 (Resource::customer(), Permission::list()),
             )
             .await?,
         )
-        .list(filter)
+        .list(filter, ty)
         .await
         .extend()
     }
 }
 
-pub struct CustomerMutationRoot<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup> {
-    _marker: Marker<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup>,
+pub struct CustomerMutationRoot<Auth, Store, Resource, Permission, BuiltInGroup> {
+    _marker: Marker<Auth, Store, Resource, Permission, BuiltInGroup>,
 }
 
-impl<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup> Default
-    for CustomerMutationRoot<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup>
+impl<Auth, Store, Resource, Permission, BuiltInGroup> Default
+    for CustomerMutationRoot<Auth, Store, Resource, Permission, BuiltInGroup>
 {
     fn default() -> Self {
         Self {
@@ -236,12 +236,11 @@ impl<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup> Default
 }
 
 #[Object]
-impl<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup>
-    CustomerMutationRoot<Auth, Store, AccessLevel, Resource, Permission, BuiltInGroup>
+impl<Auth, Store, Resource, Permission, BuiltInGroup>
+    CustomerMutationRoot<Auth, Store, Resource, Permission, BuiltInGroup>
 where
-    Auth: RelatedAuth<AccessLevel, Resource, Permission>,
+    Auth: RelatedAuth<Resource, Permission>,
     Store: RelatedStorage,
-    AccessLevel: RelatedAccessLevel,
     Resource: RelatedResource,
     Permission: RelatedPermission,
     BuiltInGroup: RelatedBuiltInGroup,
@@ -251,37 +250,46 @@ where
         ctx: &Context<'_>,
         input: CreateCustomerInput,
     ) -> async_graphql::FieldResult<Arc<Customer>> {
-        let result = Ctx(
-            AuthCtx::<'_, Auth, Store, AccessLevel, Resource, Permission>::new_with_role(
-                ctx,
-                (Resource::customer(), Permission::create()),
-            )
-            .await?,
+        let group_path = Auth::customer_owner_group()
+            .ok_or(EntityError::bad_request(
+                "Customer",
+                "create customer is not activated",
+            ))
+            .extend()?;
+        let auth_ctx = AuthCtx::<'_, Auth, Store, Resource, Permission>::new_with_role(
+            ctx,
+            (Resource::customer(), Permission::create()),
         )
-        .create(CustomerData(input.name))
-        .await
-        .extend()?;
-        let id: CustomerId = result.as_ref().into();
-        if let Some(user) = input.initial_user {
-            crate::schema::user::Ctx(
-                AuthCtx::<'_, Auth, Store, AccessLevel, Resource, Permission>::new_with_role(
-                    ctx,
-                    (Resource::customer(), Permission::create()),
-                )
-                .await?,
-            )
-            .create(CreateUserPayload {
-                access: Some(
-                    qm_role::Access::new(AccessLevel::customer())
-                        .with_fmt_id(Some(&id))
-                        .to_string(),
-                ),
-                user,
-                group: Some(Auth::create_customer_owner_group().name),
-                context: Some(qm_entity::ids::InfraContext::Customer(id)),
+        .await?;
+        let group_id = auth_ctx
+            .store
+            .cache_db()
+            .group_id_by_path(group_path)
+            .await
+            .ok_or_else(|| {
+                log::error!("group not found by path: '{group_path}'");
+                EntityError::internal()
             })
+            .extend()?;
+        let result = Ctx(&auth_ctx)
+            .create(CustomerData(input.name, input.ty))
             .await
             .extend()?;
+        let id: CustomerId = result.as_ref().into();
+        if let Some(user) = input.initial_user {
+            crate::schema::user::Ctx(&auth_ctx)
+                .create(CreateUserPayload {
+                    access: Some(
+                        qm_role::Access::new(AccessLevel::Customer)
+                            .with_fmt_id(Some(&id))
+                            .to_string(),
+                    ),
+                    user,
+                    group_id: Some(group_id),
+                    context: Some(qm_entity::ids::InfraContext::Customer(id)),
+                })
+                .await
+                .extend()?;
         }
         Ok(result)
     }
@@ -293,7 +301,7 @@ where
         input: UpdateCustomerInput,
     ) -> async_graphql::FieldResult<Arc<Customer>> {
         Ctx(
-            AuthCtx::<'_, Auth, Store, AccessLevel, Resource, Permission>::new_with_role(
+            &AuthCtx::<'_, Auth, Store, Resource, Permission>::new_with_role(
                 ctx,
                 (Resource::customer(), Permission::update()),
             )
@@ -310,7 +318,7 @@ where
         ids: CustomerIds,
     ) -> async_graphql::FieldResult<u64> {
         Ctx(
-            AuthCtx::<'_, Auth, Store, AccessLevel, Resource, Permission>::new_with_role(
+            &AuthCtx::<'_, Auth, Store, Resource, Permission>::new_with_role(
                 ctx,
                 (Resource::customer(), Permission::delete()),
             )

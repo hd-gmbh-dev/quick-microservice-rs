@@ -66,19 +66,24 @@ pub trait IsAdmin {
     }
 }
 
-pub trait HasAccess<A> {
-    fn has_access(&self, a: &qm_role::Access<A>) -> bool;
+pub trait HasAccess {
+    fn has_access(&self, a: &qm_role::Access) -> bool;
 }
 
-pub trait HasRole<R, P> {
+pub trait HasRole<R, P>
+where
+    R: std::fmt::Debug,
+    P: std::fmt::Debug,
+{
     fn has_role(&self, r: &R, p: &P) -> bool;
+    fn has_role_object(&self, role: &qm_role::Role<R, P>) -> bool;
 }
 
 pub trait UserId {
     fn user_id(&self) -> Option<&sqlx::types::Uuid>;
 }
-pub trait SessionAccess<A> {
-    fn session_access(&self) -> Option<&qm_role::Access<A>>;
+pub trait SessionAccess {
+    fn session_access(&self) -> Option<&qm_role::Access>;
 }
 
 pub trait AsNumber {

@@ -4,24 +4,29 @@ use sqlx::types::Uuid;
 use sqlx::PgPool;
 use std::sync::Arc;
 
+pub const DEFAULT_TYPE: &str = "none";
+
 pub async fn create_customer(
     pool: &PgPool,
     name: &str,
+    ty: Option<&str>,
     created_by: &Uuid,
 ) -> anyhow::Result<Customer> {
     let rec = sqlx::query!(
         r#"
-INSERT INTO customers ( name, created_by )
-VALUES ( $1, $2 )
+INSERT INTO customers ( name, ty, created_by )
+VALUES ( $1, $2, $3 )
 RETURNING
     id,
     name,
+    ty,
     created_by,
     created_at,
     updated_by,
     updated_at
 "#,
         name,
+        ty.unwrap_or(DEFAULT_TYPE),
         created_by
     )
     .fetch_one(pool)
@@ -30,6 +35,7 @@ RETURNING
     Ok(Customer {
         id: rec.id.into(),
         name: Arc::from(rec.name),
+        ty: Arc::from(rec.ty),
         created_by: rec.created_by,
         created_at: rec.created_at,
         updated_by: rec.updated_by,
@@ -51,6 +57,7 @@ WHERE v.id = $1
 RETURNING
     v.id as id,
     v.name as name,
+    v.ty as ty,
     v.created_by as created_by,
     v.created_at as created_at,
     v.updated_by as updated_by,
@@ -66,6 +73,7 @@ RETURNING
     Ok(Customer {
         id: rec.id.into(),
         name: Arc::from(rec.name),
+        ty: Arc::from(rec.ty),
         created_by: rec.created_by,
         created_at: rec.created_at,
         updated_by: rec.updated_by,
@@ -96,23 +104,26 @@ pub async fn remove_customers(pool: &PgPool, ids: &[i64]) -> anyhow::Result<u64>
 pub async fn create_organization(
     pool: &PgPool,
     name: &str,
+    ty: Option<&str>,
     customer_id: InfraId,
     created_by: &Uuid,
 ) -> anyhow::Result<Organization> {
     let rec = sqlx::query!(
         r#"
-INSERT INTO organizations ( name, customer_id, created_by )
-VALUES ( $1, $2, $3 )
+INSERT INTO organizations ( name, ty, customer_id, created_by )
+VALUES ( $1, $2, $3, $4 )
 RETURNING
     id,
     customer_id,
     name,
+    ty,
     created_by,
     created_at,
     updated_by,
     updated_at
 "#,
         name,
+        ty.unwrap_or(DEFAULT_TYPE),
         customer_id.as_ref(),
         created_by
     )
@@ -123,6 +134,7 @@ RETURNING
         id: rec.id.into(),
         customer_id: rec.customer_id.into(),
         name: Arc::from(rec.name),
+        ty: Arc::from(rec.ty),
         created_by: rec.created_by,
         created_at: rec.created_at,
         updated_by: rec.updated_by,
@@ -145,6 +157,7 @@ RETURNING
     v.id as id,
     v.customer_id as customer_id,
     v.name as name,
+    v.ty as ty,
     v.created_by as created_by,
     v.created_at as created_at,
     v.updated_by as updated_by,
@@ -161,6 +174,7 @@ RETURNING
         id: rec.id.into(),
         customer_id: rec.customer_id.into(),
         name: Arc::from(rec.name),
+        ty: Arc::from(rec.ty),
         created_by: rec.created_by,
         created_at: rec.created_at,
         updated_by: rec.updated_by,
@@ -191,25 +205,28 @@ pub async fn remove_organizations(pool: &PgPool, ids: &[i64]) -> anyhow::Result<
 pub async fn create_institution(
     pool: &PgPool,
     name: &str,
+    ty: Option<&str>,
     customer_id: InfraId,
     organization_id: InfraId,
     created_by: &Uuid,
 ) -> anyhow::Result<Institution> {
     let rec = sqlx::query!(
         r#"
-INSERT INTO institutions ( name, customer_id, organization_id, created_by )
-VALUES ( $1, $2, $3, $4 )
+INSERT INTO institutions ( name, ty, customer_id, organization_id, created_by )
+VALUES ( $1, $2, $3, $4, $5 )
 RETURNING
     id,
     customer_id,
     organization_id,
     name,
+    ty,
     created_by,
     created_at,
     updated_by,
     updated_at
 "#,
         name,
+        ty.unwrap_or(DEFAULT_TYPE),
         customer_id.as_ref(),
         organization_id.as_ref(),
         created_by
@@ -222,6 +239,7 @@ RETURNING
         customer_id: rec.customer_id.into(),
         organization_id: rec.organization_id.into(),
         name: Arc::from(rec.name),
+        ty: Arc::from(rec.ty),
         created_by: rec.created_by,
         created_at: rec.created_at,
         updated_by: rec.updated_by,
@@ -245,6 +263,7 @@ RETURNING
     v.customer_id as customer_id,
     v.organization_id as organization_id,
     v.name as name,
+    v.ty as ty,
     v.created_by as created_by,
     v.created_at as created_at,
     v.updated_by as updated_by,
@@ -262,6 +281,7 @@ RETURNING
         customer_id: rec.customer_id.into(),
         organization_id: rec.organization_id.into(),
         name: Arc::from(rec.name),
+        ty: Arc::from(rec.ty),
         created_by: rec.created_by,
         created_at: rec.created_at,
         updated_by: rec.updated_by,
@@ -292,6 +312,7 @@ pub async fn remove_institutions(pool: &PgPool, ids: &[i64]) -> anyhow::Result<u
 pub async fn create_organization_unit(
     pool: &PgPool,
     name: &str,
+    ty: Option<&str>,
     customer_id: InfraId,
     organization_id: Option<InfraId>,
     created_by: &Uuid,
@@ -299,19 +320,21 @@ pub async fn create_organization_unit(
 ) -> anyhow::Result<OrganizationUnit> {
     let rec = sqlx::query!(
         r#"
-INSERT INTO organization_units ( name, customer_id, organization_id, created_by )
-VALUES ( $1, $2, $3, $4 )
+INSERT INTO organization_units ( name, ty, customer_id, organization_id, created_by )
+VALUES ( $1, $2, $3, $4, $5 )
 RETURNING
     id,
     customer_id,
     organization_id,
     name,
+    ty,
     created_by,
     created_at,
     updated_by,
     updated_at
 "#,
         name,
+        ty.unwrap_or(DEFAULT_TYPE),
         customer_id.as_ref(),
         organization_id.as_deref(),
         created_by
@@ -341,6 +364,7 @@ RETURNING
         customer_id: rec.customer_id.into(),
         organization_id: rec.organization_id.map(Into::into),
         name: Arc::from(rec.name),
+        ty: Arc::from(rec.ty),
         created_by: rec.created_by,
         created_at: rec.created_at,
         updated_by: rec.updated_by,
@@ -365,6 +389,7 @@ RETURNING
     v.customer_id as customer_id,
     v.organization_id as organization_id,
     v.name as name,
+    v.ty as ty,
     v.created_by as created_by,
     v.created_at as created_at,
     v.updated_by as updated_by,
@@ -389,6 +414,7 @@ RETURNING
         customer_id: rec.customer_id.into(),
         organization_id: rec.organization_id.map(Into::into),
         name: Arc::from(rec.name),
+        ty: Arc::from(rec.ty),
         created_by: rec.created_by,
         created_at: rec.created_at,
         updated_by: rec.updated_by,
@@ -418,22 +444,4 @@ pub async fn remove_organization_units(pool: &PgPool, ids: &[i64]) -> anyhow::Re
     .await?
     .rows_affected() as u64;
     Ok(result)
-}
-
-#[cfg(test)]
-mod tests {
-    use sqlx::Execute;
-
-    #[test]
-    fn print_query() {
-        let ids: [i64; 3] = [1, 2, 3];
-        eprintln!(
-            "{}",
-            sqlx::query!(
-                "DELETE FROM institutions WHERE id IN (SELECT unnest($1::int8[]))",
-                &ids[..] as &[i64],
-            )
-            .sql()
-        );
-    }
 }
