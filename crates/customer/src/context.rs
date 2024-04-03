@@ -85,6 +85,9 @@ pub trait RelatedStorage:
 
 pub trait UserContext<R, P>:
     IsAdmin + HasRole<R, P> + HasAccess + AsNumber + UserId + Send + Sync + 'static
+where
+    R: std::fmt::Debug,
+    P: std::fmt::Debug,
 {
 }
 
@@ -130,6 +133,7 @@ pub trait RelatedResource:
     + OrganizationUnitResource
     + CustomerResource
     + UserResource
+    + IsAdmin
     + Clone
     + Hash
     + Eq

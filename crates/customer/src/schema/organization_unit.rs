@@ -11,6 +11,8 @@ use qm_entity::error::EntityError;
 use qm_entity::error::EntityResult;
 use qm_entity::exerr;
 use qm_entity::ids::CustomerOrOrganization;
+use qm_entity::ids::InfraContext;
+use qm_entity::ids::InfraId;
 use qm_entity::ids::OrganizationUnitId;
 use qm_entity::ids::OrganizationUnitIds;
 use qm_entity::model::ListFilter;
@@ -33,7 +35,9 @@ use crate::model::Institution;
 use crate::model::OrganizationUnit;
 use crate::model::OrganizationUnitData;
 use crate::model::OrganizationUnitList;
+use crate::model::UpdateOrganizationUnitInput;
 use crate::mutation::remove_organization_units;
+use crate::mutation::update_organization_unit;
 use crate::roles;
 use crate::schema::auth::AuthCtx;
 
@@ -77,6 +81,7 @@ where
         &self,
         mut context: Option<CustomerOrOrganization>,
         filter: Option<ListFilter>,
+        ty: Option<String>,
     ) -> async_graphql::FieldResult<OrganizationUnitList> {
         context = self
             .0
@@ -86,7 +91,7 @@ where
             .0
             .store
             .cache_db()
-            .organization_unit_list(context, filter)
+            .organization_unit_list(context, filter, ty)
             .await)
     }
 
@@ -166,6 +171,34 @@ where
         Ok(result)
     }
 
+    pub async fn update(
+        &self,
+        id: OrganizationUnitId,
+        name: String,
+    ) -> EntityResult<Arc<OrganizationUnit>> {
+        let user_id = self.0.auth.user_id().unwrap();
+        let id: InfraId = id.into();
+        let old = self
+            .0
+            .store
+            .cache_db()
+            .organization_unit_by_id(&id)
+            .await
+            .ok_or(EntityError::not_found_by_field::<OrganizationUnit>(
+                "name", &name,
+            ))?;
+        let result =
+            update_organization_unit(self.0.store.customer_db().pool(), id, &name, user_id).await?;
+        let new = Arc::new(result);
+        self.0
+            .store
+            .cache_db()
+            .infra()
+            .update_organization_unit(new.clone(), old.as_ref().into())
+            .await;
+        Ok(new)
+    }
+
     pub async fn remove(&self, ids: OrganizationUnitIds) -> EntityResult<u64> {
         let v: Vec<i64> = ids.iter().map(OrganizationUnitId::id).collect();
         let delete_count = remove_organization_units(self.0.store.customer_db().pool(), &v).await?;
@@ -232,6 +265,7 @@ where
         ctx: &Context<'_>,
         context: Option<CustomerOrOrganization>,
         filter: Option<ListFilter>,
+        ty: Option<String>,
     ) -> async_graphql::FieldResult<OrganizationUnitList> {
         Ctx(
             &AuthCtx::<'_, Auth, Store, Resource, Permission>::new_with_role(
@@ -240,7 +274,7 @@ where
             )
             .await?,
         )
-        .list(context, filter)
+        .list(context, filter, ty)
         .await
         .extend()
     }
@@ -370,23 +404,22 @@ where
         Ok(result)
     }
 
-    // async fn update_organization_unit(
-    //     &self,
-    //     ctx: &Context<'_>,
-    //     context: OrganizationUnitFilter,
-    //     input: UpdateOrganizationUnitInput,
-    // ) -> async_graphql::FieldResult<OrganizationUnit> {
-    //     Ctx(
-    //         AuthCtx::<'_, Auth, Store, Resource, Permission>::new_with_role(
-    //             ctx,
-    //             (Resource::organization_unit(), Permission::update()),
-    //         )
-    //         .await?,
-    //     )
-    //     .update(context, input)
-    //     .await
-    //     .extend()
-    // }
+    async fn update_organization_unit(
+        &self,
+        ctx: &Context<'_>,
+        context: OrganizationUnitId,
+        input: UpdateOrganizationUnitInput,
+    ) -> async_graphql::FieldResult<Arc<OrganizationUnit>> {
+        let auth_ctx = AuthCtx::<'_, Auth, Store, Resource, Permission>::new_with_role(
+            ctx,
+            (Resource::organization_unit(), Permission::update()),
+        )
+        .await?;
+        auth_ctx
+            .can_mutate(Some(&InfraContext::OrganizationUnit(context)))
+            .await?;
+        Ctx(&auth_ctx).update(context, input.name).await.extend()
+    }
 
     async fn remove_organization_units(
         &self,

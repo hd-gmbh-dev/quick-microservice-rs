@@ -1,4 +1,5 @@
 use prometheus_client::metrics::gauge::Gauge;
+
 use qm_entity::ids::PartialEqual;
 use qm_entity::ids::{CustomerId, CustomerOrOrganization, InfraContext, InfraId};
 use qm_entity::model::ListFilter;
@@ -63,22 +64,22 @@ impl CacheDB {
         &self.inner.infra.institutions_total
     }
 
-    pub async fn customer_list(&self, filter: Option<ListFilter>) -> CustomerList {
+    pub async fn customer_list(
+        &self,
+        filter: Option<ListFilter>,
+        ty: Option<String>,
+    ) -> CustomerList {
+        let customers = self.inner.infra.customers.read().await;
+        let iter = if let Some(ty) = ty.as_ref() {
+            itertools::Either::Right(customers.values().filter(|c| c.ty.as_ref() == ty.as_str()))
+        } else {
+            itertools::Either::Left(customers.values())
+        };
         if let Some(filter) = filter {
             let page = filter.page.unwrap_or(0);
             let limit = filter.limit.unwrap_or(100);
             let offset = page * limit;
-            let items: Arc<[Arc<Customer>]> = self
-                .inner
-                .infra
-                .customers
-                .read()
-                .await
-                .values()
-                .skip(offset)
-                .take(limit)
-                .cloned()
-                .collect();
+            let items: Arc<[Arc<Customer>]> = iter.skip(offset).take(limit).cloned().collect();
             CustomerList {
                 items,
                 limit: Some(limit as i64),
@@ -86,15 +87,7 @@ impl CacheDB {
                 page: Some(page as i64),
             }
         } else {
-            let items: Arc<[Arc<Customer>]> = self
-                .inner
-                .infra
-                .customers
-                .read()
-                .await
-                .values()
-                .cloned()
-                .collect();
+            let items: Arc<[Arc<Customer>]> = iter.cloned().collect();
             CustomerList {
                 items,
                 limit: None,
@@ -108,23 +101,28 @@ impl CacheDB {
         &self,
         customer_id: Option<CustomerId>,
         filter: Option<ListFilter>,
+        ty: Option<String>,
     ) -> OrganizationList {
+        let organizations = self.inner.infra.organizations.read().await;
+        let iter = if let Some(ty) = ty.as_ref() {
+            itertools::Either::Right(
+                organizations
+                    .values()
+                    .filter(|c| c.ty.as_ref() == ty.as_str()),
+            )
+        } else {
+            itertools::Either::Left(organizations.values())
+        };
+        let iter = if let Some(customer_id) = customer_id.as_ref() {
+            itertools::Either::Right(iter.filter(|v| v.as_ref().partial_equal(customer_id)))
+        } else {
+            itertools::Either::Left(iter)
+        };
         if let Some(filter) = filter {
             let page = filter.page.unwrap_or(0);
             let limit = filter.limit.unwrap_or(100);
             let offset = page * limit;
-
-            let v = self.inner.infra.organizations.read().await;
-            let items: Arc<[Arc<Organization>]> = if let Some(customer_id) = customer_id {
-                v.values()
-                    .filter(|v| v.as_ref().partial_equal(&customer_id))
-                    .skip(offset)
-                    .take(limit)
-                    .cloned()
-                    .collect()
-            } else {
-                v.values().skip(offset).take(limit).cloned().collect()
-            };
+            let items: Arc<[Arc<Organization>]> = iter.skip(offset).take(limit).cloned().collect();
             OrganizationList {
                 items,
                 limit: Some(limit as i64),
@@ -132,15 +130,7 @@ impl CacheDB {
                 page: Some(page as i64),
             }
         } else {
-            let v = self.inner.infra.organizations.read().await;
-            let items: Arc<[Arc<Organization>]> = if let Some(customer_id) = customer_id {
-                v.values()
-                    .filter(|v| v.as_ref().partial_equal(&customer_id))
-                    .cloned()
-                    .collect()
-            } else {
-                v.values().cloned().collect()
-            };
+            let items: Arc<[Arc<Organization>]> = iter.cloned().collect();
             OrganizationList {
                 items,
                 limit: None,
@@ -154,29 +144,36 @@ impl CacheDB {
         &self,
         customer_or_organization: Option<CustomerOrOrganization>,
         filter: Option<ListFilter>,
+        ty: Option<String>,
     ) -> OrganizationUnitList {
-        let v = self.inner.infra.organization_units.read().await;
+        let organization_units = self.inner.infra.organization_units.read().await;
+        let iter = if let Some(ty) = ty.as_ref() {
+            itertools::Either::Right(
+                organization_units
+                    .values()
+                    .filter(|c| c.ty.as_ref() == ty.as_str()),
+            )
+        } else {
+            itertools::Either::Left(organization_units.values())
+        };
+
+        let iter = match &customer_or_organization {
+            Some(CustomerOrOrganization::Customer(customer_id)) => itertools::Either::Left(
+                itertools::Either::Left(iter.filter(|v| v.as_ref().partial_equal(customer_id))),
+            ),
+            Some(CustomerOrOrganization::Organization(organization_id)) => {
+                itertools::Either::Left(itertools::Either::Right(
+                    iter.filter(|v| v.as_ref().partial_equal(organization_id)),
+                ))
+            }
+            _ => itertools::Either::Right(iter),
+        };
         if let Some(filter) = filter {
             let page = filter.page.unwrap_or(0);
             let limit = filter.limit.unwrap_or(100);
             let offset = page * limit;
-            let items: Arc<[Arc<OrganizationUnit>]> = match &customer_or_organization {
-                Some(CustomerOrOrganization::Customer(customer_id)) => v
-                    .values()
-                    .filter(|v| v.as_ref().partial_equal(customer_id))
-                    .skip(offset)
-                    .take(limit)
-                    .cloned()
-                    .collect(),
-                Some(CustomerOrOrganization::Organization(organization_id)) => v
-                    .values()
-                    .filter(|v| v.as_ref().partial_equal(organization_id))
-                    .skip(offset)
-                    .take(limit)
-                    .cloned()
-                    .collect(),
-                _ => v.values().skip(offset).take(limit).cloned().collect(),
-            };
+            let items: Arc<[Arc<OrganizationUnit>]> =
+                iter.skip(offset).take(limit).cloned().collect();
             OrganizationUnitList {
                 items,
                 limit: Some(limit as i64),
@@ -184,19 +181,7 @@ impl CacheDB {
                 page: Some(page as i64),
             }
         } else {
-            let items: Arc<[Arc<OrganizationUnit>]> = match &customer_or_organization {
-                Some(CustomerOrOrganization::Customer(customer_id)) => v
-                    .values()
-                    .filter(|v| v.as_ref().partial_equal(customer_id))
-                    .cloned()
-                    .collect(),
-                Some(CustomerOrOrganization::Organization(organization_id)) => v
-                    .values()
-                    .filter(|v| v.as_ref().partial_equal(organization_id))
-                    .cloned()
-                    .collect(),
-                _ => v.values().cloned().collect(),
-            };
+            let items: Arc<[Arc<OrganizationUnit>]> = iter.cloned().collect();
             OrganizationUnitList {
                 items,
                 limit: None,
@@ -210,29 +195,34 @@ impl CacheDB {
         &self,
         customer_or_organization: Option<CustomerOrOrganization>,
         filter: Option<ListFilter>,
+        ty: Option<String>,
     ) -> InstitutionList {
-        let v = self.inner.infra.institutions.read().await;
+        let institutions = self.inner.infra.institutions.read().await;
+        let iter = if let Some(ty) = ty.as_ref() {
+            itertools::Either::Right(
+                institutions
+                    .values()
+                    .filter(|c| c.ty.as_ref() == ty.as_str()),
+            )
+        } else {
+            itertools::Either::Left(institutions.values())
+        };
+        let iter = match &customer_or_organization {
+            Some(CustomerOrOrganization::Customer(customer_id)) => itertools::Either::Left(
+                itertools::Either::Left(iter.filter(|v| v.as_ref().partial_equal(customer_id))),
+            ),
+            Some(CustomerOrOrganization::Organization(organization_id)) => {
+                itertools::Either::Left(itertools::Either::Right(
+                    iter.filter(|v| v.as_ref().partial_equal(organization_id)),
+                ))
+            }
+            _ => itertools::Either::Right(iter),
+        };
         if let Some(filter) = filter {
             let page = filter.page.unwrap_or(0);
             let limit = filter.limit.unwrap_or(100);
             let offset = page * limit;
-            let items: Arc<[Arc<Institution>]> = match &customer_or_organization {
-                Some(CustomerOrOrganization::Customer(customer_id)) => v
-                    .values()
-                    .filter(|v| v.as_ref().partial_equal(customer_id))
-                    .skip(offset)
-                    .take(limit)
-                    .cloned()
-                    .collect(),
-                Some(CustomerOrOrganization::Organization(organization_id)) => v
-                    .values()
-                    .filter(|v| v.as_ref().partial_equal(organization_id))
-                    .skip(offset)
-                    .take(limit)
-                    .cloned()
-                    .collect(),
-                _ => v.values().skip(offset).take(limit).cloned().collect(),
-            };
+            let items: Arc<[Arc<Institution>]> = iter.skip(offset).take(limit).cloned().collect();
             InstitutionList {
                 items,
                 limit: Some(limit as i64),
@@ -240,19 +230,7 @@ impl CacheDB {
                 page: Some(page as i64),
             }
         } else {
-            let items: Arc<[Arc<Institution>]> = match &customer_or_organization {
-                Some(CustomerOrOrganization::Customer(customer_id)) => v
-                    .values()
-                    .filter(|v| v.as_ref().partial_equal(customer_id))
-                    .cloned()
-                    .collect(),
-                Some(CustomerOrOrganization::Organization(organization_id)) => v
-                    .values()
-                    .filter(|v| v.as_ref().partial_equal(organization_id))
-                    .cloned()
-                    .collect(),
-                _ => v.values().cloned().collect(),
-            };
+            let items: Arc<[Arc<Institution>]> = iter.cloned().collect();
             InstitutionList {
                 items,
                 limit: None,
@@ -344,65 +322,6 @@ impl CacheDB {
             }
         }
     }
-
-    // pub async fn group_list(
-    //     &self,
-    //     context: Option<InfraContext>,
-    //     filter: Option<ListFilter>,
-    // ) -> GroupList {
-    //     let v = self.inner.user.group_id_map.read().await;
-    //     let _i = self.inner.infra.institution_id_map.read().await;
-    //     let o = self.inner.infra.organization_unit_id_map.read().await;
-    //     let institutions = match context {
-    //         Some(InfraContext::OrganizationUnit(v)) => {
-    //             let unit = o.get(&v.into());
-    //             unit.map(|u| u.members.as_ref()).unwrap_or(&[])
-    //         }
-    //         _ => &[],
-    //     };
-    //     if let Some(filter) = filter {
-    //         let page = filter.page.unwrap_or(0);
-    //         let limit = filter.limit.unwrap_or(100);
-    //         let offset = page * limit;
-    //         let items: Arc<[Arc<Group>]> = if let Some(context) = context {
-    //             v.values()
-    //                 .filter(|v| {
-    //                     v.as_ref().partial_equal(&context)
-    //                         || institutions.iter().any(|i| v.as_ref().partial_equal(i))
-    //                 })
-    //                 .skip(offset)
-    //                 .take(limit)
-    //                 .cloned()
-    //                 .collect()
-    //         } else {
-    //             v.values().skip(offset).take(limit).cloned().collect()
-    //         };
-    //         GroupList {
-    //             items,
-    //             limit: Some(limit as i64),
-    //             total: Some(self.inner.user.groups_total.get()),
-    //             page: Some(page as i64),
-    //         }
-    //     } else {
-    //         let items: Arc<[Arc<Group>]> = if let Some(context) = context {
-    //             v.values()
-    //                 .filter(|v| {
-    //                     v.as_ref().partial_equal(&context)
-    //                         || institutions.iter().any(|i| v.as_ref().partial_equal(i))
-    //                 })
-    //                 .cloned()
-    //                 .collect()
-    //         } else {
-    //             v.values().cloned().collect()
-    //         };
-    //         GroupList {
-    //             items,
-    //             limit: None,
-    //             total: Some(self.inner.user.groups_total.get()),
-    //             page: Some(0),
-    //         }
-    //     }
-    // }
 
     pub async fn customer_by_id(&self, id: &InfraId) -> Option<Arc<Customer>> {
         self.inner
@@ -612,6 +531,16 @@ impl CacheDB {
         let roles = self.inner.user.roles.read().await;
         let user_roles = self.inner.user.user_roles.read().await;
         user_roles.by_user_id(user_id).map(|v| {
+            v.iter()
+                .filter_map(|role_id| roles.get(role_id).cloned())
+                .collect()
+        })
+    }
+
+    pub async fn roles_by_group_id(&self, group_id: &str) -> Option<Arc<[Arc<Role>]>> {
+        let roles = self.inner.user.roles.read().await;
+        let group_roles = self.inner.user.group_roles.read().await;
+        group_roles.by_group_id(group_id).map(|v| {
             v.iter()
                 .filter_map(|role_id| roles.get(role_id).cloned())
                 .collect()

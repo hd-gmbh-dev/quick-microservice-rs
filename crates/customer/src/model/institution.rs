@@ -87,7 +87,7 @@ pub struct CreateInstitutionInput {
 
 #[derive(Debug, InputObject)]
 pub struct UpdateInstitutionInput {
-    pub name: Option<String>,
+    pub name: String,
 }
 
 impl<'a> From<&'a Institution> for InstitutionId {

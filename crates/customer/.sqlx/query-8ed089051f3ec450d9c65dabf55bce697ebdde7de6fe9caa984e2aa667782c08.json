@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\nSELECT\n    r.id AS role_id,\n    r.name AS role_name\nFROM realm re\n    JOIN public.keycloak_role r ON r.realm_id = re.id\n    WHERE re.name = $1;",
+  "query": "\nSELECT\n    r.id AS role_id,\n    r.name AS role_name\nFROM realm re\n    JOIN keycloak_role r ON r.realm_id = re.id\n    WHERE re.name = $1;",
   "describe": {
     "columns": [
       {
@@ -24,5 +24,5 @@
       true
     ]
   },
-  "hash": "027018e07120730d1b0fde09fa2ec45643a3e9dcb5d16842a1f59fb7175796f5"
+  "hash": "8ed089051f3ec450d9c65dabf55bce697ebdde7de6fe9caa984e2aa667782c08"
 }

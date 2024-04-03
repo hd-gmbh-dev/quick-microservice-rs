@@ -7,6 +7,7 @@ use qm_entity::model::ListFilter;
 use qm_keycloak::RoleRepresentation;
 use qm_role::{Access, AccessLevel};
 use std::collections::HashMap;
+use std::str::FromStr;
 use std::sync::Arc;
 
 use crate::cache::CacheDB;
@@ -46,18 +47,6 @@ where
         self.as_ref()
     }
 }
-
-// pub const DEFAULT_COLLECTION: &str = "users";
-
-// pub trait UserDB: AsRef<DB> {
-//     fn collection(&self) -> &str {
-//         DEFAULT_COLLECTION
-//     }
-//     fn users(&self) -> qm_entity::Collection<User> {
-//         let collection = self.collection();
-//         qm_entity::Collection(self.as_ref().get().collection::<User>(collection))
-//     }
-// }
 
 fn set_attributes(attributes: HashMap<&str, Option<String>>, u: &mut UserRepresentation) {
     if u.attributes.is_none() {
@@ -571,6 +560,29 @@ where
                 .unwrap_or(false)
             {
                 return err!(not_allowed("invalid access level for selected group").extend());
+            }
+
+            let group_roles = auth_ctx
+                .store
+                .cache_db()
+                .roles_by_group_id(group_id)
+                .await
+                .ok_or(EntityError::not_found_by_id::<Group>(group_id))
+                .extend()?;
+
+            for role in group_roles.iter() {
+                if let Ok(role) =
+                    qm_role::Role::<Resource, Permission>::from_str(role.name.as_ref())
+                {
+                    if role.ty.is_admin() {
+                        return err!(not_allowed("invalid group selected").extend());
+                    }
+                    if !auth_ctx.is_admin && !auth_ctx.auth.has_role_object(&role) {
+                        return err!(not_allowed("invalid group selected").extend());
+                    }
+                } else {
+                    return err!(internal().extend());
+                }
             }
         }
         let user_access_level_u32 = auth_ctx.auth.as_number();

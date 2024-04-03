@@ -78,13 +78,14 @@ where
         &self,
         mut context: Option<CustomerId>,
         filter: Option<ListFilter>,
+        ty: Option<String>,
     ) -> async_graphql::FieldResult<OrganizationList> {
         context = self.0.enforce_customer_context(context).await.extend()?;
         Ok(self
             .0
             .store
             .cache_db()
-            .organization_list(context, filter)
+            .organization_list(context, filter, ty)
             .await)
     }
 
@@ -247,6 +248,7 @@ where
         ctx: &Context<'_>,
         context: Option<CustomerId>,
         filter: Option<ListFilter>,
+        ty: Option<String>,
     ) -> async_graphql::FieldResult<OrganizationList> {
         Ctx(
             &AuthCtx::<'_, Auth, Store, Resource, Permission>::new_with_role(
@@ -255,7 +257,7 @@ where
             )
             .await?,
         )
-        .list(context, filter)
+        .list(context, filter, ty)
         .await
         .extend()
     }

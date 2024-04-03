@@ -8,13 +8,14 @@ use tokio::sync::RwLock;
 use qm_pg::DB;
 
 use self::{
-    group_attributes::GroupAttributes, groups::Groups, realm::Realm, roles::Roles,
-    user_groups::UserGroups, user_roles::UserRoles, users::Users,
+    group_attributes::GroupAttributes, group_roles::GroupRoles, groups::Groups, realm::Realm,
+    roles::Roles, user_groups::UserGroups, user_roles::UserRoles, users::Users,
 };
 
-use super::User;
+use super::{Group, GroupDetail, User};
 
 pub mod group_attributes;
+pub mod group_roles;
 pub mod groups;
 pub mod realm;
 pub mod roles;
@@ -29,6 +30,7 @@ pub struct UserDB {
     pub group_attributes: RwLock<GroupAttributes>,
     pub user_groups: RwLock<UserGroups>,
     pub user_roles: RwLock<UserRoles>,
+    pub group_roles: RwLock<GroupRoles>,
     pub users: RwLock<Users>,
     pub users_total: Gauge<i64, AtomicI64>,
     pub groups_total: Gauge<i64, AtomicI64>,
@@ -46,6 +48,7 @@ impl UserDB {
         let group_attributes = RwLock::new(GroupAttributes::new(db, realm_name).await?);
         let user_groups = RwLock::new(UserGroups::new(db, realm_name).await?);
         let user_roles = RwLock::new(UserRoles::new(db, realm_name).await?);
+        let group_roles = RwLock::new(GroupRoles::new(db, realm_name).await?);
         let users = RwLock::new(Users::new(db, realm_name).await?);
         let users_total = Gauge::default();
         users_total.set(users.read().await.total());
@@ -60,6 +63,7 @@ impl UserDB {
             group_attributes,
             user_groups,
             user_roles,
+            group_roles,
             users,
             users_total,
             groups_total,
@@ -70,6 +74,20 @@ impl UserDB {
     pub async fn new_roles(&self, roles: Vec<RoleRepresentation>) {
         self.roles.write().await.new_roles(roles);
         self.roles_total.set(self.roles.read().await.total());
+    }
+
+    pub async fn new_group(
+        &self,
+        group: Arc<Group>,
+        parent_name: Arc<str>,
+        group_detail: Arc<GroupDetail>,
+    ) {
+        self.group_attributes
+            .write()
+            .await
+            .new_group(group.id.clone(), group_detail);
+        self.groups.write().await.new_group(group, parent_name);
+        self.groups_total.set(self.groups.read().await.total());
     }
 
     pub async fn new_user(&self, user: Arc<User>) {
@@ -148,6 +166,15 @@ impl UserDB {
                     self.user_groups.write().await.update(
                         &users,
                         &groups,
+                        notification.payload(),
+                    )?;
+                }
+                "group_role_mapping_update" => {
+                    let roles = self.roles.read().await;
+                    let groups = self.groups.read().await;
+                    self.group_roles.write().await.update(
+                        &groups,
+                        &roles,
                         notification.payload(),
                     )?;
                 }

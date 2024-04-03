@@ -2549,6 +2549,7 @@ dependencies = [
  "deadpool-redis",
  "envy",
  "futures",
+ "itertools",
  "lazy_static",
  "log",
  "prometheus-client",

@@ -129,7 +129,7 @@ where
                 self.write_line(
                     0,
                     &format!(
-                        "pub const {cnst_name}_PATH: &'static str = \"/app{}\";",
+                        "pub const {cnst_name}_PATH: &str = \"/app{}\";",
                         user_group_name.as_ref()
                     ),
                 )?;
@@ -229,16 +229,16 @@ where
         self.write_line(0, "")?;
         self.write_line(
             0,
-            "impl Into<qm::role::Group<Resource, Permission>> for BuiltInGroup {",
+            "impl From<BuiltInGroup> for qm::role::Group<Resource, Permission> {",
         )?;
-        self.write_line(
-            1,
-            "fn into(self) -> qm::role::Group<Resource, Permission> {",
-        )?;
-        self.write_line(2, "match self {")?;
+        self.write_line(1, "fn from(val: BuiltInGroup) -> Self {")?;
+        self.write_line(2, "match val {")?;
         for r in role_mappings.iter() {
             let fn_name = inflector::cases::snakecase::to_snake_case(r.user_group.as_ref());
-            self.write_line(3, &format!("Self::{} => {fn_name}_group(),", r.user_group))?;
+            self.write_line(
+                3,
+                &format!("BuiltInGroup::{} => {fn_name}_group(),", r.user_group),
+            )?;
         }
         self.write_line(2, "}")?;
         self.write_line(1, "}")?;

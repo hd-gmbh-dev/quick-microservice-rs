@@ -58,8 +58,9 @@ where
     pub async fn list(
         &self,
         filter: Option<ListFilter>,
+        ty: Option<String>,
     ) -> async_graphql::FieldResult<CustomerList> {
-        Ok(self.0.store.cache_db().customer_list(filter).await)
+        Ok(self.0.store.cache_db().customer_list(filter, ty).await)
     }
 
     pub async fn by_id(&self, id: CustomerId) -> Option<Arc<Customer>> {
@@ -122,7 +123,7 @@ where
     pub async fn update(&self, id: CustomerId, name: String) -> EntityResult<Arc<Customer>> {
         let user_id = self.0.auth.user_id().unwrap();
         let id: InfraId = id.into();
-        let old_customer = self
+        let old = self
             .0
             .store
             .cache_db()
@@ -130,14 +131,14 @@ where
             .await
             .ok_or(EntityError::not_found_by_field::<Customer>("name", &name))?;
         let result = update_customer(self.0.store.customer_db().pool(), id, &name, user_id).await?;
-        let new_customer = Arc::new(result);
+        let new = Arc::new(result);
         self.0
             .store
             .cache_db()
             .infra()
-            .update_customer(new_customer.clone(), old_customer.as_ref().into())
+            .update_customer(new.clone(), old.as_ref().into())
             .await;
-        Ok(new_customer)
+        Ok(new)
     }
 
     pub async fn remove(&self, ids: CustomerIds) -> EntityResult<u64> {
@@ -205,6 +206,7 @@ where
         &self,
         ctx: &Context<'_>,
         filter: Option<ListFilter>,
+        ty: Option<String>,
     ) -> async_graphql::FieldResult<CustomerList> {
         Ctx(
             &AuthCtx::<'_, Auth, Store, Resource, Permission>::new_with_role(
@@ -213,7 +215,7 @@ where
             )
             .await?,
         )
-        .list(filter)
+        .list(filter, ty)
         .await
         .extend()
     }

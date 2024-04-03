@@ -56,6 +56,12 @@ impl Groups {
         })
     }
 
+    pub fn new_group(&mut self, group: Arc<Group>, parent_name: Arc<str>) {
+        let e = self.group_name_map.entry(parent_name.clone()).or_default();
+        e.insert(group.name.clone(), group.clone());
+        self.group_id_map.insert(group.id.clone(), group);
+    }
+
     pub fn contains(&self, group_id: &str) -> bool {
         self.group_id_map.contains_key(group_id)
     }

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\nSELECT\n    g.id AS id,\n    g.parent_group AS parent_group,\n    g.name AS name\nFROM realm re\n    JOIN public.keycloak_group g ON g.realm_id = re.id\nWHERE re.name = $1;\n    ",
+  "query": "\nSELECT\n    g.id AS id,\n    g.parent_group AS parent_group,\n    g.name AS name\nFROM realm re\n    JOIN keycloak_group g ON g.realm_id = re.id\nWHERE re.name = $1;\n    ",
   "describe": {
     "columns": [
       {
@@ -30,5 +30,5 @@
       true
     ]
   },
-  "hash": "90981708ac998584fca6d04c78c3dc806670ff93c81281d2358dbbbf5da2741f"
+  "hash": "0850b436b1afac953e265ed83ac83f54ff9c50c6702623ca537f125960a4dd84"
 }

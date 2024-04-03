@@ -18,6 +18,11 @@ pub struct CreateOrganizationUnitInput {
     pub members: InstitutionIds,
 }
 
+#[derive(Debug, InputObject)]
+pub struct UpdateOrganizationUnitInput {
+    pub name: String,
+}
+
 pub struct OrganizationUnitData {
     pub cid: InfraId,
     pub oid: Option<InfraId>,

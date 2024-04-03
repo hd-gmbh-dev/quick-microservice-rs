@@ -1,25 +1,26 @@
 use async_graphql::{Context, FieldResult, Object};
+use async_graphql::{ErrorExtensions, ResultExt};
 use futures::StreamExt;
-
+use qm_entity::error::EntityError;
+use qm_entity::exerr;
 use qm_entity::ids::InfraContext;
+use qm_keycloak::realm::ensure_groups_with_roles;
 
 use std::collections::HashSet;
 
 use std::sync::Arc;
 
 use crate::cache::CacheDB;
+use crate::query::fetch_group_by_id;
 use crate::schema::auth::AuthGuard;
 use sqlx::types::Uuid;
 
 use crate::groups::RelatedBuiltInGroup;
 use crate::marker::Marker;
-use crate::model::UserGroup;
+use crate::model::{Group, GroupDetail, Role, UserGroup};
 use qm_role::AccessLevel;
 
 use crate::model::{Customer, Institution, Organization, OrganizationUnit};
-// use crate::model::User;
-// use crate::model::{CreateUserInput, CreateUserPayload, UserList};
-// use crate::model::{RequiredUserAction, UserData, UserDetails};
 use crate::schema::auth::AuthCtx;
 use crate::schema::RelatedAuth;
 use crate::schema::RelatedPermission;
@@ -34,6 +35,16 @@ impl UserGroup {
 
     async fn name(&self) -> Option<Arc<str>> {
         self.group_detail.display_name.clone()
+    }
+
+    async fn roles(&self, ctx: &Context<'_>) -> Option<Arc<[Arc<Role>]>> {
+        let cache = ctx.data::<CacheDB>().ok();
+        if cache.is_none() {
+            log::warn!("qm::customer::cache::CacheDB is not installed in schema context");
+            return None;
+        }
+        let cache = cache.unwrap();
+        cache.roles_by_group_id(&self.group_id).await
     }
 
     async fn customer(&self, ctx: &Context<'_>) -> Option<Arc<Customer>> {
@@ -124,7 +135,6 @@ impl Default for Groups {
 impl Groups {
     async fn app(&self, ctx: &Context<'_>) -> FieldResult<Vec<UserGroup>> {
         let cache = ctx.data_unchecked::<CacheDB>();
-        // Ok(Arc::from(cache.groups_by_parent("app").await.into_iter().map(|group| UserGroup { group, _marker: Default::default()}).collect::<Vec<UserGroup>>()))
         let groups = cache.groups_by_parent("app").await;
         Ok(futures::stream::iter(groups)
             .filter_map(|g| async move {
@@ -139,10 +149,21 @@ impl Groups {
 
     async fn custom(
         &self,
-        _ctx: &Context<'_>,
-        _context: InfraContext,
-    ) -> FieldResult<Arc<[UserGroup]>> {
-        unimplemented!()
+        ctx: &Context<'_>,
+        context: InfraContext,
+    ) -> FieldResult<Vec<UserGroup>> {
+        let cache = ctx.data_unchecked::<CacheDB>();
+        let parent = format!("custom@{context}");
+        let groups = cache.groups_by_parent(&parent).await;
+        Ok(futures::stream::iter(groups)
+            .filter_map(|g| async move {
+                cache.group_detail_by_id(&g.id).await.map(|v| UserGroup {
+                    group_id: g.id.clone(),
+                    group_detail: v,
+                })
+            })
+            .collect()
+            .await)
     }
 }
 
@@ -163,58 +184,79 @@ where
 {
     pub async fn create(
         &self,
-        _name: String,
-        _context: InfraContext,
-        _allowed_access_levels: HashSet<AccessLevel>,
-        _roles: HashSet<qm_role::Role<Resource, Permission>>,
+        name: String,
+        context: InfraContext,
+        allowed_access_levels: HashSet<AccessLevel>,
+        roles: HashSet<qm_role::Role<Resource, Permission>>,
     ) -> async_graphql::FieldResult<Arc<UserGroup>> {
-        //     let ctx = context.to_string();
-        //     let path = format!("/custom@{ctx}/{}", inflector::cases::snakecase::to_snake_case(&name.replace("/", "").trim()));
-        //     let groups = ensure_groups_with_roles(
-        //         self.0.store.keycloak().config().realm(),
-        //         self.0.store.keycloak(),
-        //         vec![
-        //             qm_role::Group::<Resource, Permission>::new(name, path.clone(), allowed_access_levels.into_iter().collect(), roles.into_iter().collect())
-        //         ], false).await?;
-        //     let group = groups.get(&path).ok_or(EntityError::internal())?;
-        //     let group = fetch_group_by_id(self.0.store.keycloak_db(), self.0.store.keycloak().config().realm(), group.id.as_ref().ok_or(EntityError::internal())?).await?;
-        //     let group = Arc::new(Group {
-        //         id: Arc::from(group.group_id.unwrap()),
-        //         parent_group: group.parent_group.map(|v| Arc::from(v)),
-        //         built_in: group.built_in.map(|v| v == "1").unwrap_or(false),
-        //         allowed_access_levels: None,
-        //         context: group.context.and_then(|s| s.parse().ok()),
-        //         display_name: None,
-        //         name: Arc::from(group.group_name.unwrap()),
-        //     });
-        //     self.0.store.cache_db().user().new_group(group.clone()).await;
-        //     Ok(group)
-        unimplemented!()
+        let path = format!(
+            "/custom@{context}/{}",
+            inflector::cases::snakecase::to_snake_case(name.replace('/', "").trim())
+        );
+        if self
+            .0
+            .store
+            .cache_db()
+            .group_id_by_path(&path)
+            .await
+            .is_some()
+        {
+            return exerr!(name_conflict::<Group>(name));
+        }
+        let groups = ensure_groups_with_roles(
+            self.0.store.keycloak().config().realm(),
+            self.0.store.keycloak(),
+            vec![qm_role::Group::<Resource, Permission>::new(
+                name,
+                path.clone(),
+                allowed_access_levels.clone().into_iter().collect(),
+                roles.into_iter().collect(),
+            )],
+            false,
+        )
+        .await?;
+        let kc_group = groups.get(&path).ok_or(EntityError::internal())?;
+        let group_query = fetch_group_by_id(
+            self.0.store.keycloak_db(),
+            kc_group.id.as_ref().ok_or(EntityError::internal())?,
+        )
+        .await?;
+        let parent_name = Arc::from(group_query.parent_name.unwrap());
+        let group = Arc::new(Group {
+            id: Arc::from(group_query.group_id.unwrap()),
+            parent_group: group_query.parent_group.map(Arc::from),
+            name: Arc::from(group_query.name.unwrap()),
+        });
+        let group_detail = Arc::new(GroupDetail {
+            allowed_access_levels: Some(allowed_access_levels.into_iter().collect()),
+            built_in: false,
+            context: Some(context),
+            display_name: group_query.display_name.map(Arc::from),
+        });
+        let group_id = group.id.clone();
+        self.0
+            .store
+            .cache_db()
+            .user()
+            .new_group(group, parent_name, group_detail.clone())
+            .await;
+        Ok(Arc::new(UserGroup {
+            group_detail,
+            group_id,
+        }))
     }
 
-    pub async fn remove(&self, _ids: Arc<[Uuid]>) -> async_graphql::FieldResult<u64> {
-        //     let ctx = context.to_string();
-        //     let path = format!("/custom@{ctx}/{}", inflector::cases::snakecase::to_snake_case(&name.replace("/", "").trim()));
-        //     let groups = ensure_groups_with_roles(
-        //         self.0.store.keycloak().config().realm(),
-        //         self.0.store.keycloak(),
-        // vec![
-        //             qm_role::Group::<Resource, Permission>::new(name, path.clone(), allowed_access_levels.into_iter().collect(), roles.into_iter().collect())
-        //         ], false).await?;
-        //     let group = groups.get(&path).ok_or(EntityError::internal())?;
-        //     let group = fetch_group_by_id(self.0.store.keycloak_db(), self.0.store.keycloak().config().realm(), group.id.as_ref().ok_or(EntityError::internal())?).await?;
-        //     let group = Arc::new(Group {
-        //         id: Arc::from(group.group_id.unwrap()),
-        //         parent_group: group.parent_group.map(|v| Arc::from(v)),
-        //         built_in: group.built_in.map(|v| v == "1").unwrap_or(false),
-        //         allowed_access_levels: None,
-        //         context: group.context.and_then(|s| s.parse().ok()),
-        //         display_name: None,
-        //         name: Arc::from(group.group_name.unwrap()),
-        //     });
-        //     self.0.store.cache_db().user().new_group(group.clone()).await;
-        //     Ok(group)
-        unimplemented!()
+    pub async fn remove(&self, ids: &[Arc<str>]) -> async_graphql::FieldResult<u64> {
+        let mut i = 0;
+        for id in ids {
+            self.0
+                .store
+                .keycloak()
+                .remove_group(self.0.store.keycloak().config().realm(), id)
+                .await?;
+            i += 1;
+        }
+        Ok(i)
     }
 }
 
@@ -288,6 +330,28 @@ where
         )
         .await?;
         auth_ctx.can_mutate(Some(&context)).await?;
+        if allowed_access_levels
+            .iter()
+            .any(|lvl| matches!(lvl, &AccessLevel::Admin | AccessLevel::None))
+        {
+            return exerr!(bad_request(
+                "UserGroup",
+                "unable to create custom group with allowed access level ADMIN or NONE"
+            ));
+        }
+        if roles.iter().any(|r| r.ty.is_admin()) {
+            return exerr!(bad_request(
+                "UserGroup",
+                "unable to create custom group with role 'administration'"
+            ));
+        }
+        if !auth_ctx.is_admin {
+            for role in roles.iter() {
+                if !auth_ctx.auth.has_role_object(role) {
+                    return exerr!(unauthorized(&auth_ctx.auth));
+                }
+            }
+        }
         let roles = roles.into_iter().collect();
         Ctx(&auth_ctx)
             .create(name, context, allowed_access_levels, roles)
@@ -304,7 +368,29 @@ where
             (Resource::user(), Permission::create()),
         )
         .await?;
-
-        Ctx(&auth_ctx).remove(ids).await
+        let mut group_ids = vec![];
+        for id in ids.iter() {
+            let id: Arc<str> = Arc::from(id.to_string());
+            auth_ctx
+                .store
+                .cache_db()
+                .group_by_id(&id)
+                .await
+                .ok_or(EntityError::not_found_by_id::<Group>(id.as_ref()))
+                .extend()?;
+            let group_detail = auth_ctx
+                .store
+                .cache_db()
+                .group_detail_by_id(&id)
+                .await
+                .ok_or(EntityError::not_found_by_id::<Group>(id.as_ref()))
+                .extend()?;
+            if group_detail.built_in {
+                return exerr!(bad_request("Group", "unable to remove built in groups"));
+            }
+            auth_ctx.can_mutate(group_detail.context.as_ref()).await?;
+            group_ids.push(id);
+        }
+        Ctx(&auth_ctx).remove(&group_ids).await
     }
 }

@@ -6,9 +6,9 @@ use async_graphql::{Context, Object};
 use async_graphql::ComplexObject;
 use async_graphql::ErrorExtensions;
 use qm_entity::error::{EntityError, EntityResult};
-use qm_entity::ids::OrganizationId;
 use qm_entity::ids::{CustomerOrOrganization, InstitutionIds};
 use qm_entity::ids::{InfraContext, InstitutionId};
+use qm_entity::ids::{InfraId, OrganizationId};
 use qm_entity::model::ListFilter;
 use qm_entity::{err, exerr};
 use qm_mongodb::bson::doc;
@@ -24,13 +24,13 @@ use crate::context::RelatedResource;
 use crate::context::RelatedStorage;
 use crate::groups::RelatedBuiltInGroup;
 use crate::marker::Marker;
-use crate::model::CreateInstitutionInput;
 use crate::model::CreateUserPayload;
 use crate::model::Customer;
 use crate::model::Institution;
 use crate::model::Organization;
+use crate::model::{CreateInstitutionInput, UpdateInstitutionInput};
 use crate::model::{InstitutionData, InstitutionList};
-use crate::mutation::remove_institutions;
+use crate::mutation::{remove_institutions, update_institution};
 use crate::roles;
 use crate::schema::auth::AuthCtx;
 
@@ -80,6 +80,7 @@ where
         &self,
         mut context: Option<CustomerOrOrganization>,
         filter: Option<ListFilter>,
+        ty: Option<String>,
     ) -> async_graphql::FieldResult<InstitutionList> {
         context = self
             .0
@@ -90,7 +91,7 @@ where
             .0
             .store
             .cache_db()
-            .institution_list(context, filter)
+            .institution_list(context, filter, ty)
             .await)
     }
 
@@ -160,6 +161,24 @@ where
         Ok(result)
     }
 
+    pub async fn update(&self, id: InstitutionId, name: String) -> EntityResult<Arc<Institution>> {
+        let user_id = self.0.auth.user_id().unwrap();
+        let id: InfraId = id.into();
+        let old = self.0.store.cache_db().institution_by_id(&id).await.ok_or(
+            EntityError::not_found_by_field::<Institution>("name", &name),
+        )?;
+        let result =
+            update_institution(self.0.store.customer_db().pool(), id, &name, user_id).await?;
+        let new = Arc::new(result);
+        self.0
+            .store
+            .cache_db()
+            .infra()
+            .update_institution(new.clone(), old.as_ref().into())
+            .await;
+        Ok(new)
+    }
+
     pub async fn remove(&self, ids: InstitutionIds) -> EntityResult<u64> {
         let v: Vec<i64> = ids.iter().map(InstitutionId::id).collect();
         let delete_count = remove_institutions(self.0.store.customer_db().pool(), &v).await?;
@@ -226,6 +245,7 @@ where
         ctx: &Context<'_>,
         context: Option<CustomerOrOrganization>,
         filter: Option<ListFilter>,
+        ty: Option<String>,
     ) -> async_graphql::FieldResult<InstitutionList> {
         Ctx(
             &AuthCtx::<'_, Auth, Store, Resource, Permission>::new_with_role(
@@ -234,7 +254,7 @@ where
             )
             .await?,
         )
-        .list(context, filter)
+        .list(context, filter, ty)
         .await
         .extend()
     }
@@ -312,23 +332,22 @@ where
         Ok(result)
     }
 
-    // async fn update_institution(
-    //     &self,
-    //     ctx: &Context<'_>,
-    //     context: InstitutionFilter,
-    //     input: UpdateInstitutionInput,
-    // ) -> async_graphql::FieldResult<Institution> {
-    //     Ctx(
-    //         AuthCtx::<'_, Auth, Store, Resource, Permission>::new_with_role(
-    //             ctx,
-    //             (Resource::institution(), Permission::update()),
-    //         )
-    //         .await?,
-    //     )
-    //     .update(context, input)
-    //     .await
-    //     .extend()
-    // }
+    async fn update_institution(
+        &self,
+        ctx: &Context<'_>,
+        context: InstitutionId,
+        input: UpdateInstitutionInput,
+    ) -> async_graphql::FieldResult<Arc<Institution>> {
+        let auth_ctx = AuthCtx::<'_, Auth, Store, Resource, Permission>::new_with_role(
+            ctx,
+            (Resource::institution(), Permission::update()),
+        )
+        .await?;
+        auth_ctx
+            .can_mutate(Some(&InfraContext::Institution(context)))
+            .await?;
+        Ctx(&auth_ctx).update(context, input.name).await.extend()
+    }
 
     async fn remove_institutions(
         &self,

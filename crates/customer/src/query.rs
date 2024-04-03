@@ -47,7 +47,7 @@ SELECT
     r.id AS role_id,
     r.name AS role_name
 FROM realm re
-    JOIN public.keycloak_role r ON r.realm_id = re.id
+    JOIN keycloak_role r ON r.realm_id = re.id
     WHERE re.name = $1;"#,
         realm
     )
@@ -63,10 +63,27 @@ SELECT
     rm.user_id AS user_id,
     rm.role_id AS role_id
 FROM realm re
-        JOIN public.keycloak_role r ON r.realm_id = re.id
-        JOIN public.user_role_mapping rm ON rm.role_id = r.id
+        JOIN keycloak_role r ON r.realm_id = re.id
+        JOIN user_role_mapping rm ON rm.role_id = r.id
 WHERE re.name = $1;"#,
         user_id
+    )
+    .fetch_all(db.pool())
+    .await?)
+}
+
+pub async fn fetch_group_roles(db: &DB, realm: &str) -> anyhow::Result<Vec<KcGroupRoleQuery>> {
+    Ok(query_as!(
+        KcGroupRoleQuery,
+        r#"
+SELECT
+    r.id AS role_id,
+    g.group_id AS group_id
+FROM realm re
+            JOIN keycloak_role r ON r.realm_id = re.id
+            JOIN group_role_mapping g ON g.role_id = r.id
+WHERE re.name = $1"#,
+        realm
     )
     .fetch_all(db.pool())
     .await?)
@@ -81,12 +98,39 @@ SELECT
     g.parent_group AS parent_group,
     g.name AS name
 FROM realm re
-    JOIN public.keycloak_group g ON g.realm_id = re.id
+    JOIN keycloak_group g ON g.realm_id = re.id
 WHERE re.name = $1;
     "#,
         realm
     )
     .fetch_all(db.pool())
+    .await?)
+}
+
+pub async fn fetch_group_by_id(db: &DB, id: &str) -> anyhow::Result<KcGroupByIdQuery> {
+    Ok(query_as!(
+        KcGroupByIdQuery,
+        r#"
+SELECT
+    g.id as group_id,
+    g.parent_group as parent_group,
+    p.name as parent_name,
+    g.name as name,
+    a.value as context,
+    b.value as allowed_access_levels,
+    c.value as display_name,
+    d.value as built_in
+FROM keycloak_group g
+    LEFT OUTER JOIN keycloak_group p ON p.id = g.parent_group
+    LEFT JOIN group_attribute a ON a.group_id = g.id AND a.name = 'context'
+    LEFT JOIN group_attribute b ON b.group_id = g.id AND b.name = 'allowed_access_levels'
+    LEFT JOIN group_attribute c ON c.group_id = g.id AND c.name = 'display_name'
+    LEFT JOIN group_attribute d ON d.group_id = g.id AND d.name = 'built_in'
+WHERE g.id = $1;
+    "#,
+        id,
+    )
+    .fetch_one(db.pool())
     .await?)
 }
 
@@ -104,7 +148,7 @@ SELECT
     c.value as display_name,
     d.value as built_in
 FROM realm re
-    JOIN public.keycloak_group g ON g.realm_id = re.id
+    JOIN keycloak_group g ON g.realm_id = re.id
     LEFT JOIN group_attribute a ON a.group_id = g.id AND a.name = 'context'
     LEFT JOIN group_attribute b ON b.group_id = g.id AND b.name = 'allowed_access_levels'
     LEFT JOIN group_attribute c ON c.group_id = g.id AND c.name = 'display_name'

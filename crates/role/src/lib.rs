@@ -156,8 +156,8 @@ where
     R: std::fmt::Debug,
     P: std::fmt::Debug,
 {
-    ty: R,
-    permission: Option<P>,
+    pub ty: R,
+    pub permission: Option<P>,
 }
 
 impl<R, P> Role<R, P>

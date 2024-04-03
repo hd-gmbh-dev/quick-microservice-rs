@@ -44,6 +44,10 @@ impl GroupAttributes {
         })
     }
 
+    pub fn new_group(&mut self, group_id: Arc<str>, group_detail: Arc<GroupDetail>) {
+        self.group_attribute_map.insert(group_id, group_detail);
+    }
+
     pub fn get(&self, id: &str) -> Option<&Arc<GroupDetail>> {
         self.group_attribute_map.get(id)
     }

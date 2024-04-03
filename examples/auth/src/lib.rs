@@ -94,6 +94,12 @@ impl IsAdmin for Authorization {
     }
 }
 
+impl IsAdmin for Resource {
+    fn is_admin(&self) -> bool {
+        matches!(self, Resource::Administration)
+    }
+}
+
 impl UserId for Authorization {
     fn user_id(&self) -> Option<&Uuid> {
         self.inner.user_id.as_ref()
@@ -104,6 +110,9 @@ impl AdminContext for Authorization {}
 impl HasRole<Resource, Permission> for Authorization {
     fn has_role(&self, r: &Resource, p: &Permission) -> bool {
         self.inner.roles.contains(&Role::from((*r, *p)))
+    }
+    fn has_role_object(&self, role: &qm::role::Role<Resource, Permission>) -> bool {
+        self.inner.roles.contains(role)
     }
 }
 

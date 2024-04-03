@@ -1,7 +1,7 @@
 use qm_entity::ids::InfraContext;
 use qm_role::AccessLevel;
 use sqlx::FromRow;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 #[derive(Debug, serde::Deserialize)]
@@ -12,11 +12,43 @@ pub struct KeycloakGroupUpdate {
     pub parent_group: Option<Arc<str>>,
 }
 
+#[derive(Debug, serde::Deserialize)]
+pub struct GroupRoleMappingUpdate {
+    pub role_id: Arc<str>,
+    pub group_id: Arc<str>,
+}
+
 #[derive(Debug, FromRow)]
 pub struct KcGroupQuery {
     pub id: Option<String>,
     pub name: Option<String>,
     pub parent_group: Option<String>,
+}
+
+#[derive(Debug, FromRow)]
+pub struct KcGroupByIdQuery {
+    pub name: Option<String>,
+    pub parent_group: Option<String>,
+    pub parent_name: Option<String>,
+    pub group_id: Option<String>,
+    pub context: Option<String>,
+    pub allowed_access_levels: Option<String>,
+    pub display_name: Option<String>,
+    pub built_in: Option<String>,
+}
+
+#[derive(Debug, FromRow)]
+pub struct KcGroupRoleQuery {
+    pub group_id: Option<String>,
+    pub role_id: Option<String>,
+}
+
+impl KcGroupRoleQuery {
+    pub fn has_all_fields(&self) -> bool {
+        [self.group_id.as_ref(), self.role_id.as_ref()]
+            .iter()
+            .all(Option::is_some)
+    }
 }
 
 #[derive(Debug, FromRow)]
@@ -58,3 +90,4 @@ pub struct GroupDetail {
 pub type GroupIdMap = HashMap<Arc<str>, Arc<Group>>;
 pub type GroupMap = HashMap<Arc<str>, HashMap<Arc<str>, Arc<Group>>>;
 pub type GroupDetailsMap = HashMap<Arc<str>, Arc<GroupDetail>>;
+pub type GroupRoleMap = HashMap<Arc<str>, HashSet<Arc<str>>>;
