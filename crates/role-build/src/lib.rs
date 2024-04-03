@@ -29,12 +29,12 @@ mod test {
 
     const TEST_INPUT: &'static str = r#"# User Groups `user_groups`
 
-| Group                 | Name                  |
-| --------------------- | --------------------- |
-| Admin                 | /administration_owner |
-| CustomerOwner         | /customer_owner       |
-| InstitutionOwner      | /institution_owner    |
-| Reader                | /employee_reader      |
+| Name                  | Path                  | Display Name         |
+| --------------------- | --------------------- | -------------------- |
+| Admin                 | /administration_owner | Admin                |
+| CustomerOwner         | /customer_owner       | Owner of Customer    |
+| InstitutionOwner      | /institution_owner    | Owner of Institution |
+| Reader                | /employee_reader      | Reader               |
 
 # Access Levels `access_levels`
 
@@ -67,15 +67,32 @@ mod test {
         assert_eq!(
             result.user_groups,
             Table {
-                headers: vec!["Group".to_string(), "Name".to_string()],
+                headers: vec![
+                    "Name".to_string(),
+                    "Path".to_string(),
+                    "Display Name".to_string()
+                ],
                 rows: vec![
-                    vec!["Admin".to_string(), "/administration_owner".to_string()],
-                    vec!["CustomerOwner".to_string(), "/customer_owner".to_string()],
+                    vec![
+                        "Admin".to_string(),
+                        "/administration_owner".to_string(),
+                        "Admin".to_string()
+                    ],
+                    vec![
+                        "CustomerOwner".to_string(),
+                        "/customer_owner".to_string(),
+                        "Owner of Customer".to_string()
+                    ],
                     vec![
                         "InstitutionOwner".to_string(),
-                        "/institution_owner".to_string()
+                        "/institution_owner".to_string(),
+                        "Owner of Institution".to_string()
                     ],
-                    vec!["Reader".to_string(), "/employee_reader".to_string()],
+                    vec![
+                        "Reader".to_string(),
+                        "/employee_reader".to_string(),
+                        "Reader".to_string()
+                    ],
                 ],
             }
         );

@@ -15,13 +15,13 @@ This file will generate roles and groups in a keycloak realm based on markdown t
 
 ## User groups `user_groups`
 
-| group            | name                 |
-|------------------|----------------------|
-| Admin            | /admin               |
-| CustomerOwner    | /customer_owner      |     
-| InstitutionOwner | /institution_owner   |        
-| Management       | /employee_management |    
-| Worker           | /employee_worker     |    
+| group            | name                 | display name         |
+|------------------|----------------------|----------------------|
+| Admin            | /admin               | Admin                |
+| CustomerOwner    | /customer_owner      | Owner of Customer    |
+| InstitutionOwner | /institution_owner   | Owner of Institution |
+| Management       | /management          | Management           |
+| Worker           | /worker              | Worker               |
 
 ## Roles `roles`
 

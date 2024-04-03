@@ -66,8 +66,8 @@ pub trait IsAdmin {
     }
 }
 
-pub trait HasAccess<A> {
-    fn has_access(&self, a: &qm_role::Access<A>) -> bool;
+pub trait HasAccess {
+    fn has_access(&self, a: &qm_role::Access) -> bool;
 }
 
 pub trait HasRole<R, P> {
@@ -77,8 +77,8 @@ pub trait HasRole<R, P> {
 pub trait UserId {
     fn user_id(&self) -> Option<&sqlx::types::Uuid>;
 }
-pub trait SessionAccess<A> {
-    fn session_access(&self) -> Option<&qm_role::Access<A>>;
+pub trait SessionAccess {
+    fn session_access(&self) -> Option<&qm_role::Access>;
 }
 
 pub trait AsNumber {

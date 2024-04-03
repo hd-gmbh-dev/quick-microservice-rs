@@ -47,8 +47,9 @@ pub struct AccessLevelMapping {
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct UserGroupNameMapping {
-    pub name: Rc<str>,
     pub user_group: Rc<str>,
+    pub path: Rc<str>,
+    pub display_name: Rc<str>,
 }
 
 #[derive(Debug, PartialEq, Eq)]

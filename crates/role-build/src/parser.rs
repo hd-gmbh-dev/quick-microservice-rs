@@ -11,7 +11,6 @@ fn sorted(v: HashSet<Rc<str>>) -> Rc<[Rc<str>]> {
 
 #[derive(Debug)]
 pub struct ParseResult {
-    pub access_levels: Rc<[Rc<str>]>,
     pub user_group_name_mappings: Vec<UserGroupNameMapping>,
     pub access_level_mappings: Vec<AccessLevelMapping>,
     pub role_mappings: Vec<RoleMapping>,
@@ -27,10 +26,6 @@ impl ParseResult {
         user_group_name_mappings: Vec<UserGroupNameMapping>,
         role_mappings: Vec<RoleMapping>,
     ) -> Self {
-        let access_levels: HashSet<Rc<str>> = access_level_mappings
-            .iter()
-            .map(|v| v.name.clone())
-            .collect();
         let user_groups: HashSet<Rc<str>> = access_level_mappings
             .iter()
             .map(|v| v.user_group.clone())
@@ -55,7 +50,6 @@ impl ParseResult {
         }));
         Self {
             user_group_name_mappings,
-            access_levels: sorted(access_levels),
             access_level_mappings,
             role_mappings,
             roles,
@@ -72,12 +66,15 @@ pub fn parse(tables: MdTables) -> anyhow::Result<ParseResult> {
         .rows
         .into_iter()
         .filter_map(|mut t| {
-            let name = t.pop();
+            let display_name = t.pop();
+            let path = t.pop();
             let user_group = t.pop();
-            name.zip(user_group)
-                .map(|(name, user_group)| UserGroupNameMapping {
-                    name: Rc::from(name),
+            user_group
+                .zip(path.zip(display_name))
+                .map(|(user_group, (path, display_name))| UserGroupNameMapping {
                     user_group: Rc::from(user_group),
+                    display_name: Rc::from(display_name),
+                    path: Rc::from(path),
                 })
         })
         .collect::<Vec<UserGroupNameMapping>>();

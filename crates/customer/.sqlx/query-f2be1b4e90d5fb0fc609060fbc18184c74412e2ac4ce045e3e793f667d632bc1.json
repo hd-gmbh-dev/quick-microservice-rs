@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\nSELECT\n    id,\n    name,\n    customer_id,\n    created_by,\n    created_at,\n    updated_by,\n    updated_at\nFROM organizations;",
+  "query": "\nSELECT\n    id,\n    name,\n    ty,\n    customer_id,\n    organization_id,\n    created_by,\n    created_at,\n    updated_by,\n    updated_at\nFROM institutions;",
   "describe": {
     "columns": [
       {
@@ -15,26 +15,36 @@
       },
       {
         "ordinal": 2,
+        "name": "ty",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 3,
         "name": "customer_id",
         "type_info": "Int8"
       },
       {
-        "ordinal": 3,
+        "ordinal": 4,
+        "name": "organization_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 5,
         "name": "created_by",
         "type_info": "Uuid"
       },
       {
-        "ordinal": 4,
+        "ordinal": 6,
         "name": "created_at",
         "type_info": "Timestamp"
       },
       {
-        "ordinal": 5,
+        "ordinal": 7,
         "name": "updated_by",
         "type_info": "Uuid"
       },
       {
-        "ordinal": 6,
+        "ordinal": 8,
         "name": "updated_at",
         "type_info": "Timestamp"
       }
@@ -48,9 +58,11 @@
       false,
       false,
       false,
+      false,
+      false,
       true,
       true
     ]
   },
-  "hash": "38b96920ac6a8e7631e4a042a4f8e9a380befb5d546c08fdff951650c1c257f9"
+  "hash": "f2be1b4e90d5fb0fc609060fbc18184c74412e2ac4ce045e3e793f667d632bc1"
 }

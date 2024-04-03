@@ -1,3 +1,6 @@
+use std::hash::Hash;
+use std::str::FromStr;
+
 use qm_entity::AsNumber;
 use qm_entity::FromGraphQLContext;
 use qm_entity::HasAccess;
@@ -80,62 +83,28 @@ pub trait RelatedStorage:
 {
 }
 
-pub trait UserContext<A, R, P>:
-    IsAdmin + HasRole<R, P> + HasAccess<A> + AsNumber + UserId + Send + Sync + 'static
+pub trait UserContext<R, P>:
+    IsAdmin + HasRole<R, P> + HasAccess + AsNumber + UserId + Send + Sync + 'static
 {
 }
 
 pub trait AdminContext: IsAdmin + AsNumber + UserId + Send + Sync + 'static {}
 
-pub trait RelatedAuth<A, R, P>:
-    RelatedGroups<A, R, P>
+pub trait RelatedAuth<R, P>:
+    RelatedGroups<R, P>
+    + Clone
     + FromGraphQLContext
     + IsAdmin
-    + UserContext<A, R, P>
+    + UserContext<R, P>
     + AsNumber
     + UserId
-    + SessionAccess<A>
+    + SessionAccess
     + Send
     + Sync
     + 'static
 where
-    A: AsRef<str>,
     R: std::fmt::Debug,
     P: std::fmt::Debug,
-{
-}
-
-pub trait OrganizationAccess {
-    fn organization() -> Self;
-}
-pub trait InstitutionAccess {
-    fn institution() -> Self;
-}
-pub trait OrganizationUnitAccess {
-    fn organization_unit() -> Self;
-}
-pub trait CustomerAccess {
-    fn customer() -> Self;
-}
-pub trait IdRequired {
-    fn id_required(&self) -> bool;
-}
-
-pub trait RelatedAccessLevel:
-    IsAdmin
-    + OrganizationAccess
-    + InstitutionAccess
-    + OrganizationUnitAccess
-    + CustomerAccess
-    + Default
-    + IdRequired
-    + async_graphql::InputType
-    + Eq
-    + AsRef<str>
-    + AsNumber
-    + Send
-    + Sync
-    + 'static
 {
 }
 
@@ -161,6 +130,11 @@ pub trait RelatedResource:
     + OrganizationUnitResource
     + CustomerResource
     + UserResource
+    + Clone
+    + Hash
+    + Eq
+    + FromStr<Err = strum::ParseError>
+    + AsRef<str>
     + std::fmt::Debug
     + Send
     + Sync
@@ -168,6 +142,16 @@ pub trait RelatedResource:
 {
 }
 pub trait RelatedPermission:
-    MutatePermissions + QueryPermissions + std::fmt::Debug + Send + Sync + 'static
+    MutatePermissions
+    + QueryPermissions
+    + Clone
+    + Hash
+    + Eq
+    + FromStr<Err = strum::ParseError>
+    + AsRef<str>
+    + std::fmt::Debug
+    + Send
+    + Sync
+    + 'static
 {
 }

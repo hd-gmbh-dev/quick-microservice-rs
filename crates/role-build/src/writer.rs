@@ -1,5 +1,5 @@
 use std::{
-    collections::{BTreeMap, BTreeSet, HashSet},
+    collections::{BTreeMap, BTreeSet},
     path::Path,
 };
 
@@ -41,11 +41,9 @@ impl Writer<std::fs::File> {
 }
 
 const ENUM_DERIVE: &'static str =
-    "#[derive(Clone, Debug, Copy, EnumString, EnumIter, AsRefStr, Ord, PartialOrd, Eq, PartialEq)]";
-const ENUM_DERIVE_ACCESS_LEVELS: &'static str =
-    "#[derive(Default, Clone, Debug, Copy, EnumString, async_graphql::Enum, AsRefStr, Ord, PartialOrd, Eq, PartialEq)]";
+    "#[derive(Clone, Debug, Copy, EnumString, EnumIter, AsRefStr, Ord, PartialOrd, Eq, PartialEq, Hash)]";
 const ENUM_DERIVE_BUILT_IN_GROUP: &'static str =
-    "#[derive(Clone, Debug, Copy, EnumString, async_graphql::Enum, AsRefStr, Ord, PartialOrd, Eq, PartialEq)]";
+    "#[derive(Clone, Debug, Copy, EnumString, async_graphql::Enum, AsRefStr, Ord, PartialOrd, Eq, PartialEq, Hash)]";
 
 impl<W> Writer<W>
 where
@@ -59,7 +57,6 @@ where
 
     pub fn write(mut self, parse_result: ParseResult) -> anyhow::Result<WriteResult<W>> {
         let ParseResult {
-            access_levels,
             permissions,
             resources,
             role_mappings,
@@ -70,7 +67,7 @@ where
         let user_group_name_mappings = BTreeMap::from_iter(
             user_group_name_mappings
                 .into_iter()
-                .map(|v| (v.user_group, v.name)),
+                .map(|v| (v.user_group, (v.path, v.display_name))),
         );
         let access_level_mappings = BTreeMap::from_iter(
             access_level_mappings
@@ -78,40 +75,7 @@ where
                 .map(|v| (v.user_group, v.name)),
         );
         self.write_line(0, "use strum::{EnumString, EnumIter, AsRefStr};")?;
-        self.write_line(0, "")?;
-        self.write_line(0, ENUM_DERIVE_ACCESS_LEVELS)?;
-        self.write_line(0, "pub enum AccessLevel {")?;
-        self.write_line(1, "#[default]")?;
-        self.write_line(1, "#[strum(serialize = \"none\")]")?;
-        self.write_line(1, "None,")?;
-        let access_levels_list: HashSet<(String, String)> = access_levels.iter().fold(HashSet::default(), |state, v| 
-            v.as_ref().split(",").map(|s| {
-                let s = s.trim();
-                (
-                    inflector::cases::snakecase::to_snake_case(s.as_ref()),
-                    inflector::cases::classcase::to_class_case(s.as_ref())
-                )
-            }).fold(state, |mut state, current| {
-                state.insert(current);
-                state
-            }));
-        for (a,b) in access_levels_list.iter() {
-            self.write_line(
-                1,
-                &format!(
-                    "#[strum(serialize = \"{a}\")]",
-
-                ),
-            )?;
-            self.write_line(
-                1,
-                &format!(
-                    "{b},",
-
-                ),
-            )?;
-        }
-        self.write_line(0, "}")?;
+        self.write_line(0, "use qm::role::AccessLevel;")?;
         self.write_line(0, "")?;
         self.write_line(0, ENUM_DERIVE)?;
         self.write_line(0, "pub enum Permission {")?;
@@ -153,20 +117,36 @@ where
         let mut group_names = BTreeSet::new();
         let mut fn_names = vec![];
         for role_mapping in role_mappings.iter() {
-            if let Some((user_group_name, access_level)) = user_group_name_mappings
-                .get(&role_mapping.user_group)
-                .zip(access_level_mappings.get(&role_mapping.user_group))
+            if let Some(((user_group_name, user_group_display_name), access_level)) =
+                user_group_name_mappings
+                    .get(&role_mapping.user_group)
+                    .zip(access_level_mappings.get(&role_mapping.user_group))
             {
-                group_names.insert(user_group_name.as_ref());
+                group_names.insert(user_group_name);
+                let cnst_name = inflector::cases::screamingsnakecase::to_screaming_snake_case(
+                    role_mapping.user_group.as_ref(),
+                );
+                self.write_line(
+                    0,
+                    &format!(
+                        "pub const {cnst_name}_PATH: &'static str = \"/app{}\";",
+                        user_group_name.as_ref()
+                    ),
+                )?;
                 let fn_name =
                     inflector::cases::snakecase::to_snake_case(role_mapping.user_group.as_ref());
-                self.write_line(0, &format!("pub fn {fn_name}_group() -> qm::role::Group<AccessLevel, Resource, Permission> {}", "{"))?;
+                self.write_line(
+                    0,
+                    &format!(
+                        "pub fn {fn_name}_group() -> qm::role::Group<Resource, Permission> {}",
+                        "{"
+                    ),
+                )?;
                 self.write_line(
                     1,
                     &format!(
-                        "qm::role::Group::new(\"{}\".to_string(), \"{}\".to_string(), vec![{}], vec![",
-                        role_mapping.user_group,
-                        user_group_name.as_ref(),
+                        "qm::role::Group::new(\"{}\".to_string(), {cnst_name}_PATH.to_string(), vec![{}], vec![",
+                        user_group_display_name,
                         access_level.as_ref().split(",").map(|s| format!("AccessLevel::{}", inflector::cases::classcase::to_class_case(s.trim()))).collect::<Vec<String>>().join(","),
                     ),
                 )?;
@@ -191,7 +171,7 @@ where
         self.write_line(0, "")?;
         self.write_line(
             0,
-            "pub fn groups() -> Vec<qm::role::Group<AccessLevel, Resource, Permission>> {",
+            "pub fn groups() -> Vec<qm::role::Group<Resource, Permission>> {",
         )?;
         self.write_line(1, "vec![")?;
         for fn_name in fn_names {
@@ -221,7 +201,9 @@ where
             ),
         )?;
         for group_name in group_names.iter() {
-            self.write_line(1, &format!("\"{group_name}\","))?;
+            let n =
+                inflector::cases::screamingsnakecase::to_screaming_snake_case(group_name.as_ref());
+            self.write_line(1, &format!("{n}_PATH,"))?;
         }
         self.write_line(0, "];")?;
         self.write_line(0, "")?;
@@ -231,7 +213,7 @@ where
             self.write_line(
                 1,
                 &format!(
-                    "#[strum(serialize = \"/{}\")]",
+                    "#[strum(serialize = \"/app/{}\")]",
                     inflector::cases::snakecase::to_snake_case(group_name.as_ref())
                 ),
             )?;
@@ -245,12 +227,17 @@ where
         }
         self.write_line(0, "}")?;
         self.write_line(0, "")?;
-        self.write_line(0, "impl Into<qm::role::Group<AccessLevel, Resource, Permission>> for BuiltInGroup {")?;
-        self.write_line(1, "fn into(self) -> qm::role::Group<AccessLevel, Resource, Permission> {")?;
+        self.write_line(
+            0,
+            "impl Into<qm::role::Group<Resource, Permission>> for BuiltInGroup {",
+        )?;
+        self.write_line(
+            1,
+            "fn into(self) -> qm::role::Group<Resource, Permission> {",
+        )?;
         self.write_line(2, "match self {")?;
         for r in role_mappings.iter() {
-            let fn_name =
-                inflector::cases::snakecase::to_snake_case(r.user_group.as_ref());
+            let fn_name = inflector::cases::snakecase::to_snake_case(r.user_group.as_ref());
             self.write_line(3, &format!("Self::{} => {fn_name}_group(),", r.user_group))?;
         }
         self.write_line(2, "}")?;

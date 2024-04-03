@@ -1,0 +1,34 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\nSELECT\n    g.id AS id,\n    g.parent_group AS parent_group,\n    g.name AS name\nFROM realm re\n    JOIN public.keycloak_group g ON g.realm_id = re.id\nWHERE re.name = $1;\n    ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 1,
+        "name": "parent_group",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 2,
+        "name": "name",
+        "type_info": "Varchar"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "90981708ac998584fca6d04c78c3dc806670ff93c81281d2358dbbbf5da2741f"
+}

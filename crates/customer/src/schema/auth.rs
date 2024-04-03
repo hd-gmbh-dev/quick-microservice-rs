@@ -1,6 +1,7 @@
 use async_graphql::Context;
 use async_graphql::ErrorExtensions;
 use async_graphql::FieldResult;
+use async_graphql::Guard;
 use async_graphql::ResultExt;
 
 use qm_entity::error::EntityResult;
@@ -10,6 +11,7 @@ use qm_entity::ids::InfraContext;
 use qm_entity::ids::InstitutionId;
 use qm_entity::ids::OrganizationId;
 use qm_mongodb::bson::Document;
+use qm_role::AccessLevel;
 
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -18,12 +20,12 @@ use qm_entity::err;
 use qm_entity::error::EntityError;
 use qm_entity::ids::OrganizationUnitId;
 
-use crate::context::RelatedAccessLevel;
 use crate::context::RelatedAuth;
 use crate::context::RelatedPermission;
 use crate::context::RelatedResource;
 use crate::context::RelatedStorage;
-use crate::marker::ArpMarker;
+use crate::marker::RpMarker;
+use crate::marker::StoreMarker;
 use crate::model::Customer;
 use crate::model::Organization;
 
@@ -40,24 +42,19 @@ enum Lvl {
 }
 
 #[derive(Clone)]
-pub struct AuthCtx<'ctx, Auth, Store, AccessLevel, Resource, Permission> {
+pub struct AuthCtx<'ctx, Auth, Store, Resource, Permission> {
     pub auth: Auth,
     pub store: &'ctx Store,
     pub requires_context: bool,
     pub context: Arc<RwLock<Option<InfraContext>>>,
     pub is_admin: bool,
-    _marker: ArpMarker<AccessLevel, Resource, Permission>,
-    // access: Access,
-    // resource: Resource,
-    // permission: Permission,
+    _marker: RpMarker<Resource, Permission>,
 }
 
-impl<'ctx, Auth, Store, AccessLevel, Resource, Permission>
-    AuthCtx<'ctx, Auth, Store, AccessLevel, Resource, Permission>
+impl<'ctx, Auth, Store, Resource, Permission> AuthCtx<'ctx, Auth, Store, Resource, Permission>
 where
-    Auth: RelatedAuth<AccessLevel, Resource, Permission>,
+    Auth: RelatedAuth<Resource, Permission>,
     Store: RelatedStorage,
-    AccessLevel: RelatedAccessLevel,
     Resource: RelatedResource,
     Permission: RelatedPermission,
 {
@@ -117,7 +114,7 @@ where
         }
 
         if !self.auth.has_access(
-            &qm_role::Access::new(AccessLevel::customer())
+            &qm_role::Access::new(AccessLevel::Customer)
                 .with_id(Arc::from(customer_id.to_string())),
         ) {
             return err!(unauthorized(&self.auth)).extend();
@@ -140,12 +137,12 @@ where
         }
 
         let customer_access = self.auth.has_access(
-            &qm_role::Access::new(AccessLevel::customer())
+            &qm_role::Access::new(AccessLevel::Customer)
                 .with_id(Arc::from(organization_id.root().to_string())),
         );
 
         let organization_access = self.auth.has_access(
-            &qm_role::Access::new(AccessLevel::organization())
+            &qm_role::Access::new(AccessLevel::Organization)
                 .with_id(Arc::from(organization_id.to_string())),
         );
 
@@ -173,13 +170,15 @@ where
     fn lvl(&self) -> Lvl {
         let session = self.auth.session_access();
         if let Some(session) = session {
-            if session.ty() == &AccessLevel::customer() {
+            if session.ty() == &AccessLevel::Customer {
                 return Lvl::Customer;
-            } else if session.ty() == &AccessLevel::organization() {
+            } else if session.ty() == &AccessLevel::Organization {
                 return Lvl::Organization;
-            } else if session.ty() == &AccessLevel::organization_unit() {
+            } else if session.ty() == &AccessLevel::CustomerUnit
+                || session.ty() == &AccessLevel::InstitutionUnit
+            {
                 return Lvl::OrganizationUnit;
-            } else if session.ty() == &AccessLevel::institution() {
+            } else if session.ty() == &AccessLevel::Institution {
                 return Lvl::Institution;
             }
         }
@@ -392,5 +391,38 @@ where
                 err!(unauthorized(&self.auth))
             }
         }
+    }
+}
+
+pub struct AuthGuard<Auth, Store, Resource, Permission> {
+    resource: Resource,
+    permission: Permission,
+    _marker: StoreMarker<Auth, Store>,
+}
+
+impl<Auth, Store, Resource, Permission> AuthGuard<Auth, Store, Resource, Permission> {
+    pub fn new(resource: Resource, permission: Permission) -> Self {
+        Self {
+            resource,
+            permission,
+            _marker: Default::default(),
+        }
+    }
+}
+
+impl<Auth, Store, Resource, Permission> Guard for AuthGuard<Auth, Store, Resource, Permission>
+where
+    Auth: RelatedAuth<Resource, Permission>,
+    Store: RelatedStorage,
+    Resource: RelatedResource,
+    Permission: RelatedPermission,
+{
+    async fn check(&self, ctx: &Context<'_>) -> FieldResult<()> {
+        AuthCtx::<'_, Auth, Store, Resource, Permission>::new_with_role(
+            ctx,
+            (self.resource.clone(), self.permission.clone()),
+        )
+        .await?;
+        Ok(())
     }
 }

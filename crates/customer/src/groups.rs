@@ -1,42 +1,61 @@
 use std::str::FromStr;
 
-pub trait CreateCustomerOwnerGroup<A, R, P>
+pub trait CustomerOwnerGroup<R, P>
 where
     R: std::fmt::Debug,
     P: std::fmt::Debug,
 {
-    fn create_customer_owner_group() -> qm_role::Group<A, R, P>;
+    fn customer_owner_group() -> Option<&'static str> {
+        None
+    }
 }
 
-pub trait CreateOrganizationOwnerGroup<A, R, P>
+pub trait OrganizationOwnerGroup<R, P>
 where
     R: std::fmt::Debug,
     P: std::fmt::Debug,
 {
-    fn create_organization_owner_group() -> qm_role::Group<A, R, P>;
+    fn organization_owner_group() -> Option<&'static str> {
+        None
+    }
 }
 
-pub trait CreateInstitutionOwnerGroup<A, R, P>
+pub trait InstitutionOwnerGroup<R, P>
 where
     R: std::fmt::Debug,
     P: std::fmt::Debug,
 {
-    fn create_institution_owner_group() -> qm_role::Group<A, R, P>;
+    fn institution_owner_group() -> Option<&'static str> {
+        None
+    }
 }
 
-pub trait CreateOrganizationUnitOwnerGroup<A, R, P>
+pub trait CustomerUnitOwnerGroup<R, P>
 where
     R: std::fmt::Debug,
     P: std::fmt::Debug,
 {
-    fn create_organization_unit_owner_group() -> qm_role::Group<A, R, P>;
+    fn customer_unit_owner_group() -> Option<&'static str> {
+        None
+    }
 }
 
-pub trait RelatedGroups<A, R, P>:
-    CreateCustomerOwnerGroup<A, R, P>
-    + CreateOrganizationOwnerGroup<A, R, P>
-    + CreateInstitutionOwnerGroup<A, R, P>
-    + CreateOrganizationUnitOwnerGroup<A, R, P>
+pub trait InstitutionUnitOwnerGroup<R, P>
+where
+    R: std::fmt::Debug,
+    P: std::fmt::Debug,
+{
+    fn institution_unit_owner_group() -> Option<&'static str> {
+        None
+    }
+}
+
+pub trait RelatedGroups<R, P>:
+    CustomerOwnerGroup<R, P>
+    + OrganizationOwnerGroup<R, P>
+    + InstitutionOwnerGroup<R, P>
+    + CustomerUnitOwnerGroup<R, P>
+    + InstitutionUnitOwnerGroup<R, P>
 where
     R: std::fmt::Debug,
     P: std::fmt::Debug,

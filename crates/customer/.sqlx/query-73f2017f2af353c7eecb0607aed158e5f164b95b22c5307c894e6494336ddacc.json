@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\nUPDATE organizations AS v\nSET name = $2, updated_by = $3, updated_at = NOW()\nWHERE v.id = $1\nRETURNING\n    v.id as id,\n    v.customer_id as customer_id,\n    v.name as name,\n    v.created_by as created_by,\n    v.created_at as created_at,\n    v.updated_by as updated_by,\n    v.updated_at as updated_at\n",
+  "query": "\nUPDATE organizations AS v\nSET name = $2, updated_by = $3, updated_at = NOW()\nWHERE v.id = $1\nRETURNING\n    v.id as id,\n    v.customer_id as customer_id,\n    v.name as name,\n    v.ty as ty,\n    v.created_by as created_by,\n    v.created_at as created_at,\n    v.updated_by as updated_by,\n    v.updated_at as updated_at\n",
   "describe": {
     "columns": [
       {
@@ -20,21 +20,26 @@
       },
       {
         "ordinal": 3,
+        "name": "ty",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 4,
         "name": "created_by",
         "type_info": "Uuid"
       },
       {
-        "ordinal": 4,
+        "ordinal": 5,
         "name": "created_at",
         "type_info": "Timestamp"
       },
       {
-        "ordinal": 5,
+        "ordinal": 6,
         "name": "updated_by",
         "type_info": "Uuid"
       },
       {
-        "ordinal": 6,
+        "ordinal": 7,
         "name": "updated_at",
         "type_info": "Timestamp"
       }
@@ -52,9 +57,10 @@
       false,
       false,
       false,
+      false,
       true,
       true
     ]
   },
-  "hash": "b65ab8ab6b72e4ed99ac9e7b535ccb20d7527b9c92cce531b75f79cd93e79d2d"
+  "hash": "73f2017f2af353c7eecb0607aed158e5f164b95b22c5307c894e6494336ddacc"
 }

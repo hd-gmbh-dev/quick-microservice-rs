@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\nINSERT INTO institutions ( name, customer_id, organization_id, created_by )\nVALUES ( $1, $2, $3, $4 )\nRETURNING\n    id,\n    customer_id,\n    organization_id,\n    name,\n    created_by,\n    created_at,\n    updated_by,\n    updated_at\n",
+  "query": "\nUPDATE institutions AS v\nSET name = $2, updated_by = $3, updated_at = NOW()\nWHERE v.id = $1\nRETURNING\n    v.id as id,\n    v.customer_id as customer_id,\n    v.organization_id as organization_id,\n    v.name as name,\n    v.ty as ty,\n    v.created_by as created_by,\n    v.created_at as created_at,\n    v.updated_by as updated_by,\n    v.updated_at as updated_at\n",
   "describe": {
     "columns": [
       {
@@ -25,30 +25,34 @@
       },
       {
         "ordinal": 4,
+        "name": "ty",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 5,
         "name": "created_by",
         "type_info": "Uuid"
       },
       {
-        "ordinal": 5,
+        "ordinal": 6,
         "name": "created_at",
         "type_info": "Timestamp"
       },
       {
-        "ordinal": 6,
+        "ordinal": 7,
         "name": "updated_by",
         "type_info": "Uuid"
       },
       {
-        "ordinal": 7,
+        "ordinal": 8,
         "name": "updated_at",
         "type_info": "Timestamp"
       }
     ],
     "parameters": {
       "Left": [
+        "Int8",
         "Varchar",
-        "Int8",
-        "Int8",
         "Uuid"
       ]
     },
@@ -59,9 +63,10 @@
       false,
       false,
       false,
+      false,
       true,
       true
     ]
   },
-  "hash": "b4046e67a5d7492e125ec3e063e64cdd85e53be8cdabb60e5e4ae4af1c2fde04"
+  "hash": "6c3b31d982b5883d0a977cf9ef6c62af7f1ba3da85d85b9ce4312ea9309f03a0"
 }

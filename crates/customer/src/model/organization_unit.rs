@@ -13,6 +13,7 @@ use std::sync::Arc;
 #[derive(Debug, InputObject)]
 pub struct CreateOrganizationUnitInput {
     pub name: String,
+    pub ty: Option<String>,
     pub initial_user: Option<CreateUserInput>,
     pub members: InstitutionIds,
 }
@@ -21,6 +22,7 @@ pub struct OrganizationUnitData {
     pub cid: InfraId,
     pub oid: Option<InfraId>,
     pub name: String,
+    pub ty: Option<String>,
     pub members: InstitutionIds,
 }
 
@@ -38,6 +40,7 @@ pub struct OrganizationUnitQuery {
     pub customer_id: i64,
     pub organization_id: Option<i64>,
     pub name: Arc<str>,
+    pub ty: Arc<str>,
     pub created_by: Uuid,
     pub created_at: PrimitiveDateTime,
     pub updated_by: Option<Uuid>,
@@ -54,6 +57,7 @@ pub struct OrganizationUnit {
     #[graphql(skip)]
     pub organization_id: Option<InfraId>,
     pub name: Arc<str>,
+    pub ty: Arc<str>,
     pub created_by: Uuid,
     pub created_at: PrimitiveDateTime,
     pub updated_by: Option<Uuid>,
@@ -67,6 +71,7 @@ pub struct OrganizationUnitUpdate {
     pub customer_id: InfraId,
     pub organization_id: Option<InfraId>,
     pub name: Arc<str>,
+    pub ty: Arc<str>,
     pub created_by: Uuid,
     pub created_at: String,
     pub updated_by: Option<Uuid>,
@@ -131,6 +136,7 @@ impl From<OrganizationUnitQuery> for OrganizationUnit {
             customer_id: value.customer_id.into(),
             organization_id: value.organization_id.map(Into::into),
             name: value.name,
+            ty: value.ty,
             created_by: value.created_by,
             created_at: value.created_at,
             updated_by: value.updated_by,

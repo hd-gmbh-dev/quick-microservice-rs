@@ -53,12 +53,11 @@ pub async fn create(keycloak: &Keycloak) -> anyhow::Result<()> {
     Ok(())
 }
 
-pub async fn configure_realm<A, R, P>(
+pub async fn configure_realm<R, P>(
     keycloak: &Keycloak,
-    groups: Vec<Group<A, R, P>>,
+    groups: Vec<Group<R, P>>,
 ) -> anyhow::Result<()>
 where
-    A: AsRef<str>,
     R: AsRef<str> + std::fmt::Debug,
     P: AsRef<str> + std::fmt::Debug,
 {
@@ -94,7 +93,7 @@ where
             break;
         }
     }
-    ensure_groups_with_roles(realm, keycloak, groups).await?;
+    ensure_groups_with_roles(realm, keycloak, groups, true).await?;
     Ok(())
 }
 
@@ -246,67 +245,138 @@ pub async fn ensure_roles(
     Ok(roles)
 }
 
-pub async fn ensure_groups<A, R, P>(
+pub async fn ensure_groups<R, P>(
     realm: &str,
     keycloak: &Keycloak,
-    group_map: &BTreeMap<String, Group<A, R, P>>,
+    group_map: &BTreeMap<String, Group<R, P>>,
+    built_in: bool,
 ) -> anyhow::Result<BTreeMap<String, GroupRepresentation>>
 where
     R: std::fmt::Debug,
     P: std::fmt::Debug,
 {
     let mut groups: BTreeMap<String, GroupRepresentation> = BTreeMap::new();
-    for g in group_map.values() {
-        let result = keycloak
-            .create_group(
-                realm,
-                GroupRepresentation {
-                    name: Some(g.name.clone()),
-                    path: Some(g.path.clone()),
-                    attributes: Some(HashMap::from_iter([
-                        ("built_in".to_string(), json!(["1"])),
-                    ])),
-                    ..Default::default()
-                },
-            )
-            .await;
-        match result {
-            Ok(_) => {
-                groups.insert(
-                    g.path.clone(),
-                    keycloak.group_by_path(realm, &g.path).await?,
-                );
+    for (_, group) in group_map.iter() {
+        let s = group
+            .path
+            .split('/')
+            .map(|s| s.trim())
+            .filter(|s| !s.is_empty())
+            .collect::<Vec<&str>>();
+        let l = s.len();
+        let mut path = "".to_string();
+        for i in 0..l {
+            let part = s.get(i).unwrap();
+            if i > 0 {
+                let parent_group = groups.get(&path).unwrap();
+                path += &format!("/{part}");
+                if !groups.contains_key(&path) {
+                    let allowed_access_levels = group
+                        .allowed_access_levels()
+                        .iter()
+                        .map(|v| v.as_ref())
+                        .collect::<Vec<&str>>()
+                        .join(",");
+                    let result = keycloak
+                        .create_sub_group_with_id(
+                            realm,
+                            parent_group.id.as_deref().unwrap(),
+                            GroupRepresentation {
+                                name: Some(part.to_string()),
+                                attributes: Some(if built_in {
+                                    HashMap::from_iter([
+                                        ("built_in".to_string(), json!(["1"])),
+                                        (
+                                            "allowed_access_levels".to_string(),
+                                            json!([allowed_access_levels]),
+                                        ),
+                                        ("display_name".to_string(), json!([group.name])),
+                                    ])
+                                } else {
+                                    HashMap::from_iter([
+                                        ("display_name".to_string(), json!([group.name])),
+                                        (
+                                            "allowed_access_levels".to_string(),
+                                            json!([allowed_access_levels]),
+                                        ),
+                                    ])
+                                }),
+                                ..Default::default()
+                            },
+                        )
+                        .await;
+                    match result {
+                        Ok(_) => {
+                            groups
+                                .insert(path.clone(), keycloak.group_by_path(realm, &path).await?);
+                        }
+                        Err(err) => match err {
+                            KeycloakError::HttpFailure { status: 409, .. } => {
+                                groups.insert(
+                                    path.clone(),
+                                    keycloak.group_by_path(realm, &path).await?,
+                                );
+                            }
+                            _ => {
+                                log::error!("{err:#?}");
+                                Err(err)?
+                            }
+                        },
+                    }
+                }
+            } else {
+                let parent_path = format!("/{}", part);
+                if !groups.contains_key(&parent_path) {
+                    let result = keycloak
+                        .create_group(
+                            realm,
+                            GroupRepresentation {
+                                name: Some(part.to_string()),
+                                ..Default::default()
+                            },
+                        )
+                        .await;
+                    match result {
+                        Ok(_) => {
+                            groups.insert(
+                                parent_path.clone(),
+                                keycloak.group_by_path(realm, &parent_path).await?,
+                            );
+                        }
+                        Err(err) => match err {
+                            KeycloakError::HttpFailure { status: 409, .. } => {
+                                groups.insert(
+                                    parent_path.clone(),
+                                    keycloak.group_by_path(realm, &parent_path).await?,
+                                );
+                            }
+                            _ => {
+                                log::error!("{err:#?}");
+                                Err(err)?
+                            }
+                        },
+                    }
+                }
+                path = parent_path;
             }
-            Err(err) => match err {
-                KeycloakError::HttpFailure { status: 409, .. } => {
-                    groups.insert(
-                        g.path.clone(),
-                        keycloak.group_by_path(realm, &g.path).await?,
-                    );
-                }
-                _ => {
-                    log::error!("{err:#?}");
-                    Err(err)?
-                }
-            },
         }
     }
     Ok(groups)
 }
 
-pub async fn ensure_group_role_mappings<A, R, P>(
+pub async fn ensure_group_role_mappings<R, P>(
     realm: &str,
     keycloak: &Keycloak,
     groups: &BTreeMap<String, GroupRepresentation>,
-    group_map: &BTreeMap<String, Group<A, R, P>>,
+    group_map: &BTreeMap<String, Group<R, P>>,
     existing_roles: &[RoleRepresentation],
 ) -> anyhow::Result<()>
 where
     R: AsRef<str> + std::fmt::Debug,
     P: AsRef<str> + std::fmt::Debug,
 {
-    for (path, group) in group_map {
-        if let Some(group_rep) = groups.get(path) {
+    for (_, group) in group_map {
+        if let Some(group_rep) = groups.get(&group.path) {
             let roles = group.resources();
             keycloak
                 .create_realm_role_mappings_by_group_id(
@@ -328,10 +398,11 @@ where
     Ok(())
 }
 
-pub async fn ensure_groups_with_roles<A, R, P>(
+pub async fn ensure_groups_with_roles<R, P>(
     realm: &str,
     keycloak: &Keycloak,
-    groups: Vec<Group<A, R, P>>,
+    groups: Vec<Group<R, P>>,
+    built_in: bool,
 ) -> anyhow::Result<BTreeMap<String, GroupRepresentation>>
 where
     R: AsRef<str> + std::fmt::Debug,
@@ -343,10 +414,10 @@ where
         for role in group.resources() {
             role_set.insert(role);
         }
-        group_map.insert(group.name.clone(), group);
+        group_map.insert(group.path.clone(), group);
     }
     let roles = ensure_roles(realm, keycloak, role_set).await?;
-    let groups = ensure_groups(realm, keycloak, &group_map).await?;
+    let groups = ensure_groups(realm, keycloak, &group_map, built_in).await?;
     ensure_group_role_mappings(realm, keycloak, &groups, &group_map, &roles).await?;
     Ok(groups)
 }
@@ -386,17 +457,16 @@ pub async fn create_user_with_groups(
     Ok(user)
 }
 
-pub async fn ensure_admin_user<A, R, P>(
+pub async fn ensure_admin_user<R, P>(
     realm: &str,
     keycloak: &Keycloak,
     username: &str,
     password: &str,
     email: &str,
-    admin_group: Group<A, R, P>,
+    admin_group: Group<R, P>,
     role_set: BTreeSet<String>,
 ) -> anyhow::Result<UserRepresentation>
 where
-    A: AsRef<str>,
     R: AsRef<str> + std::fmt::Debug,
     P: AsRef<str> + std::fmt::Debug,
 {
@@ -412,9 +482,9 @@ where
         Ok(user)
     } else {
         ensure_roles(realm, keycloak, role_set).await?;
-        let user_groups = vec![admin_group.name.clone()];
+        let user_groups = vec![admin_group.path.clone()];
         let groups = vec![admin_group];
-        let group_map = ensure_groups_with_roles(realm, keycloak, groups).await?;
+        let group_map = ensure_groups_with_roles(realm, keycloak, groups, true).await?;
         let firstname = realm.to_string();
         let lastname = "Admin".to_string();
         let username = username.to_string();

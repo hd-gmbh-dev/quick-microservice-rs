@@ -30,6 +30,7 @@ constcat.workspace = true
 lazy_static.workspace = true
 sqlx.workspace = true
 time.workspace = true
+Inflector.workspace = true
 qm-mongodb.workspace = true
 qm-kafka.workspace = true
 qm-keycloak.workspace = true
