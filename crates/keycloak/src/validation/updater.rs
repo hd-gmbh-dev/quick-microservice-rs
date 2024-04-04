@@ -1,4 +1,3 @@
-use serde_json::Value;
 use std::collections::HashMap;
 use std::env;
 
@@ -170,7 +169,11 @@ async fn update_realm_settings(
             );
             rep.smtp_server.as_mut().unwrap().insert(
                 String::from("replyToDisplayName"),
-                Value::from(ctx.cfg().keycloak().smtp_reply_to_display_name().unwrap()),
+                ctx.cfg()
+                    .keycloak()
+                    .smtp_reply_to_display_name()
+                    .unwrap()
+                    .to_string(),
             );
         }
         realm_errors::REALM_SMTP_SERVER_STARTTLS_MISSING_ID
@@ -179,7 +182,7 @@ async fn update_realm_settings(
             log::trace!("Setting 'smtp_server.starttls' for realm '{}'", realm);
             rep.smtp_server.as_mut().unwrap().insert(
                 String::from("starttls"),
-                Value::from(ctx.cfg().keycloak().smtp_starttls().unwrap().to_owned()),
+                ctx.cfg().keycloak().smtp_starttls().unwrap().to_string(),
             );
         }
         realm_errors::REALM_SMTP_SERVER_PORT_MISSING_ID
@@ -188,7 +191,7 @@ async fn update_realm_settings(
             log::trace!("Setting 'smtp_server.port' for realm '{}'", realm);
             rep.smtp_server.as_mut().unwrap().insert(
                 String::from("port"),
-                Value::from(ctx.cfg().keycloak().smtp_port().unwrap().to_owned()),
+                ctx.cfg().keycloak().smtp_port().unwrap().to_string(),
             );
         }
         realm_errors::REALM_SMTP_SERVER_HOST_MISSING_ID
@@ -197,7 +200,7 @@ async fn update_realm_settings(
             log::trace!("Setting 'smtp_server.host' for realm '{}'", realm);
             rep.smtp_server.as_mut().unwrap().insert(
                 String::from("host"),
-                Value::from(ctx.cfg().keycloak().smtp_host().unwrap().to_owned()),
+                ctx.cfg().keycloak().smtp_host().unwrap().to_string(),
             );
         }
         realm_errors::REALM_SMTP_SERVER_REPLY_TO_MISSING_ID
@@ -205,7 +208,7 @@ async fn update_realm_settings(
             log::trace!("Setting 'smtp_server.replyTo' for realm '{}'", realm);
             rep.smtp_server.as_mut().unwrap().insert(
                 String::from("replyTo"),
-                Value::from(ctx.cfg().keycloak().smtp_reply_to().unwrap().to_owned()),
+                ctx.cfg().keycloak().smtp_reply_to().unwrap().to_string(),
             );
         }
         realm_errors::REALM_SMTP_SERVER_FROM_MISSING_ID
@@ -214,7 +217,7 @@ async fn update_realm_settings(
             log::trace!("Setting 'smtp_server.from' for realm '{}'", realm);
             rep.smtp_server.as_mut().unwrap().insert(
                 String::from("from"),
-                Value::from(ctx.cfg().keycloak().smtp_from().unwrap().to_owned()),
+                ctx.cfg().keycloak().smtp_from().unwrap().to_string(),
             );
         }
         realm_errors::REALM_SMTP_SERVER_FROM_DISPLAY_NAME_MISSING_ID
@@ -225,13 +228,11 @@ async fn update_realm_settings(
             );
             rep.smtp_server.as_mut().unwrap().insert(
                 String::from("fromDisplayName"),
-                Value::from(
-                    ctx.cfg()
-                        .keycloak()
-                        .smtp_from_display_name()
-                        .unwrap()
-                        .to_owned(),
-                ),
+                ctx.cfg()
+                    .keycloak()
+                    .smtp_from_display_name()
+                    .unwrap()
+                    .to_string(),
             );
         }
         realm_errors::REALM_SMTP_SERVER_SSL_MISSING_ID
@@ -240,7 +241,7 @@ async fn update_realm_settings(
             log::trace!("Setting 'smtp_server.ssl' for realm '{}'", realm);
             rep.smtp_server.as_mut().unwrap().insert(
                 String::from("ssl"),
-                Value::from(ctx.cfg().keycloak().smtp_ssl().unwrap().to_owned()),
+                ctx.cfg().keycloak().smtp_ssl().unwrap().to_string(),
             );
         }
         _ => log::warn!("Unknown realm error id '{}'. No action taken.", e.id),
@@ -283,15 +284,15 @@ async fn update_client_settings(
                             realm_errors::CLIENTS_CLIENT_ATTRIBUTES_BACKCHANNEL_LOGOUT_DISABLED_ID => {
                                 log::trace!("Setting attribute 'backchannel.logout.url' for client 'spa' in realm '{}'", realm);
                                 let backchannel_logout_url = env::var("BACKCHANNEL_LOGOUT_URL").unwrap_or("http://qm-backend:10220/api/logout".to_string());
-                                attributes.insert("backchannel.logout.url".to_string(), Value::String(backchannel_logout_url));
+                                attributes.insert("backchannel.logout.url".to_string(), backchannel_logout_url.to_string());
                             },
                             _ => {
                                 log::trace!("Setting attribute 'oauth2.device.authorization.grant.enabled' for client 'spa' in realm '{}'", realm);
-                                attributes.insert("oauth2.device.authorization.grant.enabled".to_string(), Value::Bool(false));}
+                                attributes.insert("oauth2.device.authorization.grant.enabled".to_string(), "false".to_string());}
                             }
                     } else {
-                        rep.attributes = Some(HashMap::from_iter(vec![("oauth2.device.authorization.grant.enabled".to_string(), Value::Bool(false)),
-                        ("backchannel.logout.url".to_string(),Value::String("http://qm-backend:10220/api/logout".to_string()))]))
+                        rep.attributes = Some(HashMap::from_iter(vec![("oauth2.device.authorization.grant.enabled".to_string(), "false".to_string()),
+                        ("backchannel.logout.url".to_string(), "http://qm-backend:10220/api/logout".to_string())]))
                     }
                 }
                 realm_errors::CLIENTS_CLIENT_BASE_URL_INVALID_ID
@@ -368,11 +369,11 @@ async fn update_client_settings(
             attributes: Some(HashMap::from_iter(vec![
                 (
                     "oauth2.device.authorization.grant.enabled".to_string(),
-                    Value::Bool(false),
+                    "false".to_string(),
                 ),
                 (
                     "backchannel.logout.url".to_string(),
-                    Value::String("http://qm-backend:10220/api/logout".to_string()),
+                    "http://qm-backend:10220/api/logout".to_string(),
                 ),
             ])),
             base_url: Some(ctx.cfg().public_url().trim_end_matches('/').to_string()),
@@ -400,53 +401,38 @@ async fn update_client_settings(
     Ok(())
 }
 
-pub fn get_smtp_server_defaults(ctx: &Ctx<'_>) -> Option<HashMap<String, Value>> {
-    let mut defaults: HashMap<String, Value> = HashMap::new();
+pub fn get_smtp_server_defaults(ctx: &Ctx<'_>) -> Option<HashMap<String, String>> {
+    let mut defaults: HashMap<String, String> = HashMap::new();
 
     if let Some(configured_starttls) = ctx.cfg().keycloak().smtp_starttls() {
-        defaults.insert(
-            String::from("starttls"),
-            Value::from(configured_starttls.to_owned()),
-        );
+        defaults.insert(String::from("starttls"), configured_starttls.to_string());
     } else {
-        defaults.insert(String::from("starttls"), Value::from(false));
+        defaults.insert(String::from("starttls"), "false".to_string());
     }
     if let Some(configured_port) = ctx.cfg().keycloak().smtp_port() {
-        defaults.insert(
-            String::from("port"),
-            Value::from(configured_port.to_owned()),
-        );
+        defaults.insert(String::from("port"), configured_port.to_string());
     } else {
-        defaults.insert(String::from("port"), Value::from(1025u16));
+        defaults.insert(String::from("port"), "1025".to_string());
     }
     if let Some(configured_host) = ctx.cfg().keycloak().smtp_host() {
-        defaults.insert(
-            String::from("host"),
-            Value::from(configured_host.to_owned()),
-        );
+        defaults.insert(String::from("host"), configured_host.to_string());
     } else {
-        defaults.insert(String::from("host"), Value::from("smtp"));
+        defaults.insert(String::from("host"), "smtp".to_string());
     }
     if let Some(configured_from) = ctx.cfg().keycloak().smtp_from() {
-        defaults.insert(
-            String::from("from"),
-            Value::from(configured_from.to_owned()),
-        );
+        defaults.insert(String::from("from"), configured_from.to_string());
     } else {
-        defaults.insert(String::from("from"), Value::from("noreply@qm.local"));
+        defaults.insert(String::from("from"), "noreply@qm.local".to_string());
     }
     if let Some(configured_from) = ctx.cfg().keycloak().smtp_from_display_name() {
-        defaults.insert(
-            String::from("fromDisplayName"),
-            Value::from(configured_from.to_owned()),
-        );
+        defaults.insert(String::from("fromDisplayName"), configured_from.to_string());
     } else {
-        defaults.insert(String::from("fromDisplayName"), Value::from("qm"));
+        defaults.insert(String::from("fromDisplayName"), "qm".to_string());
     }
     if let Some(configured_ssl) = ctx.cfg().keycloak().smtp_ssl() {
-        defaults.insert(String::from("ssl"), Value::from(configured_ssl.to_owned()));
+        defaults.insert(String::from("ssl"), configured_ssl.to_owned().to_string());
     } else {
-        defaults.insert(String::from("ssl"), Value::from(false));
+        defaults.insert(String::from("ssl"), "false".to_string());
     }
 
     Some(defaults)

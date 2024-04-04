@@ -1,7 +1,5 @@
 use std::collections::HashMap;
 
-use serde_json::Value;
-
 use crate::validation::context::ValidationContext as Ctx;
 use crate::validation::model::RealmConfigError;
 use crate::validation::realm_errors;
@@ -181,7 +179,7 @@ async fn check_client(
             let backchannel_logout_opt = attributes.get("backchannel.logout.url");
             if let Some(oauth2_device_authorization) = oauth2_device_authorization_opt {
                 // Attribute values are always String
-                if oauth2_device_authorization.as_str() != Some("false") {
+                if oauth2_device_authorization.as_str() != "false" {
                     add_error(
                         realm_errors::CLIENTS_CLIENT_ATTRIBUTES_OAUTH2_DEVICE_AUTHORIZATION_GRANT_ENABLED_INVALID_ID,
                         realm_errors::CLIENTS_CLIENT_ATTRIBUTES_OAUTH2_DEVICE_AUTHORIZATION_GRANT_ENABLED_INVALID_KEY,
@@ -196,7 +194,7 @@ async fn check_client(
                 );
             }
             if let Some(backchannel_logout) = backchannel_logout_opt {
-                if backchannel_logout.as_str().unwrap_or("").is_empty() {
+                if backchannel_logout.as_str().is_empty() {
                     add_error(
                         realm_errors::CLIENTS_CLIENT_ATTRIBUTES_BACKCHANNEL_LOGOUT_DISABLED_ID,
                         realm_errors::CLIENTS_CLIENT_ATTRIBUTES_BACKCHANNEL_LOGOUT_DISABLED_KEY,
@@ -376,15 +374,14 @@ where
 
 fn check_realm_smtp_settings(
     ctx: &Ctx<'_>,
-    smtp_server: &HashMap<String, Value>,
+    smtp_server: &HashMap<String, String>,
     errors: &mut Vec<RealmConfigError>,
 ) {
     if let Some(configured_reply_to_display_name) =
         ctx.cfg().keycloak().smtp_reply_to_display_name()
     {
         // reply_to_display_name must be the configured value
-        if let Some(reply_to_display_name_value) = smtp_server.get("replyToDisplayName") {
-            let reply_to_display_name = get_string_from_value(reply_to_display_name_value);
+        if let Some(reply_to_display_name) = smtp_server.get("replyToDisplayName") {
             if configured_reply_to_display_name != reply_to_display_name {
                 log::info!(
                     "The configured 'KEYCLOAK_SMTP_REPLY_TO_DISPLAY_NAME' '{}' does not match with the value from keycloak '{}'",
@@ -468,9 +465,8 @@ fn check_realm_smtp_settings(
         );
     }
 
-    if let Some(host_value) = smtp_server.get("host") {
+    if let Some(host) = smtp_server.get("host") {
         // port must be the configured value or `smtp` if not configured
-        let host = get_string_from_value(host_value);
         if let Some(configured_host) = ctx.cfg().keycloak().smtp_host() {
             if configured_host != host {
                 log::info!(
@@ -501,8 +497,7 @@ fn check_realm_smtp_settings(
 
     if let Some(configured_reply_to) = ctx.cfg().keycloak().smtp_reply_to() {
         // reply_to must be the configured value
-        if let Some(reply_to_value) = smtp_server.get("replyTo") {
-            let reply_to = get_string_from_value(reply_to_value);
+        if let Some(reply_to) = smtp_server.get("replyTo") {
             if configured_reply_to != reply_to {
                 log::info!(
                     "The configured 'KEYCLOAK_SMTP_REPLY_TO' '{}' does not match with the value in keycloak '{}'",
@@ -524,9 +519,8 @@ fn check_realm_smtp_settings(
         }
     }
 
-    if let Some(from_value) = smtp_server.get("from") {
+    if let Some(from) = smtp_server.get("from") {
         // from must be the configured value or `noreply@qm.local` if not configured
-        let from = get_string_from_value(from_value);
         if let Some(configured_from) = ctx.cfg().keycloak().smtp_from() {
             if configured_from != from {
                 log::info!(
@@ -557,8 +551,7 @@ fn check_realm_smtp_settings(
 
     if let Some(configured_from_display_name) = ctx.cfg().keycloak().smtp_from_display_name() {
         // reply_to_display_name must be the configured value
-        if let Some(from_display_name_value) = smtp_server.get("fromDisplayName") {
-            let from_display_name = get_string_from_value(from_display_name_value);
+        if let Some(from_display_name) = smtp_server.get("fromDisplayName") {
             if configured_from_display_name != from_display_name {
                 log::info!(
                     "The configured 'KEYCLOAK_SMTP_FROM_DISPLAY_NAME' '{}' does not match with the value in keycloak '{}'",
@@ -612,27 +605,17 @@ fn check_realm_smtp_settings(
     }
 }
 
-/// Gets a String from a [Value].
-///
-/// Will return an empty string if no value is present.
-fn get_string_from_value(value: &Value) -> String {
-    serde_json::from_value::<String>(value.clone()).unwrap_or("".to_string())
-}
-
 /// Gets a bool from a [Value].
 ///
 /// Will return `true` if the value contains the string "true".
 /// Returns `false` otherwise.
-fn get_bool_from_string_value(value: &Value) -> bool {
-    matches!(get_string_from_value(value).as_str(), "true")
+fn get_bool_from_string_value(value: &String) -> bool {
+    matches!(value.as_str(), "true")
 }
 
 /// Gets a u16 from a [Value].
 ///
 /// Will return `0` if no value is present.
-fn get_u16_from_value(value: &Value) -> u16 {
-    serde_json::from_value::<String>(value.clone())
-        .unwrap_or("0".to_string())
-        .parse::<u16>()
-        .unwrap_or(0)
+fn get_u16_from_value(value: &str) -> u16 {
+    value.parse::<u16>().unwrap_or(0)
 }

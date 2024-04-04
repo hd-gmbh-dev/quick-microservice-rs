@@ -10,7 +10,6 @@ use crate::{
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use qm_role::Group;
-use serde_json::{json, Value};
 
 lazy_static::lazy_static! {
     static ref REALM_TEMPLATE: crate::RealmRepresentation = serde_json::from_str(include_str!("../templates/realm.json")).unwrap();
@@ -108,12 +107,7 @@ fn set_attributes(attributes: HashMap<&str, Option<String>>, u: &mut UserReprese
             if let Some(v) = value {
                 a.insert(
                     key.to_string(),
-                    Value::Array(
-                        v.split(',')
-                            .map(|v| v.trim())
-                            .map(|v| Value::String(v.to_string()))
-                            .collect(),
-                    ),
+                    v.split(',').map(|v| v.trim().to_string()).collect(),
                 );
             } else {
                 a.remove(key);
@@ -155,6 +149,9 @@ pub async fn create_keycloak_user(
         self_: None,
         service_account_client_id: None,
         username: Some(user.username.clone()),
+        totp: None,
+        user_profile_metadata: None,
+        ..Default::default()
     };
 
     set_attributes(
@@ -182,6 +179,7 @@ pub async fn create_keycloak_user(
         type_: Some("password".to_string()),
         user_label: None,
         value: Some(user.password),
+        ..Default::default()
     }]);
 
     let result = keycloak.create_user(realm, keycloak_user).await;
@@ -285,19 +283,19 @@ where
                                 name: Some(part.to_string()),
                                 attributes: Some(if built_in {
                                     HashMap::from_iter([
-                                        ("built_in".to_string(), json!(["1"])),
+                                        ("built_in".to_string(), vec!["1".to_string()]),
                                         (
                                             "allowed_access_levels".to_string(),
-                                            json!([allowed_access_levels]),
+                                            vec![allowed_access_levels],
                                         ),
-                                        ("display_name".to_string(), json!([group.name])),
+                                        ("display_name".to_string(), vec![group.name.to_string()]),
                                     ])
                                 } else {
                                     HashMap::from_iter([
-                                        ("display_name".to_string(), json!([group.name])),
+                                        ("display_name".to_string(), vec![group.name.to_string()]),
                                         (
                                             "allowed_access_levels".to_string(),
-                                            json!([allowed_access_levels]),
+                                            vec![allowed_access_levels],
                                         ),
                                     ])
                                 }),

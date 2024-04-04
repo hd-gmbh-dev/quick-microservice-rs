@@ -131,7 +131,7 @@ where
         &self.ctx
     }
     pub async fn complete(&self) -> anyhow::Result<()> {
-        let mut con = self.client.get_async_connection().await?;
+        let mut con = self.client.get_multiplexed_async_connection().await?;
         self.queue.complete(&mut con, &self.item).await?;
         Ok(())
     }
@@ -167,7 +167,7 @@ where
     T: DeserializeOwned + Send + Sync,
 {
     log::info!("start {} worker recovery", worker.prefix);
-    let mut con = client.get_async_connection().await?;
+    let mut con = client.get_multiplexed_async_connection().await?;
     loop {
         if !is_running.load(Ordering::SeqCst) {
             break;
@@ -191,7 +191,7 @@ where
 {
     log::info!("start {} worker #{worker_id} queue", worker.prefix);
     let request_queue = Arc::new(WorkQueue::new(KeyPrefix::new(worker.prefix.clone())));
-    let mut con = client.get_async_connection().await?;
+    let mut con = client.get_multiplexed_async_connection().await?;
     loop {
         if !is_running.load(Ordering::SeqCst) {
             break;
@@ -274,7 +274,7 @@ impl Workers {
         T: DeserializeOwned + Send + Sync + 'static,
     {
         let worker = Arc::new(worker);
-        let mut con = self.inner.client.get_async_connection().await?;
+        let mut con = self.inner.client.get_multiplexed_async_connection().await?;
         worker.recover(&mut con).await?;
         {
             let instances = self.inner.instances.clone();

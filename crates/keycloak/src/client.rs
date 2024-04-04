@@ -25,7 +25,7 @@ pub struct RealmInfo {
 async fn error_check(response: reqwest::Response) -> Result<reqwest::Response, KeycloakError> {
     if !response.status().is_success() {
         let status = response.status().into();
-        let text = response.text().await?;
+        let text = response.text().await.unwrap_or_default();
         return Err(KeycloakError::HttpFailure {
             status,
             body: serde_json::from_str(&text).ok(),
@@ -143,32 +143,6 @@ impl Keycloak {
             .await
     }
 
-    pub async fn user_roles_by_id(
-        &self,
-        realm: &str,
-        user_id: &str,
-    ) -> Result<Vec<String>, KeycloakError> {
-        Ok(self
-            .inner
-            .admin
-            .realm_users_with_id_role_mappings_realm_composite_get(realm, user_id, Some(true))
-            .await?
-            .into_iter()
-            .filter_map(|r| r.name)
-            .collect())
-    }
-
-    pub async fn users_count(
-        &self,
-        realm: &str,
-        search_query: Option<String>,
-    ) -> Result<i32, KeycloakError> {
-        self.inner
-            .admin
-            .realm_users_count_get(realm, None, None, None, None, None, search_query, None)
-            .await
-    }
-
     pub async fn create_realm(
         &self,
         realm_representation: RealmRepresentation,
@@ -192,7 +166,7 @@ impl Keycloak {
     pub async fn remove_group(&self, realm: &str, id: &str) -> Result<(), KeycloakError> {
         self.inner
             .admin
-            .realm_groups_with_id_delete(realm, id)
+            .realm_groups_with_group_id_delete(realm, id)
             .await
     }
 
@@ -303,32 +277,6 @@ impl Keycloak {
         self.inner.admin.realm_roles_post(realm, rep).await
     }
 
-    pub async fn groups(&self, realm: &str) -> Result<Vec<GroupRepresentation>, KeycloakError> {
-        self.inner
-            .admin
-            .realm_groups_get(realm, Some(false), None, None, None, None, None)
-            .await
-    }
-
-    pub async fn groups_with_subgroups(
-        &self,
-        realm: &str,
-    ) -> Result<Vec<GroupRepresentation>, KeycloakError> {
-        let mut result = vec![];
-        let groups = self.groups(realm).await?;
-        for group in groups {
-            let group = self
-                .inner
-                .admin
-                .realm_groups_with_id_get(realm, group.id.as_deref().unwrap())
-                .await?;
-            if let Some(sub_groups) = group.sub_groups {
-                result.extend(sub_groups);
-            }
-        }
-        Ok(result)
-    }
-
     pub async fn create_group(
         &self,
         realm: &str,
@@ -359,37 +307,6 @@ impl Keycloak {
             .await
     }
 
-    pub async fn group_members(
-        &self,
-        realm: &str,
-        path: &str,
-    ) -> Result<Vec<UserRepresentation>, KeycloakError> {
-        let g = self
-            .inner
-            .admin
-            .realm_group_by_path_with_path_get(realm, path)
-            .await?;
-        self.inner
-            .admin
-            .realm_groups_with_id_members_get(realm, g.id.as_deref().unwrap(), None, None, None)
-            .await
-    }
-
-    pub async fn create_sub_group(
-        &self,
-        realm: &str,
-        id: &str,
-        rep: GroupRepresentation,
-    ) -> Result<(), KeycloakError> {
-        if let Some(parent) = self.group_by_path(realm, id).await.ok().and_then(|g| g.id) {
-            self.inner
-                .admin
-                .realm_groups_with_id_children_post(realm, &parent, rep)
-                .await?;
-        }
-        Ok(())
-    }
-
     pub async fn create_sub_group_with_id(
         &self,
         realm: &str,
@@ -398,31 +315,9 @@ impl Keycloak {
     ) -> Result<(), KeycloakError> {
         self.inner
             .admin
-            .realm_groups_with_id_children_post(realm, parent_id, rep)
+            .realm_groups_with_group_id_children_post(realm, parent_id, rep)
             .await?;
         Ok(())
-    }
-
-    pub async fn user_groups(
-        &self,
-        realm: &str,
-        user_id: &str,
-    ) -> Result<Vec<GroupRepresentation>, KeycloakError> {
-        self.inner
-            .admin
-            .realm_users_with_id_groups_get(realm, user_id, None, None, None, None)
-            .await
-    }
-
-    pub async fn realm_role_mappings_by_group_id(
-        &self,
-        realm: &str,
-        id: &str,
-    ) -> Result<Vec<RoleRepresentation>, KeycloakError> {
-        self.inner
-            .admin
-            .realm_groups_with_id_role_mappings_realm_get(realm, id)
-            .await
     }
 
     pub async fn create_realm_role_mappings_by_group_id(
@@ -433,7 +328,7 @@ impl Keycloak {
     ) -> Result<(), KeycloakError> {
         self.inner
             .admin
-            .realm_groups_with_id_role_mappings_realm_post(realm, id, roles)
+            .realm_groups_with_group_id_role_mappings_realm_post(realm, id, roles)
             .await
     }
 
@@ -445,7 +340,7 @@ impl Keycloak {
         Ok(self
             .inner
             .admin
-            .realm_users_with_id_get(realm, id)
+            .realm_users_with_user_id_get(realm, id, Some(true))
             .await
             .ok())
     }
@@ -552,7 +447,7 @@ impl Keycloak {
     ) -> Result<(), KeycloakError> {
         self.inner
             .admin
-            .realm_clients_with_id_put(realm, id, rep)
+            .realm_clients_with_client_uuid_put(realm, id, rep)
             .await
     }
 
@@ -573,7 +468,7 @@ impl Keycloak {
     ) -> Result<(), KeycloakError> {
         self.inner
             .admin
-            .realm_users_with_id_reset_password_put(realm, user_id, credential)
+            .realm_users_with_user_id_reset_password_put(realm, user_id, credential)
             .await?;
         Ok(())
     }
@@ -586,7 +481,7 @@ impl Keycloak {
     ) -> Result<(), KeycloakError> {
         self.inner
             .admin
-            .realm_users_with_id_put(realm, user_id, user.to_owned())
+            .realm_users_with_user_id_put(realm, user_id, user.to_owned())
             .await?;
         Ok(())
     }
@@ -599,7 +494,7 @@ impl Keycloak {
     ) -> Result<(), KeycloakError> {
         self.inner
             .admin
-            .realm_users_with_id_groups_with_group_id_put(realm, user_id, group_id)
+            .realm_users_with_user_id_groups_with_group_id_put(realm, user_id, group_id)
             .await?;
         Ok(())
     }
@@ -612,7 +507,7 @@ impl Keycloak {
     ) -> Result<(), KeycloakError> {
         self.inner
             .admin
-            .realm_users_with_id_role_mappings_realm_post(realm, user_id, vec![role])
+            .realm_users_with_user_id_role_mappings_realm_post(realm, user_id, vec![role])
             .await
     }
 
@@ -624,7 +519,7 @@ impl Keycloak {
     ) -> Result<(), KeycloakError> {
         self.inner
             .admin
-            .realm_users_with_id_groups_with_group_id_delete(realm, user_id, group_id)
+            .realm_users_with_user_id_groups_with_group_id_delete(realm, user_id, group_id)
             .await?;
         Ok(())
     }
@@ -632,7 +527,7 @@ impl Keycloak {
     pub async fn remove_user(&self, realm: &str, user_id: &str) -> Result<(), KeycloakError> {
         self.inner
             .admin
-            .realm_users_with_id_delete(realm, user_id)
+            .realm_users_with_user_id_delete(realm, user_id)
             .await?;
         Ok(())
     }

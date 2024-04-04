@@ -59,12 +59,7 @@ fn set_attributes(attributes: HashMap<&str, Option<String>>, u: &mut UserReprese
             if let Some(v) = value {
                 a.insert(
                     key.to_string(),
-                    serde_json::Value::Array(
-                        v.split(',')
-                            .map(|v| v.trim())
-                            .map(|v| serde_json::Value::String(v.to_string()))
-                            .collect(),
-                    ),
+                    v.split(',').map(|v| v.trim().to_string()).collect(),
                 );
             } else {
                 a.remove(key);
@@ -112,6 +107,7 @@ pub async fn create_keycloak_user(
         self_: None,
         service_account_client_id: None,
         username: Some(username.clone()),
+        ..Default::default()
     };
 
     set_attributes(
@@ -138,6 +134,7 @@ pub async fn create_keycloak_user(
         type_: Some("password".to_string()),
         user_label: None,
         value: Some(user.password),
+        ..Default::default()
     }]);
 
     let result = keycloak.create_user(realm, keycloak_user).await;
@@ -320,8 +317,8 @@ where
         Ok(self.0.store.cache_db().user_list(context, filter).await)
     }
 
-    pub async fn by_id(&self, id: &str) -> Option<Arc<User>> {
-        self.0.store.cache_db().user_by_id(id).await
+    pub async fn by_id(&self, id: &str) -> Option<UserDetails> {
+        self.0.store.cache_db().user_details_by_id(id).await
     }
 
     pub async fn create(&self, input: CreateUserPayload) -> FieldResult<Arc<User>> {
@@ -460,7 +457,7 @@ where
     Permission: RelatedPermission,
     BuiltInGroup: RelatedBuiltInGroup,
 {
-    async fn me(&self, ctx: &Context<'_>) -> async_graphql::FieldResult<Option<Arc<User>>> {
+    async fn me(&self, ctx: &Context<'_>) -> async_graphql::FieldResult<Option<UserDetails>> {
         let auth_ctx = AuthCtx::<'_, Auth, Store, Resource, Permission>::new(ctx)
             .await
             .extend()?;
@@ -472,7 +469,7 @@ where
         &self,
         ctx: &Context<'_>,
         id: Uuid,
-    ) -> async_graphql::FieldResult<Option<Arc<User>>> {
+    ) -> async_graphql::FieldResult<Option<UserDetails>> {
         Ok(Ctx(
             &AuthCtx::<'_, Auth, Store, Resource, Permission>::new_with_role(
                 ctx,
