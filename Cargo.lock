@@ -2360,7 +2360,7 @@ dependencies = [
 
 [[package]]
 name = "qm"
-version = "0.0.14"
+version = "0.0.15"
 dependencies = [
  "qm-customer",
  "qm-entity",
@@ -2378,7 +2378,7 @@ dependencies = [
 
 [[package]]
 name = "qm-customer"
-version = "0.0.14"
+version = "0.0.15"
 dependencies = [
  "Inflector",
  "anyhow",
@@ -2411,7 +2411,7 @@ dependencies = [
 
 [[package]]
 name = "qm-entity"
-version = "0.0.14"
+version = "0.0.15"
 dependencies = [
  "anyhow",
  "async-graphql",
@@ -2436,7 +2436,7 @@ dependencies = [
 
 [[package]]
 name = "qm-entity-derive"
-version = "0.0.14"
+version = "0.0.15"
 dependencies = [
  "Inflector",
  "darling 0.20.8",
@@ -2450,7 +2450,7 @@ dependencies = [
 
 [[package]]
 name = "qm-example-auth"
-version = "0.0.14"
+version = "0.0.15"
 dependencies = [
  "anyhow",
  "async-graphql",
@@ -2471,7 +2471,7 @@ dependencies = [
 
 [[package]]
 name = "qm-example-cli"
-version = "0.0.14"
+version = "0.0.15"
 dependencies = [
  "anyhow",
  "clap",
@@ -2483,7 +2483,7 @@ dependencies = [
 
 [[package]]
 name = "qm-example-ctx"
-version = "0.0.14"
+version = "0.0.15"
 dependencies = [
  "anyhow",
  "async-graphql",
@@ -2494,7 +2494,7 @@ dependencies = [
 
 [[package]]
 name = "qm-example-model"
-version = "0.0.14"
+version = "0.0.15"
 dependencies = [
  "async-graphql",
  "qm",
@@ -2503,7 +2503,7 @@ dependencies = [
 
 [[package]]
 name = "qm-example-server"
-version = "0.0.14"
+version = "0.0.15"
 dependencies = [
  "anyhow",
  "async-graphql",
@@ -2528,7 +2528,7 @@ dependencies = [
 
 [[package]]
 name = "qm-kafka"
-version = "0.0.14"
+version = "0.0.15"
 dependencies = [
  "anyhow",
  "envy",
@@ -2540,7 +2540,7 @@ dependencies = [
 
 [[package]]
 name = "qm-keycloak"
-version = "0.0.14"
+version = "0.0.15"
 dependencies = [
  "anyhow",
  "async-graphql",
@@ -2562,7 +2562,7 @@ dependencies = [
 
 [[package]]
 name = "qm-mongodb"
-version = "0.0.14"
+version = "0.0.15"
 dependencies = [
  "anyhow",
  "envy",
@@ -2575,7 +2575,7 @@ dependencies = [
 
 [[package]]
 name = "qm-pg"
-version = "0.0.14"
+version = "0.0.15"
 dependencies = [
  "anyhow",
  "envy",
@@ -2586,7 +2586,7 @@ dependencies = [
 
 [[package]]
 name = "qm-redis"
-version = "0.0.14"
+version = "0.0.15"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -2604,7 +2604,7 @@ dependencies = [
 
 [[package]]
 name = "qm-role"
-version = "0.0.14"
+version = "0.0.15"
 dependencies = [
  "anyhow",
  "async-graphql",
@@ -2615,7 +2615,7 @@ dependencies = [
 
 [[package]]
 name = "qm-role-build"
-version = "0.0.14"
+version = "0.0.15"
 dependencies = [
  "Inflector",
  "anyhow",
@@ -2623,11 +2623,11 @@ dependencies = [
 
 [[package]]
 name = "qm-s3"
-version = "0.0.14"
+version = "0.0.15"
 
 [[package]]
 name = "qm-server"
-version = "0.0.14"
+version = "0.0.15"
 dependencies = [
  "async-graphql",
  "async-graphql-axum",
@@ -2640,14 +2640,14 @@ dependencies = [
 
 [[package]]
 name = "qm-utils"
-version = "0.0.14"
+version = "0.0.15"
 dependencies = [
  "qm-utils-derive",
 ]
 
 [[package]]
 name = "qm-utils-derive"
-version = "0.0.14"
+version = "0.0.15"
 dependencies = [
  "convert_case 0.6.0",
  "lazy_static",
