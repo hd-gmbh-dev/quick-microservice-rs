@@ -33,11 +33,16 @@ impl CacheDB {
         keycloak_db: &qm_pg::DB,
         realm: &str,
     ) -> anyhow::Result<Self> {
+        log::info!("start init CacheDB for {realm}");
+        let start = std::time::Instant::now();
         let infra = InfraDB::new(customer_db).await?;
         let user = UserDB::new(keycloak_db, realm).await?;
-        Ok(Self {
+        let result = Self {
             inner: Arc::new(Inner { infra, user }),
-        })
+        };
+        let duration = start.elapsed();
+        log::info!("initialized CacheDB for {realm} within {duration:?}");
+        Ok(result)
     }
 
     pub fn user(&self) -> &UserDB {
@@ -62,6 +67,27 @@ impl CacheDB {
 
     pub fn institutions_total(&self) -> &Gauge<i64, AtomicI64> {
         &self.inner.infra.institutions_total
+    }
+
+    pub async fn customers_version(&self) -> Arc<str> {
+        self.inner.infra.customers_version.read().await.clone()
+    }
+
+    pub async fn organizations_version(&self) -> Arc<str> {
+        self.inner.infra.organizations_version.read().await.clone()
+    }
+
+    pub async fn organization_units_version(&self) -> Arc<str> {
+        self.inner
+            .infra
+            .organization_units_version
+            .read()
+            .await
+            .clone()
+    }
+
+    pub async fn institutions_version(&self) -> Arc<str> {
+        self.inner.infra.institutions_version.read().await.clone()
     }
 
     pub async fn customer_list(

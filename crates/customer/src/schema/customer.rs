@@ -15,6 +15,7 @@ use qm_mongodb::bson::doc;
 use qm_role::AccessLevel;
 use sqlx::types::Uuid;
 
+use crate::cache::CacheDB;
 use crate::cleanup::CleanupTask;
 use crate::cleanup::CleanupTaskType;
 use crate::context::RelatedStorage;
@@ -32,6 +33,14 @@ use crate::mutation::update_customer;
 use crate::roles;
 use crate::schema::auth::AuthCtx;
 use async_graphql::ComplexObject;
+
+#[ComplexObject]
+impl CustomerList {
+    async fn version(&self, ctx: &Context<'_>) -> async_graphql::FieldResult<Arc<str>> {
+        let cache = ctx.data::<CacheDB>()?;
+        Ok(cache.customers_version().await)
+    }
+}
 
 #[ComplexObject]
 impl Customer {

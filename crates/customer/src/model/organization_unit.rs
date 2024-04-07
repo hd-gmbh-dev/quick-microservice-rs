@@ -152,6 +152,7 @@ impl From<OrganizationUnitQuery> for OrganizationUnit {
 }
 
 #[derive(Debug, Clone, SimpleObject)]
+#[graphql(complex)]
 pub struct OrganizationUnitList {
     pub items: Arc<[Arc<OrganizationUnit>]>,
     pub limit: Option<i64>,

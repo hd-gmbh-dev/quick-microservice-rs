@@ -42,6 +42,14 @@ use crate::roles;
 use crate::schema::auth::AuthCtx;
 
 #[ComplexObject]
+impl OrganizationUnitList {
+    async fn version(&self, ctx: &Context<'_>) -> async_graphql::FieldResult<Arc<str>> {
+        let cache = ctx.data::<CacheDB>()?;
+        Ok(cache.organization_units_version().await)
+    }
+}
+
+#[ComplexObject]
 impl OrganizationUnit {
     async fn id(&self) -> async_graphql::FieldResult<OrganizationUnitId> {
         Ok(self.into())

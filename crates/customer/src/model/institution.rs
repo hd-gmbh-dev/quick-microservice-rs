@@ -12,6 +12,7 @@ use std::sync::Arc;
 pub struct InstitutionData(pub OrganizationId, pub String, pub Option<String>);
 
 #[derive(Debug, Clone, SimpleObject)]
+#[graphql(complex)]
 pub struct InstitutionList {
     pub items: Arc<[Arc<Institution>]>,
     pub limit: Option<i64>,

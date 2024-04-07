@@ -19,8 +19,8 @@ where
     S: async_graphql::SubscriptionType + Send + Sync + 'static,
 {
     let mut req = req.into_inner();
-    if let Some(auth_header) = headers.get(AUTHORIZATION).map(AuthContainer::<A>::from) {
-        req = req.data(auth_header);
+    if let Some(auth_header) = headers.get(AUTHORIZATION) {
+        req = req.data(AuthContainer::<A>::from(auth_header));
     } else {
         req = req.data(AuthContainer::<A>::default());
     }

@@ -71,6 +71,7 @@ impl<'a> From<&'a Customer> for RemoveCustomerPayload {
 }
 
 #[derive(Debug, Clone, SimpleObject)]
+#[graphql(complex)]
 pub struct CustomerList {
     pub items: Arc<[Arc<Customer>]>,
     pub limit: Option<i64>,

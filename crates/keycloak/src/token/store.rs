@@ -19,6 +19,7 @@ struct Inner {
     public_url: Arc<str>,
     client: Client,
     keys: RwLock<HashMap<String, Jwt>>,
+    inflight: RwLock<HashMap<String, tokio::sync::watch::Receiver<bool>>>,
 }
 
 #[derive(Clone)]
@@ -37,6 +38,7 @@ impl JwtStore {
                 client,
                 public_url,
                 keys: Default::default(),
+                inflight: Default::default(),
             }),
         }
     }
@@ -50,6 +52,7 @@ impl JwtStore {
     }
 
     async fn get_jwt_from_realm(&self, realm: &str, header: Header) -> anyhow::Result<Jwt> {
+        log::debug!("fetch realm info");
         let info = self.info(realm).await?;
         let public_key = info
             .public_key
@@ -105,15 +108,28 @@ impl JwtStore {
             .as_ref()
             .ok_or(anyhow::anyhow!("Invalid token"))?;
         {
+            let rx = async { self.inner.inflight.read().await.get(kid).cloned() }.await;
+            if let Some(rx) = rx {
+                rx.clone().changed().await.ok();
+            }
+        }
+        {
             if let Some(key) = self.inner.keys.read().await.get(kid) {
+                log::debug!("decode jwt with known kid {kid}");
                 return key.decode(token);
             }
         }
+        let (tx, rx) = tokio::sync::watch::channel(true);
+        self.inner.inflight.write().await.insert(kid.clone(), rx);
+        log::debug!("decode kid not found, get from keycloak {kid}");
         let jwt = self.get_jwt_from_partial_claims(token).await?;
         let claims = jwt.decode(token)?;
         self.inner.keys.write().await.insert(jwt.kid.clone(), jwt);
+        tx.send(false)?;
+        self.inner.inflight.write().await.remove(kid);
         Ok(claims)
     }
+
     pub async fn decode_logout_token(&self, token: &str) -> anyhow::Result<LogoutClaims> {
         let token_header = jsonwebtoken::decode_header(token)?;
         let kid = token_header

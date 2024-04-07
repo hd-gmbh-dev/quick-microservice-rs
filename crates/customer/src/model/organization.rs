@@ -76,6 +76,7 @@ impl<'a> From<&'a Organization> for RemoveOrganizationPayload {
 }
 
 #[derive(Debug, Clone, SimpleObject)]
+#[graphql(complex)]
 pub struct OrganizationList {
     pub items: Arc<[Arc<Organization>]>,
     pub limit: Option<i64>,
