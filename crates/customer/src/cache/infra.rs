@@ -116,79 +116,91 @@ impl InfraDB {
     }
 
     pub async fn new_customer(&self, customer: Arc<Customer>) {
-        self.customers
-            .write()
-            .await
-            .insert(customer.name.clone(), customer.clone());
-        self.customer_id_map
-            .write()
-            .await
-            .insert(customer.id, customer);
+        {
+            self.customers
+                .write()
+                .await
+                .insert(customer.name.clone(), customer.clone());
+            self.customer_id_map
+                .write()
+                .await
+                .insert(customer.id, customer);
+        }
         self.customers_total
             .set(self.customers.read().await.len() as i64);
     }
 
     pub async fn new_organization(&self, organization: Arc<Organization>) {
-        self.organizations.write().await.insert(
-            (organization.name.clone(), organization.customer_id),
-            organization.clone(),
-        );
-        self.organization_id_map
-            .write()
-            .await
-            .insert(organization.id, organization);
+        {
+            self.organizations.write().await.insert(
+                (organization.name.clone(), organization.customer_id),
+                organization.clone(),
+            );
+            self.organization_id_map
+                .write()
+                .await
+                .insert(organization.id, organization);
+        }
         self.organizations_total
             .set(self.organizations.read().await.len() as i64);
     }
 
     pub async fn new_organization_unit(&self, organization_unit: Arc<OrganizationUnit>) {
-        self.organization_units.write().await.insert(
-            (
-                organization_unit.name.clone(),
-                organization_unit.customer_id,
-                organization_unit.organization_id,
-            ),
-            organization_unit.clone(),
-        );
-        self.organization_unit_id_map
-            .write()
-            .await
-            .insert(organization_unit.id, organization_unit);
+        {
+            self.organization_units.write().await.insert(
+                (
+                    organization_unit.name.clone(),
+                    organization_unit.customer_id,
+                    organization_unit.organization_id,
+                ),
+                organization_unit.clone(),
+            );
+            self.organization_unit_id_map
+                .write()
+                .await
+                .insert(organization_unit.id, organization_unit);
+        }
         self.organization_units_total
             .set(self.organization_units.read().await.len() as i64);
     }
 
     pub async fn new_institution(&self, institution: Arc<Institution>) {
-        self.institutions.write().await.insert(
-            (
-                institution.name.clone(),
-                institution.customer_id,
-                institution.organization_id,
-            ),
-            institution.clone(),
-        );
-        self.institution_id_map
-            .write()
-            .await
-            .insert(institution.id, institution);
+        {
+            self.institutions.write().await.insert(
+                (
+                    institution.name.clone(),
+                    institution.customer_id,
+                    institution.organization_id,
+                ),
+                institution.clone(),
+            );
+            self.institution_id_map
+                .write()
+                .await
+                .insert(institution.id, institution);
+        }
         self.institutions_total
             .set(self.institutions.read().await.len() as i64);
     }
 
     pub async fn remove_customer(&self, v: CustomerUpdate) {
-        self.customers.write().await.remove(&v.name);
-        self.customer_id_map.write().await.remove(&v.id);
+        {
+            self.customers.write().await.remove(&v.name);
+            self.customer_id_map.write().await.remove(&v.id);
+        }
         self.customers_total
             .set(self.customers.read().await.len() as i64);
     }
 
     pub async fn update_customer(&self, new: Arc<Customer>, old: RemoveCustomerPayload) {
-        let mut w1 = self.customers.write().await;
-        let mut w2 = self.customer_id_map.write().await;
-        w1.remove(&old.name);
-        w2.remove(&old.id);
-        w1.insert(new.name.clone(), new.clone());
-        w2.insert(new.id, new);
+        {
+            let mut w1 = self.customers.write().await;
+            let mut w2 = self.customer_id_map.write().await;
+            w1.remove(&old.name);
+            w2.remove(&old.id);
+            w1.insert(new.name.clone(), new.clone());
+            w2.insert(new.id, new);
+        }
         self.customers_total
             .set(self.customers.read().await.len() as i64);
     }
@@ -198,26 +210,30 @@ impl InfraDB {
         new: Arc<Organization>,
         old: RemoveOrganizationPayload,
     ) {
-        let mut w1 = self.organizations.write().await;
-        let mut w2 = self.organization_id_map.write().await;
-        w1.remove(&(old.name.clone(), old.customer_id));
-        w2.remove(&old.id);
-        w1.insert((new.name.clone(), new.customer_id), new.clone());
-        w2.insert(new.id, new);
+        {
+            let mut w1 = self.organizations.write().await;
+            let mut w2 = self.organization_id_map.write().await;
+            w1.remove(&(old.name.clone(), old.customer_id));
+            w2.remove(&old.id);
+            w1.insert((new.name.clone(), new.customer_id), new.clone());
+            w2.insert(new.id, new);
+        }
         self.organizations_total
             .set(self.organizations.read().await.len() as i64);
     }
 
     pub async fn update_institution(&self, new: Arc<Institution>, old: RemoveInstitutionPayload) {
-        let mut w1 = self.institutions.write().await;
-        let mut w2 = self.institution_id_map.write().await;
-        w1.remove(&(old.name.clone(), old.customer_id, old.organization_id));
-        w2.remove(&old.id);
-        w1.insert(
-            (new.name.clone(), new.customer_id, new.organization_id),
-            new.clone(),
-        );
-        w2.insert(new.id, new);
+        {
+            let mut w1 = self.institutions.write().await;
+            let mut w2 = self.institution_id_map.write().await;
+            w1.remove(&(old.name.clone(), old.customer_id, old.organization_id));
+            w2.remove(&old.id);
+            w1.insert(
+                (new.name.clone(), new.customer_id, new.organization_id),
+                new.clone(),
+            );
+            w2.insert(new.id, new);
+        }
         self.institutions_total
             .set(self.institutions.read().await.len() as i64);
     }
@@ -227,46 +243,55 @@ impl InfraDB {
         new: Arc<OrganizationUnit>,
         old: RemoveOrganizationUnitPayload,
     ) {
-        let mut w1 = self.organization_units.write().await;
-        let mut w2 = self.organization_unit_id_map.write().await;
-        w1.remove(&(old.name.clone(), old.customer_id, old.organization_id));
-        w2.remove(&old.id);
-        w1.insert(
-            (new.name.clone(), new.customer_id, new.organization_id),
-            new.clone(),
-        );
-        w2.insert(new.id, new);
+        {
+            let mut w1 = self.organization_units.write().await;
+            let mut w2 = self.organization_unit_id_map.write().await;
+            w1.remove(&(old.name.clone(), old.customer_id, old.organization_id));
+            w2.remove(&old.id);
+            w1.insert(
+                (new.name.clone(), new.customer_id, new.organization_id),
+                new.clone(),
+            );
+            w2.insert(new.id, new);
+        }
         self.organization_units_total
             .set(self.organization_units.read().await.len() as i64);
     }
 
     pub async fn remove_organization(&self, v: OrganizationUpdate) {
-        self.organizations
-            .write()
-            .await
-            .remove(&(v.name.clone(), v.customer_id));
-        self.organization_id_map.write().await.remove(&v.id);
+        {
+            self.organizations
+                .write()
+                .await
+                .remove(&(v.name.clone(), v.customer_id));
+            self.organization_id_map.write().await.remove(&v.id);
+        }
         self.organizations_total
             .set(self.organizations.read().await.len() as i64);
     }
 
     pub async fn remove_organization_unit(&self, v: OrganizationUnitUpdate) {
-        self.organization_units.write().await.remove(&(
-            v.name.clone(),
-            v.customer_id,
-            v.organization_id,
-        ));
-        self.organization_unit_id_map.write().await.remove(&v.id);
+        {
+            self.organization_units.write().await.remove(&(
+                v.name.clone(),
+                v.customer_id,
+                v.organization_id,
+            ));
+            self.organization_unit_id_map.write().await.remove(&v.id);
+        }
         self.organization_units_total
             .set(self.organization_units.read().await.len() as i64);
     }
 
     pub async fn remove_institution(&self, v: InstitutionUpdate) {
-        self.institutions
-            .write()
-            .await
-            .remove(&(v.name.clone(), v.customer_id, v.organization_id));
-        self.institution_id_map.write().await.remove(&v.id);
+        {
+            self.institutions.write().await.remove(&(
+                v.name.clone(),
+                v.customer_id,
+                v.organization_id,
+            ));
+            self.institution_id_map.write().await.remove(&v.id);
+        }
         self.institutions_total
             .set(self.institutions.read().await.len() as i64);
     }
