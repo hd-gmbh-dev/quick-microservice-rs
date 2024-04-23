@@ -35,7 +35,10 @@ pub fn generate_to_writer<W: std::io::Write>(
 
 #[cfg(test)]
 mod test {
-    use crate::{model::RoleMapping, model::Table, reader::Reader};
+    use crate::{
+        model::{RoleMapping, Table},
+        reader::Reader,
+    };
     use std::rc::Rc;
 
     const TEST_INPUT: &str = r#"# User Groups `user_groups`
