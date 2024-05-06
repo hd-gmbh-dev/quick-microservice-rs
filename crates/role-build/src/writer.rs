@@ -13,6 +13,12 @@ pub struct Writer<W> {
     w: W,
 }
 
+impl<W> Writer<W> {
+    pub fn from_writer(w: W) -> Self {
+        Self { w }
+    }
+}
+
 #[cfg(test)]
 impl WriteResult<std::io::Cursor<Vec<u8>>> {
     pub fn into_inner(self) -> String {
@@ -34,15 +40,13 @@ impl Writer<std::fs::File> {
     where
         P: AsRef<Path>,
     {
-        Ok(Self {
-            w: std::fs::File::create(p)?,
-        })
+        std::fs::File::create(p).map(Self::from_writer)
     }
 }
 
-const ENUM_DERIVE: &'static str =
+const ENUM_DERIVE: &str =
     "#[derive(Clone, Debug, Copy, EnumString, EnumIter, AsRefStr, Ord, PartialOrd, Eq, PartialEq, Hash)]";
-const ENUM_DERIVE_BUILT_IN_GROUP: &'static str =
+const ENUM_DERIVE_BUILT_IN_GROUP: &str =
     "#[derive(Clone, Debug, Copy, EnumString, async_graphql::Enum, AsRefStr, Ord, PartialOrd, Eq, PartialEq, Hash)]";
 
 impl<W> Writer<W>
@@ -61,18 +65,12 @@ where
             resources,
             role_mappings,
             user_group_name_mappings,
-            access_level_mappings,
             ..
         } = parse_result;
         let user_group_name_mappings = BTreeMap::from_iter(
             user_group_name_mappings
                 .into_iter()
-                .map(|v| (v.user_group, (v.path, v.display_name))),
-        );
-        let access_level_mappings = BTreeMap::from_iter(
-            access_level_mappings
-                .into_iter()
-                .map(|v| (v.user_group, v.name)),
+                .map(|v| (v.user_group, (v.path, v.display_name, v.access_level))),
         );
         self.write_line(0, "use strum::{EnumString, EnumIter, AsRefStr};")?;
         self.write_line(0, "use qm::role::AccessLevel;")?;
@@ -117,10 +115,8 @@ where
         let mut group_names = BTreeSet::new();
         let mut fn_names = vec![];
         for role_mapping in role_mappings.iter() {
-            if let Some(((user_group_name, user_group_display_name), access_level)) =
-                user_group_name_mappings
-                    .get(&role_mapping.user_group)
-                    .zip(access_level_mappings.get(&role_mapping.user_group))
+            if let Some((user_group_name, user_group_display_name, access_level)) =
+                user_group_name_mappings.get(&role_mapping.user_group)
             {
                 group_names.insert(user_group_name);
                 let cnst_name = inflector::cases::screamingsnakecase::to_screaming_snake_case(

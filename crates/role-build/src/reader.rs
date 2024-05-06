@@ -27,7 +27,6 @@ impl Reader<std::io::BufReader<std::fs::File>> {
 
 #[derive(Debug, Clone, Copy)]
 enum CurrentTable {
-    AccessLevels,
     UserGroups,
     Roles,
     None,
@@ -42,9 +41,6 @@ fn set_table(rows: &mut Vec<Vec<String>>, tables: &mut OptMdTables, current_tabl
         rows: table_rows,
     };
     match current_table {
-        CurrentTable::AccessLevels => {
-            tables.access_levels = Some(table);
-        }
         CurrentTable::UserGroups => {
             tables.user_groups = Some(table);
         }
@@ -91,9 +87,6 @@ where
                 } else if !rows.is_empty() {
                     set_table(&mut rows, &mut tables, &current_table);
                 } else {
-                    if line.contains("`access_levels`") {
-                        current_table = CurrentTable::AccessLevels;
-                    }
                     if line.contains("`user_groups`") {
                         current_table = CurrentTable::UserGroups;
                     }
