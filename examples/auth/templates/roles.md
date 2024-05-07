@@ -3,25 +3,15 @@
 This file will generate roles and groups in a keycloak realm based on markdown tables followed by `access_levels`, `user_groups` and `roles`
 
 
-## Access Level `access_levels`
-
-| group            | access levels          |
-|------------------|------------------------|
-| Admin            | Admin                  |
-| CustomerOwner    | Customer               |
-| InstitutionOwner | Institution            |
-| Management       | Customer, Institution  |
-| Worker           | Institution            |
-
 ## User groups `user_groups`
 
-| group            | name                 | display name         |
-|------------------|----------------------|----------------------|
-| Admin            | /admin               | Admin                |
-| CustomerOwner    | /customer_owner      | Owner of Customer    |
-| InstitutionOwner | /institution_owner   | Owner of Institution |
-| Management       | /management          | Management           |
-| Worker           | /worker              | Worker               |
+| group            | name                 | display name         | access levels          |
+|------------------|----------------------|----------------------|------------------------|
+| Admin            | /admin               | Admin                | Admin                  |
+| CustomerOwner    | /customer_owner      | Owner of Customer    | Customer               |
+| InstitutionOwner | /institution_owner   | Owner of Institution | Institution            |
+| Management       | /management          | Management           | Customer, Institution  |
+| Worker           | /worker              | Worker               | Institution            |
 
 ## Roles `roles`
 
