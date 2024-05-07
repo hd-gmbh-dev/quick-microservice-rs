@@ -329,7 +329,7 @@ async fn update_client_settings(
                     log::trace!("Adding 'redirect_uris' for configured value for client 'spa' in realm '{}'", realm);
                     if let Some(uris) = rep.redirect_uris.as_mut() {
                         uris.clear();
-                        uris.push(format!("{}", ctx.cfg().public_url()));
+                        uris.push(ctx.cfg().public_url().to_string());
                         uris.push(format!("{}*", ctx.cfg().public_url()));
                     } else {
                         rep.redirect_uris = Some(vec![format!("{}*", ctx.cfg().public_url())]);

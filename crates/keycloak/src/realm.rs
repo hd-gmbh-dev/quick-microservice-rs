@@ -373,7 +373,7 @@ where
     R: AsRef<str> + std::fmt::Debug,
     P: AsRef<str> + std::fmt::Debug,
 {
-    for (_, group) in group_map {
+    for group in group_map.values() {
         if let Some(group_rep) = groups.get(&group.path) {
             let roles = group.resources();
             keycloak

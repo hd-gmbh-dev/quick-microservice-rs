@@ -15,7 +15,7 @@ async fn collections(client: &Client, database: &str) -> mongodb::error::Result<
             .list_collection_names(None)
             .await?
             .into_iter()
-            .map(|s| Arc::from(s))
+            .map(Arc::from)
             .collect::<Arc<[Arc<str>]>>(),
     ))
 }
@@ -55,7 +55,7 @@ impl DB {
         let mut client_options = ClientOptions::parse(cfg.root_address()).await?;
         client_options.app_name = Some(app_name.to_string());
         let admin = Client::with_options(client_options)?;
-        let collections = RwLock::new(collections(&admin, &cfg.database()).await?);
+        let collections = RwLock::new(collections(&admin, cfg.database()).await?);
         if collections.read().await.is_empty() {
             admin
                 .database(cfg.database())
