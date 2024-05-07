@@ -1,5 +1,5 @@
 use crate::model::MdTables;
-use crate::model::{AccessLevelMapping, RoleMapping, UserGroupNameMapping};
+use crate::model::{RoleMapping, UserGroupNameMapping};
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
@@ -12,7 +12,6 @@ fn sorted(v: HashSet<Rc<str>>) -> Rc<[Rc<str>]> {
 #[derive(Debug)]
 pub struct ParseResult {
     pub user_group_name_mappings: Vec<UserGroupNameMapping>,
-    pub access_level_mappings: Vec<AccessLevelMapping>,
     pub role_mappings: Vec<RoleMapping>,
     pub roles: Rc<[Rc<str>]>,
     pub user_groups: Rc<[Rc<str>]>,
@@ -22,11 +21,10 @@ pub struct ParseResult {
 
 impl ParseResult {
     fn new(
-        access_level_mappings: Vec<AccessLevelMapping>,
         user_group_name_mappings: Vec<UserGroupNameMapping>,
         role_mappings: Vec<RoleMapping>,
     ) -> Self {
-        let user_groups: HashSet<Rc<str>> = access_level_mappings
+        let user_groups: HashSet<Rc<str>> = user_group_name_mappings
             .iter()
             .map(|v| v.user_group.clone())
             .collect();
@@ -49,7 +47,6 @@ impl ParseResult {
         }));
         Self {
             user_group_name_mappings,
-            access_level_mappings,
             role_mappings,
             roles,
             user_groups: sorted(user_groups),
@@ -65,33 +62,22 @@ pub fn parse(tables: MdTables) -> anyhow::Result<ParseResult> {
         .rows
         .into_iter()
         .filter_map(|mut t| {
+            let access_level = t.pop();
             let display_name = t.pop();
             let path = t.pop();
             let user_group = t.pop();
             user_group
-                .zip(path.zip(display_name))
-                .map(|(user_group, (path, display_name))| UserGroupNameMapping {
-                    user_group: Rc::from(user_group),
-                    display_name: Rc::from(display_name),
-                    path: Rc::from(path),
-                })
+                .zip(path.zip(display_name.zip(access_level)))
+                .map(
+                    |(user_group, (path, (display_name, access_level)))| UserGroupNameMapping {
+                        user_group: Rc::from(user_group),
+                        display_name: Rc::from(display_name),
+                        path: Rc::from(path),
+                        access_level: Rc::from(access_level),
+                    },
+                )
         })
         .collect::<Vec<UserGroupNameMapping>>();
-
-    let access_level_mappings: Vec<AccessLevelMapping> = tables
-        .access_levels
-        .rows
-        .into_iter()
-        .filter_map(|mut t| {
-            let name = t.pop();
-            let user_group = t.pop();
-            name.zip(user_group)
-                .map(|(name, user_group)| AccessLevelMapping {
-                    name: Rc::from(name),
-                    user_group: Rc::from(user_group),
-                })
-        })
-        .collect::<Vec<AccessLevelMapping>>();
 
     let role_mappings = tables.roles;
     let role_mapping_headers: Rc<[Rc<str>]> = role_mappings
@@ -128,9 +114,5 @@ pub fn parse(tables: MdTables) -> anyhow::Result<ParseResult> {
         })
         .collect();
     role_mappings.sort_by_key(|v| v.user_group.clone());
-    Ok(ParseResult::new(
-        access_level_mappings,
-        user_group_name_mappings,
-        role_mappings,
-    ))
+    Ok(ParseResult::new(user_group_name_mappings, role_mappings))
 }

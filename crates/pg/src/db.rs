@@ -62,6 +62,10 @@ impl DB {
         })
     }
 
+    pub fn database_connection(&self) -> sea_orm::DatabaseConnection {
+        sea_orm::SqlxPostgresConnector::from_sqlx_postgres_pool(self.inner.pool.clone())
+    }
+
     pub fn pool(&self) -> &PgPool {
         &self.inner.pool
     }

@@ -27,7 +27,6 @@ impl Reader<std::io::BufReader<std::fs::File>> {
 
 #[derive(Debug, Clone, Copy)]
 enum CurrentTable {
-    AccessLevels,
     UserGroups,
     Roles,
     None,
@@ -42,9 +41,6 @@ fn set_table(rows: &mut Vec<Vec<String>>, tables: &mut OptMdTables, current_tabl
         rows: table_rows,
     };
     match current_table {
-        CurrentTable::AccessLevels => {
-            tables.access_levels = Some(table);
-        }
         CurrentTable::UserGroups => {
             tables.user_groups = Some(table);
         }
@@ -68,40 +64,37 @@ where
 
         let mut tables = OptMdTables::default();
 
-        for line in line_reader.into_iter().flatten() {
-  
-            if line.trim().starts_with('|') {
-                let mut row = Vec::new();
-                let mut s = line.split('|');
-                let mut is_first = true;
-                while let Some(col) = s.next() {
-                    if is_first {
-                        is_first = false;
-                    } else {
-                        row.push(col.trim().to_string());
+        for line in line_reader.into_iter() {
+            if let Ok(line) = line {
+                if line.trim().starts_with("|") {
+                    let mut row = Vec::new();
+                    let mut s = line.split("|");
+                    let mut is_first = true;
+                    while let Some(col) = s.next() {
+                        if is_first {
+                            is_first = false;
+                        } else {
+                            row.push(col.trim().to_string());
+                        }
+                    }
+                    row.pop();
+                    let is_divider = row
+                        .iter()
+                        .all(|s| s.contains("-") && s.replace("-", "") == "");
+                    if !is_divider {
+                        rows.push(row);
+                    }
+                } else if !rows.is_empty() {
+                    set_table(&mut rows, &mut tables, &current_table);
+                } else {
+                    if line.contains("`user_groups`") {
+                        current_table = CurrentTable::UserGroups;
+                    }
+                    if line.contains("`roles`") {
+                        current_table = CurrentTable::Roles;
                     }
                 }
-                row.pop();
-                let is_divider = row
-                    .iter()
-                    .all(|s| s.contains('-') && s.replace('-', "") == "");
-                if !is_divider {
-                    rows.push(row);
-                }
-            } else if !rows.is_empty() {
-                set_table(&mut rows, &mut tables, &current_table);
-            } else {
-                if line.contains("`access_levels`") {
-                    current_table = CurrentTable::AccessLevels;
-                }
-                if line.contains("`user_groups`") {
-                    current_table = CurrentTable::UserGroups;
-                }
-                if line.contains("`roles`") {
-                    current_table = CurrentTable::Roles;
-                }
             }
-            
         }
 
         if !rows.is_empty() {

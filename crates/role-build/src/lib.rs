@@ -12,38 +12,43 @@ pub fn generate(input_file_path: &Path) -> anyhow::Result<()> {
         .ok_or(anyhow::anyhow!("invalid input filename"))?;
     let out_dir = PathBuf::from(std::env::var("OUT_DIR")?);
     let out_file_path = out_dir.join(file_name);
+
     let tables = reader::Reader::from_file(input_file_path)?.read()?;
     let parse_result = crate::parser::parse(tables)?;
+
     writer::Writer::from_file(out_file_path)?.write(parse_result)?;
+
+    Ok(())
+}
+
+pub fn generate_to_writer<W: std::io::Write>(
+    input_file_path: &Path,
+    writer: W,
+) -> anyhow::Result<()> {
+    let tables = reader::Reader::from_file(input_file_path)?.read()?;
+    let parse_result = crate::parser::parse(tables)?;
+
+    writer::Writer::from_writer(writer).write(parse_result)?;
+
     Ok(())
 }
 
 #[cfg(test)]
 mod test {
     use crate::{
-        model::Table,
-        model::{AccessLevelMapping, RoleMapping},
+        model::{RoleMapping, Table},
         reader::Reader,
     };
     use std::rc::Rc;
 
-    const TEST_INPUT: &'static str = r#"# User Groups `user_groups`
+    const TEST_INPUT: &str = r#"# User Groups `user_groups`
 
-| Name                  | Path                  | Display Name         |
-| --------------------- | --------------------- | -------------------- |
-| Admin                 | /administration_owner | Admin                |
-| CustomerOwner         | /customer_owner       | Owner of Customer    |
-| InstitutionOwner      | /institution_owner    | Owner of Institution |
-| Reader                | /employee_reader      | Reader               |
-
-# Access Levels `access_levels`
-
-| Group                 | Access Levels            |
-| --------------------- | ------------------------ |
-| Admin                 | Admin                    |
-| CustomerOwner         | Customer                 |
-| InstitutionOwner      | Institution              |
-| Reader                | Customer, Institution    |
+| Name                  | Path                  | Display Name         | Access Levels            |
+| --------------------- | --------------------- | -------------------- | ------------------------ |
+| Admin                 | /administration_owner | Admin                | Admin                    |
+| CustomerOwner         | /customer_owner       | Owner of Customer    | Customer                 |
+| InstitutionOwner      | /institution_owner    | Owner of Institution | Institution              |
+| Reader                | /employee_reader      | Reader               | Customer, Institution    |
 
 # Role Mappings `roles`
 
@@ -70,41 +75,34 @@ mod test {
                 headers: vec![
                     "Name".to_string(),
                     "Path".to_string(),
-                    "Display Name".to_string()
+                    "Display Name".to_string(),
+                    "Access Levels".to_string(),
                 ],
                 rows: vec![
                     vec![
                         "Admin".to_string(),
                         "/administration_owner".to_string(),
-                        "Admin".to_string()
+                        "Admin".to_string(),
+                        "Admin".to_string(),
                     ],
                     vec![
                         "CustomerOwner".to_string(),
                         "/customer_owner".to_string(),
-                        "Owner of Customer".to_string()
+                        "Owner of Customer".to_string(),
+                        "Customer".to_string(),
                     ],
                     vec![
                         "InstitutionOwner".to_string(),
                         "/institution_owner".to_string(),
-                        "Owner of Institution".to_string()
+                        "Owner of Institution".to_string(),
+                        "Institution".to_string(),
                     ],
                     vec![
                         "Reader".to_string(),
                         "/employee_reader".to_string(),
-                        "Reader".to_string()
+                        "Reader".to_string(),
+                        "Customer, Institutions".to_string(),
                     ],
-                ],
-            }
-        );
-        assert_eq!(
-            result.access_levels,
-            Table {
-                headers: vec!["Group".to_string(), "Access Levels".to_string()],
-                rows: vec![
-                    vec!["Admin".to_string(), "Admin".to_string()],
-                    vec!["CustomerOwner".to_string(), "Customer".to_string()],
-                    vec!["InstitutionOwner".to_string(), "Institution".to_string()],
-                    vec!["Reader".to_string(), "Customer, Institution".to_string()],
                 ],
             }
         );
@@ -193,25 +191,6 @@ mod test {
     #[test]
     fn test_md_table_parser() -> anyhow::Result<()> {
         let result = crate::parser::parse(Reader::from_str(TEST_INPUT).read()?)?;
-        let expected = [
-            AccessLevelMapping {
-                user_group: Rc::from("Admin"),
-                name: Rc::from("Admin"),
-            },
-            AccessLevelMapping {
-                user_group: Rc::from("CustomerOwner"),
-                name: Rc::from("Customer"),
-            },
-            AccessLevelMapping {
-                user_group: Rc::from("InstitutionOwner"),
-                name: Rc::from("Institution"),
-            },
-            AccessLevelMapping {
-                user_group: Rc::from("Reader"),
-                name: Rc::from("Customer, Institution"),
-            },
-        ];
-        assert_eq!(&expected[..], &result.access_level_mappings[..]);
         assert_eq!(
             &RoleMapping {
                 user_group: Rc::from("Admin"),

@@ -48,21 +48,24 @@ impl<W: 'static> cucumber::Writer<W> for CustomWriter {
     ) {
         use cucumber::{event, Event};
         match ev {
-            Ok(Event { value, .. }) => if let Cucumber::Feature(_feature, event::Feature::Scenario(_scenario, ev)) = value {
-                if let event::Scenario::Step(_step, ev) = ev.event {
-                    match ev {
-                        event::Step::Skipped => {
-                            let mut s = self.stats.write().await;
-                            s.skipped += 1;
+            Ok(Event { value, .. }) => {
+                if let Cucumber::Feature(_feature, event::Feature::Scenario(_scenario, ev)) = value
+                {
+                    if let event::Scenario::Step(_step, ev) = ev.event {
+                        match ev {
+                            event::Step::Skipped => {
+                                let mut s = self.stats.write().await;
+                                s.skipped += 1;
+                            }
+                            event::Step::Failed(_, _, _, _) => {
+                                let mut s = self.stats.write().await;
+                                s.failed += 1;
+                            }
+                            _ => {}
                         }
-                        event::Step::Failed(_, _, _, _) => {
-                            let mut s = self.stats.write().await;
-                            s.failed += 1;
-                        }
-                        _ => {}
                     }
                 }
-            },
+            }
             Err(e) => println!("Error: {e}"),
         }
     }

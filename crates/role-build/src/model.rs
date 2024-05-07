@@ -11,13 +11,11 @@ pub struct Table {
 
 #[derive(Default)]
 pub struct OptMdTables {
-    pub access_levels: Option<Table>,
     pub user_groups: Option<Table>,
     pub roles: Option<Table>,
 }
 
 pub struct MdTables {
-    pub access_levels: Table,
     pub user_groups: Table,
     pub roles: Table,
 }
@@ -26,9 +24,6 @@ impl TryFrom<OptMdTables> for MdTables {
     type Error = anyhow::Error;
     fn try_from(value: OptMdTables) -> Result<Self, Self::Error> {
         Ok(Self {
-            access_levels: value
-                .access_levels
-                .ok_or(anyhow::anyhow!("unable to find `access_levels` table"))?,
             user_groups: value
                 .user_groups
                 .ok_or(anyhow::anyhow!("unable to find `user_groups` table"))?,
@@ -40,16 +35,11 @@ impl TryFrom<OptMdTables> for MdTables {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub struct AccessLevelMapping {
-    pub name: Rc<str>,
-    pub user_group: Rc<str>,
-}
-
-#[derive(Debug, PartialEq, Eq)]
 pub struct UserGroupNameMapping {
     pub user_group: Rc<str>,
     pub path: Rc<str>,
     pub display_name: Rc<str>,
+    pub access_level: Rc<str>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
