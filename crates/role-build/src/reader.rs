@@ -70,13 +70,13 @@ where
                 let mut row = Vec::new();
                 let mut s = line.split('|');
                 let mut is_first = true;
-                while let Some(col) = s.next() {
+                s.for_each(|col| {
                     if is_first {
                         is_first = false;
                     } else {
                         row.push(col.trim().to_string());
                     }
-                }
+                });
                 row.pop();
                 let is_divider = row
                     .iter()
