@@ -9,15 +9,13 @@ use tokio::sync::RwLock;
 use crate::config::Config as MongoDbConfig;
 
 async fn collections(client: &Client, database: &str) -> mongodb::error::Result<Arc<[Arc<str>]>> {
-    Ok(Arc::from(
-        client
+    Ok(client
             .database(database)
             .list_collection_names(None)
             .await?
             .into_iter()
             .map(Arc::from)
-            .collect::<Arc<[Arc<str>]>>(),
-    ))
+            .collect::<Arc<[Arc<str>]>>())
 }
 
 struct Inner {
