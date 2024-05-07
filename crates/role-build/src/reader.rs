@@ -68,7 +68,7 @@ where
 
             if line.trim().starts_with('|') {
                 let mut row = Vec::new();
-                let mut s = line.split('|');
+                let s = line.split('|');
                 let mut is_first = true;
                 s.for_each(|col| {
                     if is_first {
