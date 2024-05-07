@@ -80,7 +80,7 @@ where
                 row.pop();
                 let is_divider = row
                     .iter()
-                    .all(|s| s.contains('-') && s.replace("-", "") == "");
+                    .all(|s| s.contains('-') && s.replace('-', "") == "");
                 if !is_divider {
                     rows.push(row);
                 }
