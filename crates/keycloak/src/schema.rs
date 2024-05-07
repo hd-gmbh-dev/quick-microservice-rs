@@ -6,12 +6,11 @@ pub enum RequiredUserAction {
     UpdatePassword,
 }
 
-impl ToString for RequiredUserAction {
-    fn to_string(&self) -> String {
-        match self {
+impl std::fmt::Display for RequiredUserAction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f,"{}", match self {
             RequiredUserAction::UpdatePassword => "UPDATE_PASSWORD",
-        }
-        .to_string()
+        })
     }
 }
 
