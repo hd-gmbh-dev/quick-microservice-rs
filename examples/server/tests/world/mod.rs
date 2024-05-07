@@ -123,7 +123,7 @@ impl World {
         self.last_response_data_query_root().get(idx)
     }
 
-    pub fn last_response_data_query_root<'a>(&'a self) -> DataSelector<'a> {
+    pub fn last_response_data_query_root(&self) -> DataSelector<'_> {
         self.last_response_data().get(&self.last_query_name)
     }
 

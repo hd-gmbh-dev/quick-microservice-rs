@@ -48,10 +48,11 @@ impl<W: 'static> cucumber::Writer<W> for CustomWriter {
     ) {
         use cucumber::{event, Event};
         match ev {
-            Ok(Event { value, .. }) => match value {
-                Cucumber::Feature(_feature, ev) => match ev {
-                    event::Feature::Scenario(_scenario, ev) => match ev.event {
-                        event::Scenario::Step(_step, ev) => match ev {
+            Ok(Event { value, .. }) => {
+                if let Cucumber::Feature(_feature, event::Feature::Scenario(_scenario, ev)) = value
+                {
+                    if let event::Scenario::Step(_step, ev) = ev.event {
+                        match ev {
                             event::Step::Skipped => {
                                 let mut s = self.stats.write().await;
                                 s.skipped += 1;
@@ -61,13 +62,10 @@ impl<W: 'static> cucumber::Writer<W> for CustomWriter {
                                 s.failed += 1;
                             }
                             _ => {}
-                        },
-                        _ => {}
-                    },
-                    _ => {}
-                },
-                _ => {}
-            },
+                        }
+                    }
+                }
+            }
             Err(e) => println!("Error: {e}"),
         }
     }
@@ -113,7 +111,7 @@ async fn main() -> anyhow::Result<()> {
     let stats: Arc<RwLock<Stats>> = Default::default();
     dotenv::from_filename(std::env::var("TEST_ENV").as_deref().unwrap_or(".env.test"))
         .expect("unable to read dotfile");
-    let _ = env_logger::init();
+    env_logger::init();
     let ctx = init_context().await?;
     let path = Path::new("../../target/junit");
     if !path.exists() {

@@ -143,11 +143,11 @@ where
                     &format!(
                         "qm::role::Group::new(\"{}\".to_string(), {cnst_name}_PATH.to_string(), vec![{}], vec![",
                         user_group_display_name,
-                        access_level.as_ref().split(",").map(|s| format!("AccessLevel::{}", inflector::cases::classcase::to_class_case(s.trim()))).collect::<Vec<String>>().join(","),
+                        access_level.as_ref().split(',').map(|s| format!("AccessLevel::{}", inflector::cases::classcase::to_class_case(s.trim()))).collect::<Vec<String>>().join(","),
                     ),
                 )?;
                 for role in role_mapping.roles.iter() {
-                    if let Some((resource, permission)) = role.as_ref().split_once(":") {
+                    if let Some((resource, permission)) = role.as_ref().split_once(':') {
                         let resource = inflector::cases::classcase::to_class_case(resource);
                         let permission = inflector::cases::classcase::to_class_case(permission);
                         self.write_line(2, &format!("qm::role::Role::new(Resource::{resource}, Some(Permission::{permission})),"))?;

@@ -288,7 +288,7 @@ async fn check_client(
         // redirect_uris must contain a pattern matching the configured value
         if let Some(urls) = &client.redirect_uris {
             if !urls.iter().all(|url| {
-                url == ctx.cfg().public_url() || url.replace("*", "") == ctx.cfg().public_url()
+                url == ctx.cfg().public_url() || url.replace('*', "") == ctx.cfg().public_url()
             }) {
                 log::info!(
                     "[{}]: Expected the 'redirect_uris' values '{:?}' to contain a pattern that matches '{}'",
@@ -609,8 +609,8 @@ fn check_realm_smtp_settings(
 ///
 /// Will return `true` if the value contains the string "true".
 /// Returns `false` otherwise.
-fn get_bool_from_string_value(value: &String) -> bool {
-    matches!(value.as_str(), "true")
+fn get_bool_from_string_value(value: &str) -> bool {
+    matches!(value, "true")
 }
 
 /// Gets a u16 from a [Value].

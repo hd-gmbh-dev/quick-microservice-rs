@@ -30,18 +30,17 @@ impl ParseResult {
             .collect();
         let roles: HashSet<Rc<str>> = role_mappings
             .iter()
-            .map(|v| v.roles.iter().map(|r| r.clone()))
-            .flatten()
+            .flat_map(|v| v.roles.iter().cloned())
             .collect();
         let roles = sorted(roles);
         let resources = sorted(roles.iter().fold(HashSet::default(), |mut state, s| {
-            if let Some(resource) = s.split(":").next() {
+            if let Some(resource) = s.split(':').next() {
                 state.insert(Rc::from(resource.to_string()));
             }
             state
         }));
         let permissions = sorted(roles.iter().fold(HashSet::default(), |mut state, s| {
-            if let Some(permission) = s.split(":").skip(1).next() {
+            if let Some(permission) = s.split(':').nth(1) {
                 state.insert(Rc::from(permission.to_string()));
             }
             state
@@ -85,7 +84,7 @@ pub fn parse(tables: MdTables) -> anyhow::Result<ParseResult> {
         .headers
         .into_iter()
         .skip(1)
-        .map(|h| Rc::from(h))
+        .map(Rc::from)
         .collect();
     let role_mappings_map: HashMap<Rc<str>, Vec<Rc<str>>> =
         role_mappings
@@ -99,7 +98,7 @@ pub fn parse(tables: MdTables) -> anyhow::Result<ParseResult> {
                             if col.trim() == "x" {
                                 state
                                     .entry(user_group.clone())
-                                    .or_insert_with(|| vec![])
+                                    .or_default()
                                     .push(role.clone())
                             }
                         }
