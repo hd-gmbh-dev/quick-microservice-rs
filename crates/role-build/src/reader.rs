@@ -64,23 +64,22 @@ where
 
         let mut tables = OptMdTables::default();
 
-        for line in line_reader.into_iter().flatten() {
-
+        for line in line_reader.into_iter().map_while(Result::ok) {
             if line.trim().starts_with('|') {
                 let mut row = Vec::new();
-                let mut s = line.split('|');
+                let s = line.split('|');
                 let mut is_first = true;
-                while let Some(col) = s.next() {
+                s.for_each(|col| {
                     if is_first {
                         is_first = false;
                     } else {
                         row.push(col.trim().to_string());
                     }
-                }
+                });
                 row.pop();
                 let is_divider = row
                     .iter()
-                    .all(|s| s.contains('-') && s.replace("-", "") == "");
+                    .all(|s| s.contains('-') && s.replace('-', "") == "");
                 if !is_divider {
                     rows.push(row);
                 }
