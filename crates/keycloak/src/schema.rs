@@ -8,9 +8,13 @@ pub enum RequiredUserAction {
 
 impl std::fmt::Display for RequiredUserAction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f,"{}", match self {
-            RequiredUserAction::UpdatePassword => "UPDATE_PASSWORD",
-        })
+        write!(
+            f,
+            "{}",
+            match self {
+                RequiredUserAction::UpdatePassword => "UPDATE_PASSWORD",
+            }
+        )
     }
 }
 

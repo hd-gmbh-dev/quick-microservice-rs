@@ -65,7 +65,6 @@ where
         let mut tables = OptMdTables::default();
 
         for line in line_reader.into_iter().flatten() {
-
             if line.trim().starts_with('|') {
                 let mut row = Vec::new();
                 let s = line.split('|');
