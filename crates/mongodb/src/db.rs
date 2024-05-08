@@ -15,7 +15,7 @@ async fn collections(client: &Client, database: &str) -> mongodb::error::Result<
         .await?
         .into_iter()
         .map(Arc::from)
-        .collect::<Arc<[Arc<str>]>>())
+        .collect())
 }
 
 struct Inner {
