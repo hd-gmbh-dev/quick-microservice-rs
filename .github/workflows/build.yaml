@@ -1,0 +1,30 @@
+name: Rust
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+  SQLX_OFFLINE: true
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        toolchain:
+          - stable
+
+    steps:
+    - uses: actions/checkout@v4
+    - run: rustup update ${{ matrix.toolchain }} && rustup default ${{ matrix.toolchain }}
+    - name: Check
+      run: cargo clippy --no-deps
+    - name: Build
+      run: cargo build --verbose --release
+    - name: Test
+      run: cargo test --verbose
