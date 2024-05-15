@@ -43,12 +43,12 @@ mod test {
 
     const TEST_INPUT: &str = r#"# User Groups `user_groups`
 
-| Name                  | Path                  | Display Name         | Access Levels            |
-| --------------------- | --------------------- | -------------------- | ------------------------ |
-| Admin                 | /administration_owner | Admin                | Admin                    |
-| CustomerOwner         | /customer_owner       | Owner of Customer    | Customer                 |
-| InstitutionOwner      | /institution_owner    | Owner of Institution | Institution              |
-| Reader                | /employee_reader      | Reader               | Customer, Institution    |
+| Name                  | Path                  | Display Name         | Access Levels            | Allowed Types |
+| --------------------- | --------------------- | -------------------- | ------------------------ | ------------- |
+| Admin                 | /administration_owner | Admin                | Admin                    | none          |
+| CustomerOwner         | /customer_owner       | Owner of Customer    | Customer                 | none          |
+| InstitutionOwner      | /institution_owner    | Owner of Institution | Institution              | eco,state     |
+| Reader                | /employee_reader      | Reader               | Customer, Institution    | eco           |
 
 # Role Mappings `roles`
 
@@ -77,6 +77,7 @@ mod test {
                     "Path".to_string(),
                     "Display Name".to_string(),
                     "Access Levels".to_string(),
+                    "Allowed Types".to_string(),
                 ],
                 rows: vec![
                     vec![
@@ -84,24 +85,28 @@ mod test {
                         "/administration_owner".to_string(),
                         "Admin".to_string(),
                         "Admin".to_string(),
+                        "none".to_string(),
                     ],
                     vec![
                         "CustomerOwner".to_string(),
                         "/customer_owner".to_string(),
                         "Owner of Customer".to_string(),
                         "Customer".to_string(),
+                        "none".to_string(),
                     ],
                     vec![
                         "InstitutionOwner".to_string(),
                         "/institution_owner".to_string(),
                         "Owner of Institution".to_string(),
                         "Institution".to_string(),
+                        "eco,state".to_string(),
                     ],
                     vec![
                         "Reader".to_string(),
                         "/employee_reader".to_string(),
                         "Reader".to_string(),
-                        "Customer, Institutions".to_string(),
+                        "Customer, Institution".to_string(),
+                        "eco".to_string(),
                     ],
                 ],
             }
