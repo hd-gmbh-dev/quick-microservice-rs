@@ -342,6 +342,7 @@ where
     pub path: String,
     resource_roles: Vec<Role<R, P>>,
     allowed_access_levels: Vec<AccessLevel>,
+    allowed_types: Vec<String>,
 }
 
 impl<R, P> Group<R, P>
@@ -353,6 +354,7 @@ where
         name: String,
         path: String,
         allowed_access_levels: Vec<AccessLevel>,
+        allowed_types: Vec<String>,
         resource_roles: Vec<Role<R, P>>,
     ) -> Self {
         Self {
@@ -360,11 +362,16 @@ where
             path,
             resource_roles,
             allowed_access_levels,
+            allowed_types,
         }
     }
 
     pub fn allowed_access_levels(&self) -> &[AccessLevel] {
         &self.allowed_access_levels
+    }
+
+    pub fn allowed_types(&self) -> &[String] {
+        &self.allowed_types
     }
 }
 
