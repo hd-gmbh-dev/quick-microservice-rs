@@ -21,7 +21,7 @@ use crate::ids::OrganizationUnitId;
 
 macro_rules! impl_id_scalar {
     ($t:ty) => {
-        #[Scalar]
+        #[Scalar(use_type_description)]
         impl ScalarType for $t {
             fn parse(value: Value) -> InputValueResult<Self> {
                 if let Value::String(value) = &value {

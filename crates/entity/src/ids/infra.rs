@@ -207,6 +207,26 @@ macro_rules! impl_customer_unit_id_from_ty_tuple {
     };
 }
 
+/// Customer Id
+///
+/// - Prefix: V
+/// - Min Length: 3
+/// - Max Length: 18
+/// - Real size: 8
+///
+/// # Examples
+///
+/// ```rust
+/// use qm_entity::ids::CustomerId;
+///
+/// let id1 = CustomerId::parse("V01").expect("Customer Id");
+/// let id2 = CustomerId::parse("V120").expect("Customer Id");
+/// let id3 = CustomerId::parse("V2500").expect("Customer Id");
+///
+/// assert_eq!(1, id1.unzip());
+/// assert_eq!(0x20, id2.unzip());
+/// assert_eq!(0x500, id3.unzip());
+/// ```
 #[derive(
     Debug,
     Default,
@@ -219,6 +239,7 @@ macro_rules! impl_customer_unit_id_from_ty_tuple {
     Hash,
     serde::Serialize,
     serde::Deserialize,
+    async_graphql::Description,
 )]
 pub struct CustomerId {
     cid: i64,
@@ -271,6 +292,27 @@ impl_customer_id_from_ty!(i16);
 impl_customer_id_from_ty!(u8);
 impl_customer_id_from_ty!(i8);
 
+/// Customer Resource Id
+///
+/// - Prefix: U
+/// - Min Length: 27
+/// - Max Length: 42
+/// - Real size: 20
+///
+/// # Examples
+///
+/// ```rust
+/// use std::str::FromStr;
+/// use qm_entity::ids::{CustomerResourceId, ID};
+///
+/// let id1 = CustomerResourceId::parse("U016603f7b32b1753f84a719e01").expect("Customer Resource Id");
+/// let id2 = CustomerResourceId::parse("U1206603f7b32b1753f84a719e02").expect("Customer Resource Id");
+/// let id3 = CustomerResourceId::parse("U25006603f7b32b1753f84a719e03").expect("Customer Resource Id");
+///
+/// assert_eq!((1, ID::from_str("6603f7b32b1753f84a719e01").expect("Object ID")), id1.unzip());
+/// assert_eq!((0x20, ID::from_str("6603f7b32b1753f84a719e02").expect("Object ID")), id2.unzip());
+/// assert_eq!((0x500, ID::from_str("6603f7b32b1753f84a719e03").expect("Object ID")), id3.unzip());
+/// ```
 #[derive(
     Debug,
     Default,
@@ -283,6 +325,7 @@ impl_customer_id_from_ty!(i8);
     Hash,
     serde::Serialize,
     serde::Deserialize,
+    async_graphql::Description,
 )]
 pub struct CustomerResourceId {
     cid: i64,
@@ -327,6 +370,27 @@ impl FromStr for CustomerResourceId {
 impl_id!(CustomerResourceId, CUSTOMER_RESOURCE_ID_PREFIX);
 impl_display_for_resource_id!(CustomerResourceId);
 
+/// Organization Id
+///
+/// - Prefix: T
+/// - Min Length: 5
+/// - Max Length: 35
+/// - Real size: 16
+///
+/// # Examples
+///
+/// ```rust
+/// use std::str::FromStr;
+/// use qm_entity::ids::OrganizationId;
+///
+/// let id1 = OrganizationId::parse("T0102").expect("Organization Id");
+/// let id2 = OrganizationId::parse("T120121").expect("Organization Id");
+/// let id3 = OrganizationId::parse("T25002501").expect("Organization Id");
+///
+/// assert_eq!((1, 2), id1.unzip());
+/// assert_eq!((0x20, 0x21), id2.unzip());
+/// assert_eq!((0x500, 0x501), id3.unzip());
+/// ```
 #[derive(
     Debug,
     Default,
@@ -339,6 +403,7 @@ impl_display_for_resource_id!(CustomerResourceId);
     Hash,
     serde::Serialize,
     serde::Deserialize,
+    async_graphql::Description,
 )]
 pub struct OrganizationId {
     cid: i64,
@@ -406,6 +471,27 @@ impl_organization_id_from_ty_tuple!(i16);
 impl_organization_id_from_ty_tuple!(u8);
 impl_organization_id_from_ty_tuple!(i8);
 
+/// Organization Resource Id
+///
+/// - Prefix: S
+/// - Min Length: 29
+/// - Max Length: 59
+/// - Real size: 28
+///
+/// # Examples
+///
+/// ```rust
+/// use std::str::FromStr;
+/// use qm_entity::ids::{OrganizationResourceId, ID};
+///
+/// let id1 = OrganizationResourceId::parse("S01026603f7b32b1753f84a719e01").expect("Organization Resource Id");
+/// let id2 = OrganizationResourceId::parse("S1201216603f7b32b1753f84a719e02").expect("Organization Resource Id");
+/// let id3 = OrganizationResourceId::parse("S250025016603f7b32b1753f84a719e03").expect("Organization Resource Id");
+///
+/// assert_eq!((1, 2, ID::from_str("6603f7b32b1753f84a719e01").expect("Object ID")), id1.unzip());
+/// assert_eq!((0x20, 0x21, ID::from_str("6603f7b32b1753f84a719e02").expect("Object ID")), id2.unzip());
+/// assert_eq!((0x500, 0x501, ID::from_str("6603f7b32b1753f84a719e03").expect("Object ID")), id3.unzip());
+/// ```
 #[derive(
     Debug,
     Default,
@@ -418,6 +504,7 @@ impl_organization_id_from_ty_tuple!(i8);
     Hash,
     serde::Serialize,
     serde::Deserialize,
+    async_graphql::Description,
 )]
 pub struct OrganizationResourceId {
     cid: i64,
@@ -467,6 +554,27 @@ impl FromStr for OrganizationResourceId {
 impl_id!(OrganizationResourceId, ORGANIZATION_RESOURCE_ID_PREFIX);
 impl_display_for_resource_id!(OrganizationResourceId);
 
+/// Institution Id
+///
+/// - Prefix: R
+/// - Min Length: 7
+/// - Max Length: 52
+/// - Real size: 24
+///
+/// # Examples
+///
+/// ```rust
+/// use std::str::FromStr;
+/// use qm_entity::ids::InstitutionId;
+///
+/// let id1 = InstitutionId::parse("R010203").expect("Institution Id");
+/// let id2 = InstitutionId::parse("R120121122").expect("Institution Id");
+/// let id3 = InstitutionId::parse("R250025012502").expect("Institution Id");
+///
+/// assert_eq!((1, 2, 3), id1.unzip());
+/// assert_eq!((0x20, 0x21, 0x22), id2.unzip());
+/// assert_eq!((0x500, 0x501, 0x502), id3.unzip());
+/// ```
 #[derive(
     Debug,
     Default,
@@ -479,6 +587,7 @@ impl_display_for_resource_id!(OrganizationResourceId);
     Hash,
     serde::Serialize,
     serde::Deserialize,
+    async_graphql::Description,
 )]
 pub struct InstitutionId {
     pub cid: i64,
@@ -551,6 +660,27 @@ impl_institution_id_from_ty_tuple!(i16);
 impl_institution_id_from_ty_tuple!(u8);
 impl_institution_id_from_ty_tuple!(i8);
 
+/// Institution Resource Id
+///
+/// - Prefix: Q
+/// - Min Length: 31
+/// - Max Length: 76
+/// - Real size: 36
+///
+/// # Examples
+///
+/// ```rust
+/// use std::str::FromStr;
+/// use qm_entity::ids::{InstitutionResourceId, ID};
+///
+/// let id1 = InstitutionResourceId::parse("Q0102036603f7b32b1753f84a719e01").expect("Institution Resource Id");
+/// let id2 = InstitutionResourceId::parse("Q1201211226603f7b32b1753f84a719e02").expect("Institution Resource Id");
+/// let id3 = InstitutionResourceId::parse("Q2500250125026603f7b32b1753f84a719e03").expect("Institution Resource Id");
+///
+/// assert_eq!((1, 2, 3, ID::from_str("6603f7b32b1753f84a719e01").expect("Object ID")), id1.unzip());
+/// assert_eq!((0x20, 0x21, 0x22, ID::from_str("6603f7b32b1753f84a719e02").expect("Object ID")), id2.unzip());
+/// assert_eq!((0x500, 0x501, 0x502, ID::from_str("6603f7b32b1753f84a719e03").expect("Object ID")), id3.unzip());
+/// ```
 #[derive(
     Debug,
     Default,
@@ -563,6 +693,7 @@ impl_institution_id_from_ty_tuple!(i8);
     Hash,
     serde::Serialize,
     serde::Deserialize,
+    async_graphql::Description,
 )]
 pub struct InstitutionResourceId {
     cid: i64,
@@ -614,6 +745,27 @@ impl FromStr for InstitutionResourceId {
 impl_id!(InstitutionResourceId, INSTITUTION_RESOURCE_ID_PREFIX);
 impl_display_for_resource_id!(InstitutionResourceId);
 
+/// Institution Unit Id
+///
+/// - Prefix: P
+/// - Min Length: 7
+/// - Max Length: 52
+/// - Real size: 24
+///
+/// # Examples
+///
+/// ```rust
+/// use std::str::FromStr;
+/// use qm_entity::ids::InstitutionUnitId;
+///
+/// let id1 = InstitutionUnitId::parse("P010203").expect("Institution Unit Id");
+/// let id2 = InstitutionUnitId::parse("P120121122").expect("Institution Unit Id");
+/// let id3 = InstitutionUnitId::parse("P250025012502").expect("Institution Unit Id");
+///
+/// assert_eq!((1, 2, 3), id1.unzip());
+/// assert_eq!((0x20, 0x21, 0x22), id2.unzip());
+/// assert_eq!((0x500, 0x501, 0x502), id3.unzip());
+/// ```
 #[derive(
     Debug,
     Default,
@@ -626,6 +778,7 @@ impl_display_for_resource_id!(InstitutionResourceId);
     Hash,
     serde::Serialize,
     serde::Deserialize,
+    async_graphql::Description,
 )]
 pub struct InstitutionUnitId {
     cid: i64,
@@ -693,6 +846,27 @@ impl_institution_unit_id_from_ty_tuple!(i16);
 impl_institution_unit_id_from_ty_tuple!(u8);
 impl_institution_unit_id_from_ty_tuple!(i8);
 
+/// Institution Unit Resource Id
+///
+/// - Prefix: O
+/// - Min Length: 31
+/// - Max Length: 76
+/// - Real size: 36
+///
+/// # Examples
+///
+/// ```rust
+/// use std::str::FromStr;
+/// use qm_entity::ids::{InstitutionUnitResourceId, ID};
+///
+/// let id1 = InstitutionUnitResourceId::parse("O0102036603f7b32b1753f84a719e01").expect("Institution Unit Resource Id");
+/// let id2 = InstitutionUnitResourceId::parse("O1201211226603f7b32b1753f84a719e02").expect("Institution Unit Resource Id");
+/// let id3 = InstitutionUnitResourceId::parse("O2500250125026603f7b32b1753f84a719e03").expect("Institution Unit Resource Id");
+///
+/// assert_eq!((1, 2, 3, ID::from_str("6603f7b32b1753f84a719e01").expect("Object ID")), id1.unzip());
+/// assert_eq!((0x20, 0x21, 0x22, ID::from_str("6603f7b32b1753f84a719e02").expect("Object ID")), id2.unzip());
+/// assert_eq!((0x500, 0x501, 0x502, ID::from_str("6603f7b32b1753f84a719e03").expect("Object ID")), id3.unzip());
+/// ```
 #[derive(
     Debug,
     Default,
@@ -705,6 +879,7 @@ impl_institution_unit_id_from_ty_tuple!(i8);
     Hash,
     serde::Serialize,
     serde::Deserialize,
+    async_graphql::Description,
 )]
 pub struct InstitutionUnitResourceId {
     cid: i64,
@@ -759,6 +934,27 @@ impl_id!(
 );
 impl_display_for_resource_id!(InstitutionUnitResourceId);
 
+/// Customer Unit Id
+///
+/// - Prefix: N
+/// - Min Length: 5
+/// - Max Length: 35
+/// - Real size: 16
+///
+/// # Examples
+///
+/// ```rust
+/// use std::str::FromStr;
+/// use qm_entity::ids::CustomerUnitId;
+///
+/// let id1 = CustomerUnitId::parse("N0102").expect("Customer Unit Id");
+/// let id2 = CustomerUnitId::parse("N120121").expect("Customer Unit Id");
+/// let id3 = CustomerUnitId::parse("N25002501").expect("Customer Unit Id");
+///
+/// assert_eq!((1, 2), id1.unzip());
+/// assert_eq!((0x20, 0x21), id2.unzip());
+/// assert_eq!((0x500, 0x501), id3.unzip());
+/// ```
 #[derive(
     Debug,
     Default,
@@ -771,6 +967,7 @@ impl_display_for_resource_id!(InstitutionUnitResourceId);
     Hash,
     serde::Serialize,
     serde::Deserialize,
+    async_graphql::Description,
 )]
 pub struct CustomerUnitId {
     cid: i64,
@@ -837,6 +1034,27 @@ impl_customer_unit_id_from_ty_tuple!(i16);
 impl_customer_unit_id_from_ty_tuple!(u8);
 impl_customer_unit_id_from_ty_tuple!(i8);
 
+/// Customer Unit Resource Id
+///
+/// - Prefix: M
+/// - Min Length: 29
+/// - Max Length: 59
+/// - Real size: 28
+///
+/// # Examples
+///
+/// ```rust
+/// use std::str::FromStr;
+/// use qm_entity::ids::{CustomerUnitResourceId, ID};
+///
+/// let id1 = CustomerUnitResourceId::parse("M01026603f7b32b1753f84a719e01").expect("Customer Unit Resource Id");
+/// let id2 = CustomerUnitResourceId::parse("M1201216603f7b32b1753f84a719e02").expect("Customer Unit Resource Id");
+/// let id3 = CustomerUnitResourceId::parse("M250025016603f7b32b1753f84a719e03").expect("Customer Unit Resource Id");
+///
+/// assert_eq!((1, 2, ID::from_str("6603f7b32b1753f84a719e01").expect("Object ID")), id1.unzip());
+/// assert_eq!((0x20, 0x21, ID::from_str("6603f7b32b1753f84a719e02").expect("Object ID")), id2.unzip());
+/// assert_eq!((0x500, 0x501, ID::from_str("6603f7b32b1753f84a719e03").expect("Object ID")), id3.unzip());
+/// ```
 #[derive(
     Debug,
     Default,
@@ -849,6 +1067,7 @@ impl_customer_unit_id_from_ty_tuple!(i8);
     Hash,
     serde::Serialize,
     serde::Deserialize,
+    async_graphql::Description,
 )]
 pub struct CustomerUnitResourceId {
     cid: i64,
@@ -899,7 +1118,17 @@ impl_id!(CustomerUnitResourceId, CUSTOMER_UNIT_RESOURCE_ID_PREFIX);
 impl_display_for_resource_id!(CustomerUnitResourceId);
 
 #[derive(
-    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize,
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize,
+    async_graphql::Description,
 )]
 pub enum OrganizationUnitId {
     Customer(CustomerUnitId),
