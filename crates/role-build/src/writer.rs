@@ -146,7 +146,7 @@ where
                         "qm::role::Group::new(\"{}\".to_string(), {cnst_name}_PATH.to_string(), vec![{}], vec![{}], vec![",
                         user_group_display_name,
                         access_level.as_ref().split(',').map(|s| format!("AccessLevel::{}", inflector::cases::classcase::to_class_case(s.trim()))).collect::<Vec<String>>().join(","),
-                        allowed_types.as_ref().split(',').map(|s| format!("{s:?}.into()")).collect::<Vec<String>>().join(","),
+                        allowed_types.as_ref().split(',').filter(|&s| s != "none").map(|s| format!("{s:?}.into()")).collect::<Vec<String>>().join(","),
                     ),
                 )?;
                 for role in role_mapping.roles.iter() {
