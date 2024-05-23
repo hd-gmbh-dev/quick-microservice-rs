@@ -13,6 +13,10 @@ fn parse_access_level(s: &str) -> Arc<[AccessLevel]> {
     s.split(',').filter_map(|s| s.trim().parse().ok()).collect()
 }
 
+fn parse_type(s: &str) -> Arc<[Arc<str>]> {
+    s.split(',').map(|s| s.trim().into()).collect()
+}
+
 pub struct GroupAttributes {
     group_attribute_map: GroupDetailsMap,
 }
@@ -32,6 +36,7 @@ impl GroupAttributes {
                             .allowed_access_levels
                             .as_ref()
                             .map(|s| parse_access_level(s)),
+                        allowed_types: row.allowed_types.as_ref().map(|s| parse_type(s)),
                         built_in: row.built_in.map(|s| s == "1").unwrap_or(false),
                         display_name: Some(Arc::from(row.display_name.unwrap())),
                         context: row.context.and_then(|r| r.parse().ok()),
@@ -65,6 +70,7 @@ impl GroupAttributes {
                                 built_in: false,
                                 display_name: None,
                                 allowed_access_levels: None,
+                                allowed_types: None,
                                 context: None,
                             }
                         };
@@ -76,6 +82,9 @@ impl GroupAttributes {
                             "allowed_access_levels" => {
                                 group_detail.allowed_access_levels =
                                     Some(parse_access_level(value));
+                            }
+                            "allowed_types" => {
+                                group_detail.allowed_types = Some(parse_type(value));
                             }
                             "display_name" => {
                                 group_detail.display_name = Some(Arc::from(value.to_string()));

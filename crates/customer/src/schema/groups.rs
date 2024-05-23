@@ -187,6 +187,7 @@ where
         name: String,
         context: InfraContext,
         allowed_access_levels: HashSet<AccessLevel>,
+        allowed_types: HashSet<String>,
         roles: HashSet<qm_role::Role<Resource, Permission>>,
     ) -> async_graphql::FieldResult<Arc<UserGroup>> {
         let path = format!(
@@ -210,6 +211,7 @@ where
                 name,
                 path.clone(),
                 allowed_access_levels.clone().into_iter().collect(),
+                allowed_types.clone().into_iter().collect(),
                 roles.into_iter().collect(),
             )],
             false,
@@ -229,6 +231,7 @@ where
         });
         let group_detail = Arc::new(GroupDetail {
             allowed_access_levels: Some(allowed_access_levels.into_iter().collect()),
+            allowed_types: Some(allowed_types.into_iter().map(|s| s.into()).collect()),
             built_in: false,
             context: Some(context),
             display_name: group_query.display_name.map(Arc::from),
@@ -322,6 +325,7 @@ where
         context: InfraContext,
         name: String,
         allowed_access_levels: HashSet<AccessLevel>,
+        allowed_types: HashSet<String>,
         roles: HashSet<qm_role::Role<Resource, Permission>>,
     ) -> async_graphql::FieldResult<Arc<UserGroup>> {
         let auth_ctx = AuthCtx::<'_, Auth, Store, Resource, Permission>::new_with_role(
@@ -354,7 +358,7 @@ where
         }
         let roles = roles.into_iter().collect();
         Ctx(&auth_ctx)
-            .create(name, context, allowed_access_levels, roles)
+            .create(name, context, allowed_access_levels, allowed_types, roles)
             .await
     }
 

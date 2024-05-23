@@ -145,14 +145,16 @@ SELECT
     g.id as group_id,
     a.value as context,
     b.value as allowed_access_levels,
-    c.value as display_name,
-    d.value as built_in
+    c.value as allowed_types,
+    d.value as display_name,
+    e.value as built_in
 FROM realm re
     JOIN keycloak_group g ON g.realm_id = re.id
     LEFT JOIN group_attribute a ON a.group_id = g.id AND a.name = 'context'
     LEFT JOIN group_attribute b ON b.group_id = g.id AND b.name = 'allowed_access_levels'
-    LEFT JOIN group_attribute c ON c.group_id = g.id AND c.name = 'display_name'
-    LEFT JOIN group_attribute d ON d.group_id = g.id AND d.name = 'built_in'
+    LEFT JOIN group_attribute c ON c.group_id = g.id AND c.name = 'allowed_types'
+    LEFT JOIN group_attribute d ON d.group_id = g.id AND d.name = 'display_name'
+    LEFT JOIN group_attribute e ON e.group_id = g.id AND e.name = 'built_in'
 WHERE re.name = $1;
     "#,
         realm

@@ -1,5 +1,6 @@
-use crate::model::{MdTables, OptMdTables, Table};
 use std::path::Path;
+
+use crate::model::{MdTables, OptMdTables, Table};
 
 pub struct Reader<R> {
     r: R,
