@@ -1,8 +1,9 @@
-name: Rust
+name: Build and test
 
 on:
   push:
-    branches: [ "main" ]
+    branches:
+      - main
   pull_request:
 
 env:
@@ -10,21 +11,14 @@ env:
   SQLX_OFFLINE: true
 
 jobs:
-  build:
-
+  ci:
     runs-on: ubuntu-latest
-
-    strategy:
-      matrix:
-        toolchain:
-          - stable
-
     steps:
     - uses: actions/checkout@v4
-    - run: rustup update ${{ matrix.toolchain }} && rustup default ${{ matrix.toolchain }}
+    - uses: dtolnay/rust-toolchain@1.75.0
     - name: Check
       run: cargo clippy --no-deps
     - name: Build
-      run: cargo build --verbose --release
+      run: cargo build --release
     - name: Test
-      run: cargo test --verbose
+      run: cargo test
