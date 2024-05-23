@@ -2,6 +2,11 @@ name: Publish to crates.io
 
 on:
   workflow_call:
+    secrets:
+      CRATES_TOKEN:
+        required: true
+      BOT_GITHUB_TOKEN:
+        required: true
 
 jobs:
   publish:
