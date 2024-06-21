@@ -91,14 +91,26 @@ impl KcUserRoleQuery {
 
 #[derive(serde::Deserialize, serde::Serialize, Debug, Clone, Enum, Copy, Eq, PartialEq)]
 pub enum RequiredUserAction {
+    #[graphql(name = "VERIFY_EMAIL")]
+    VerifyEmail,
+    #[graphql(name = "UPDATE_PROFILE")]
+    UpdateProfile,
+    #[graphql(name = "CONFIGURE_TOTP")]
+    ConfigureTotp,
     #[graphql(name = "UPDATE_PASSWORD")]
     UpdatePassword,
+    #[graphql(name = "TERMS_AND_CONDITIONS")]
+    TermsAndConditions,
 }
 
 impl std::fmt::Display for RequiredUserAction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let str = match self {
+            RequiredUserAction::VerifyEmail => "VERIFY_EMAIL",
+            RequiredUserAction::UpdateProfile => "UPDATE_PROFILE",
+            RequiredUserAction::ConfigureTotp => "CONFIGURE_TOTP",
             RequiredUserAction::UpdatePassword => "UPDATE_PASSWORD",
+            RequiredUserAction::TermsAndConditions => "TERMS_AND_CONDITIONS",
         }
         .to_string();
         write!(f, "{}", str)
