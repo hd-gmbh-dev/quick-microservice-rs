@@ -1,14 +1,17 @@
-use std::borrow::Cow;
-use std::sync::Arc;
+use std::{borrow::Cow, sync::Arc};
+
+pub use keycloak::{
+    types::{
+        ClientRepresentation, CredentialRepresentation, GroupRepresentation, RealmRepresentation,
+        RoleRepresentation, UserRepresentation,
+    },
+    KeycloakAdmin, KeycloakError, KeycloakTokenSupplier,
+};
+
+use crate::session::{KeycloakSession, KeycloakSessionClient};
 
 pub use crate::config::Config as KeycloakConfig;
 
-use crate::session::{KeycloakSession, KeycloakSessionClient};
-pub use keycloak::types::{
-    ClientRepresentation, CredentialRepresentation, GroupRepresentation, RealmRepresentation,
-    RoleRepresentation, UserRepresentation,
-};
-pub use keycloak::{KeycloakAdmin, KeycloakError, KeycloakTokenSupplier};
 #[derive(Debug, serde::Deserialize, serde::Serialize)]
 pub struct ServerInfo {
     #[serde(default)]
