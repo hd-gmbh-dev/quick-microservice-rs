@@ -61,6 +61,22 @@ async fn check_realm_settings(
             errors,
         );
     }
+    // email_theme must be `qm`
+    if let Some(email_theme) = &rep.email_theme {
+        if email_theme != ctx.keycloak().config().email_theme() {
+            add_error(
+                realm_errors::REALM_EMAIL_THEME_INVALID_ID,
+                realm_errors::REALM_EMAIL_THEME_INVALID_KEY,
+                errors,
+            );
+        }
+    } else {
+        add_error(
+            realm_errors::REALM_EMAIL_THEME_MISSING_ID,
+            realm_errors::REALM_EMAIL_THEME_MISSING_KEY,
+            errors,
+        );
+    }
     // password_policy must contain `length(8)`, `specialChars(1)`, `upperCase(1)`, `lowerCase(1)`, `digits(1)`
     if let Some(policy) = &rep.password_policy {
         if !policy.contains("length(8)") {
