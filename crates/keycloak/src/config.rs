@@ -66,6 +66,7 @@ pub struct Config {
     username: Option<Arc<str>>,
     password: Option<Arc<str>>,
     theme: Option<Arc<str>>,
+    email_theme: Option<Arc<str>>,
     realm_admin_email: Option<Arc<str>>,
     realm_admin_username: Option<Arc<str>>,
     realm_admin_password: Option<Arc<str>>,
@@ -98,6 +99,10 @@ impl Config {
 
     pub fn theme(&self) -> &str {
         self.theme.as_deref().unwrap_or("qm")
+    }
+
+    pub fn email_theme(&self) -> &str {
+        self.email_theme.as_deref().unwrap_or("qm")
     }
 
     pub fn realm_admin_username(&self) -> &str {

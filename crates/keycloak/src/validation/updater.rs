@@ -78,6 +78,10 @@ async fn update_realm_settings(
             log::trace!("Setting 'login_theme' for realm '{}'", realm);
             rep.login_theme = Some(ctx.cfg().keycloak().theme().to_string());
         }
+        realm_errors::REALM_EMAIL_THEME_INVALID_ID | realm_errors::REALM_EMAIL_THEME_MISSING_ID => {
+            log::trace!("Setting 'email_theme' for realm '{}'", realm);
+            rep.email_theme = Some(ctx.cfg().keycloak().email_theme().to_string());
+        }
         realm_errors::REALM_PASSWORD_POLICY_LENGTH_ID => {
             log::trace!(
                 "Adding 'password_policy' value 'length(8)' for realm '{}'",
