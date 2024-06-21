@@ -364,6 +364,20 @@ where
         let realm = keycloak.config().realm();
         let k_user = create_keycloak_user(realm, keycloak, user_input.clone()).await?;
         let user_id = k_user.id.as_ref().unwrap().clone();
+
+        if user_input
+            .required_actions
+            .map(|actions| actions.contains(&RequiredUserAction::VerifyEmail))
+            .unwrap_or_default()
+        {
+            if let Err(err) = keycloak.send_verify_email_user(realm, &user_id, None).await {
+                log::warn!(
+                    "Verification email could not be sent: {}",
+                    keycloak.error_message(&err)
+                );
+            }
+        }
+
         let user_uuid = Uuid::parse_str(&user_id).map_err(|err| {
             log::error!("Unable to parse user id to Uuid: {err:#?}");
             EntityError::Internal
