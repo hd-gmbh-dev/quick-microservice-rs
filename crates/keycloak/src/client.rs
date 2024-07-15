@@ -277,7 +277,7 @@ impl Keycloak {
         &self,
         realm: &str,
         rep: RoleRepresentation,
-    ) -> Result<(), KeycloakError> {
+    ) -> Result<Option<String>, KeycloakError> {
         self.inner.admin.realm_roles_post(realm, rep).await
     }
 
@@ -285,7 +285,7 @@ impl Keycloak {
         &self,
         realm: &str,
         rep: GroupRepresentation,
-    ) -> Result<(), KeycloakError> {
+    ) -> Result<Option<String>, KeycloakError> {
         self.inner.admin.realm_groups_post(realm, rep).await
     }
 
@@ -329,7 +329,7 @@ impl Keycloak {
         realm: &str,
         id: &str,
         roles: Vec<RoleRepresentation>,
-    ) -> Result<(), KeycloakError> {
+    ) -> Result<Option<String>, KeycloakError> {
         self.inner
             .admin
             .realm_groups_with_group_id_role_mappings_realm_post(realm, id, roles)
@@ -433,6 +433,27 @@ impl Keycloak {
             .await?
             .pop())
     }
+    
+    pub async fn get_client_by_id(
+        &self,
+        realm: &str,
+        client_id: &str,
+    ) -> Result<Option<ClientRepresentation>, KeycloakError> {
+        Ok(self
+            .inner
+            .admin
+            .realm_clients_get(
+                realm,
+                Some(client_id.to_owned()),
+                None,
+                None,
+                None,
+                Some(true),
+                Some(false),
+            )
+            .await?
+            .pop())
+    }
 
     pub async fn create_client(
         &self,
@@ -440,6 +461,17 @@ impl Keycloak {
         rep: ClientRepresentation,
     ) -> Result<(), KeycloakError> {
         self.inner.admin.realm_clients_post(realm, rep).await?;
+        Ok(())
+    }
+
+    pub async fn remove_client(
+        &self,
+        realm: &str,
+        client_id: &str,
+    ) -> Result<(), KeycloakError> {
+        let client = self.get_client_by_id(realm, client_id).await?
+            .ok_or_else(|| KeycloakError::HttpFailure { status: 404, body: None, text: format!("client with id: '{client_id}' not found") })?;
+        self.inner.admin.realm_clients_with_client_uuid_delete(realm, &client.id.unwrap()).await?;
         Ok(())
     }
 
@@ -508,7 +540,7 @@ impl Keycloak {
         realm: &str,
         user_id: &str,
         role: RoleRepresentation,
-    ) -> Result<(), KeycloakError> {
+    ) -> Result<Option<String>, KeycloakError> {
         self.inner
             .admin
             .realm_users_with_user_id_role_mappings_realm_post(realm, user_id, vec![role])

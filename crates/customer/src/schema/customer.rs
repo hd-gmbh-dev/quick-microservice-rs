@@ -250,47 +250,47 @@ where
         ctx: &Context<'_>,
         input: CreateCustomerInput,
     ) -> async_graphql::FieldResult<Arc<Customer>> {
-        let group_path = Auth::customer_owner_group()
-            .ok_or(EntityError::bad_request(
-                "Customer",
-                "create customer is not activated",
-            ))
-            .extend()?;
+        // let group_path = Auth::customer_owner_group()
+        //     .ok_or(EntityError::bad_request(
+        //         "Customer",
+        //         "create customer is not activated",
+        //     ))
+        //     .extend()?;
         let auth_ctx = AuthCtx::<'_, Auth, Store, Resource, Permission>::new_with_role(
             ctx,
             (Resource::customer(), Permission::create()),
         )
         .await?;
-        let group_id = auth_ctx
-            .store
-            .cache_db()
-            .group_id_by_path(group_path)
-            .await
-            .ok_or_else(|| {
-                log::error!("group not found by path: '{group_path}'");
-                EntityError::internal()
-            })
-            .extend()?;
+        // let group_id = auth_ctx
+        //     .store
+        //     .cache_db()
+        //     .group_id_by_path(group_path)
+        //     .await
+        //     .ok_or_else(|| {
+        //         log::error!("group not found by path: '{group_path}'");
+        //         EntityError::internal()
+        //     })
+        //     .extend()?;
         let result = Ctx(&auth_ctx)
             .create(CustomerData(input.name, input.ty))
             .await
             .extend()?;
-        let id: CustomerId = result.as_ref().into();
-        if let Some(user) = input.initial_user {
-            crate::schema::user::Ctx(&auth_ctx)
-                .create(CreateUserPayload {
-                    access: Some(
-                        qm_role::Access::new(AccessLevel::Customer)
-                            .with_fmt_id(Some(&id))
-                            .to_string(),
-                    ),
-                    user,
-                    group_id: Some(group_id),
-                    context: Some(qm_entity::ids::InfraContext::Customer(id)),
-                })
-                .await
-                .extend()?;
-        }
+        // let id: CustomerId = result.as_ref().into();
+        // if let Some(user) = input.initial_user {
+        //     crate::schema::user::Ctx(&auth_ctx)
+        //         .create(CreateUserPayload {
+        //             access: Some(
+        //                 qm_role::Access::new(AccessLevel::Customer)
+        //                     .with_fmt_id(Some(&id))
+        //                     .to_string(),
+        //             ),
+        //             user,
+        //             group_id: Some(group_id),
+        //             context: Some(qm_entity::ids::InfraContext::Customer(id)),
+        //         })
+        //         .await
+        //         .extend()?;
+        // }
         Ok(result)
     }
 

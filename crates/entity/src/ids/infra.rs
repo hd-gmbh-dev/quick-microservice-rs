@@ -1410,7 +1410,7 @@ impl<const N: usize> FromIterator<i64> for StringWriterResult<N> {
     fn from_iter<T: IntoIterator<Item = i64>>(iter: T) -> Self {
         let mut iter = iter.into_iter();
         let mut s = String::with_capacity(StringWriter::<N>::string_length());
-        let mut idx;
+        let mut idx: usize;
         for i in 0..N {
             let item = iter.next();
             if item.is_none() {

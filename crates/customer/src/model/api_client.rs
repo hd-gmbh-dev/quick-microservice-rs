@@ -9,7 +9,7 @@ use std::sync::Arc;
 use super::GroupDetail;
 
 #[derive(Debug, serde::Deserialize)]
-pub struct UserEntityUpdate {
+pub struct ApiClientEntityUpdate {
     pub id: Arc<str>,
     pub username: Arc<str>,
     pub email: Option<Arc<str>>,
@@ -19,13 +19,13 @@ pub struct UserEntityUpdate {
     pub enabled: bool,
 }
 
-impl UserEntityUpdate {
+impl ApiClientEntityUpdate {
     pub fn has_all_fields(&self) -> bool {
         self.email.is_some() && self.first_name.is_some() && self.last_name.is_some()
     }
 }
 
-pub struct TmpUser {
+pub struct TmpApiClient {
     pub id: Arc<str>,
     pub username: Arc<str>,
     pub email: Arc<str>,
@@ -35,26 +35,42 @@ pub struct TmpUser {
     pub roles: HashSet<Arc<str>>,
     pub enabled: bool,
 }
-pub type TmpUserMap = HashMap<Arc<str>, TmpUser>;
+pub type TmpApiClientMap = HashMap<Arc<str>, TmpApiClient>;
 
 #[derive(Debug, FromRow)]
-pub struct KcUserQuery {
+pub struct KcApiClientQuery {
     pub id: Option<String>,
-    pub firstname: Option<String>,
-    pub lastname: Option<String>,
-    pub username: Option<String>,
-    pub email: Option<String>,
     pub enabled: bool,
+    pub full_scope_allowed: bool,
+    pub client_id: Option<String>,
+    pub not_before: Option<i32>,
+    pub public_client: bool,
+    pub secret: Option<String>,
+    pub base_url: Option<String>,
+    pub bearer_only: bool,
+    pub management_url: Option<String>,
+    pub surrogate_auth_required: bool,
+    pub realm_id: Option<String>,
+    pub protocol: Option<String>,
+    pub node_rereg_timeout: Option<i32>,
+    pub frontchannel_logout: bool,
+    pub consent_required: bool,
+    pub name: Option<String>,
+    pub service_accounts_enabled: bool,
+    pub client_authenticator_type: Option<String>,
+    pub root_url: Option<String>,
+    pub description: Option<String>,
+    pub registration_token: Option<String>,
+    pub standard_flow_enabled: bool,
+    pub implicit_flow_enabled: bool,
+    pub direct_access_grants_enabled: bool,
+    pub always_display_in_console: bool,
 }
 
-impl KcUserQuery {
+impl KcApiClientQuery {
     pub fn has_all_fields(&self) -> bool {
         [
             self.id.as_ref(),
-            self.firstname.as_ref(),
-            self.lastname.as_ref(),
-            self.username.as_ref(),
-            self.email.as_ref(),
         ]
         .iter()
         .all(Option::is_some)
@@ -62,12 +78,12 @@ impl KcUserQuery {
 }
 
 #[derive(Debug, FromRow)]
-pub struct KcUserGroupQuery {
+pub struct KcApiClientGroupQuery {
     pub user_id: Option<String>,
     pub group_id: Option<String>,
 }
 
-impl KcUserGroupQuery {
+impl KcApiClientGroupQuery {
     pub fn has_all_fields(&self) -> bool {
         [self.group_id.as_ref(), self.user_id.as_ref()]
             .iter()
@@ -76,12 +92,12 @@ impl KcUserGroupQuery {
 }
 
 #[derive(Debug, FromRow)]
-pub struct KcUserRoleQuery {
+pub struct KcApiClientRoleQuery {
     pub user_id: Option<String>,
     pub role_id: Option<String>,
 }
 
-impl KcUserRoleQuery {
+impl KcApiClientRoleQuery {
     pub fn has_all_fields(&self) -> bool {
         [self.user_id.as_ref(), self.role_id.as_ref()]
             .iter()
@@ -90,7 +106,7 @@ impl KcUserRoleQuery {
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Debug, Clone, Enum, Copy, Eq, PartialEq)]
-pub enum RequiredUserAction {
+pub enum RequiredApiClientAction {
     #[graphql(name = "VERIFY_EMAIL")]
     VerifyEmail,
     #[graphql(name = "UPDATE_PROFILE")]
@@ -103,14 +119,14 @@ pub enum RequiredUserAction {
     TermsAndConditions,
 }
 
-impl std::fmt::Display for RequiredUserAction {
+impl std::fmt::Display for RequiredApiClientAction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let str = match self {
-            RequiredUserAction::VerifyEmail => "VERIFY_EMAIL",
-            RequiredUserAction::UpdateProfile => "UPDATE_PROFILE",
-            RequiredUserAction::ConfigureTotp => "CONFIGURE_TOTP",
-            RequiredUserAction::UpdatePassword => "UPDATE_PASSWORD",
-            RequiredUserAction::TermsAndConditions => "TERMS_AND_CONDITIONS",
+            RequiredApiClientAction::VerifyEmail => "VERIFY_EMAIL",
+            RequiredApiClientAction::UpdateProfile => "UPDATE_PROFILE",
+            RequiredApiClientAction::ConfigureTotp => "CONFIGURE_TOTP",
+            RequiredApiClientAction::UpdatePassword => "UPDATE_PASSWORD",
+            RequiredApiClientAction::TermsAndConditions => "TERMS_AND_CONDITIONS",
         }
         .to_string();
         write!(f, "{}", str)
@@ -119,7 +135,7 @@ impl std::fmt::Display for RequiredUserAction {
 
 #[derive(Default, serde::Deserialize, serde::Serialize, Debug, Clone, InputObject)]
 #[serde(rename_all = "camelCase")]
-pub struct CreateUserInput {
+pub struct CreateApiClientInput {
     pub username: String,
     pub firstname: String,
     pub lastname: String,
@@ -130,19 +146,19 @@ pub struct CreateUserInput {
     pub room_number: Option<String>,
     pub job_title: Option<String>,
     pub enabled: Option<bool>,
-    pub required_actions: Option<Vec<RequiredUserAction>>,
+    pub required_actions: Option<Vec<RequiredApiClientAction>>,
 }
 
 #[derive(Debug)]
-pub struct CreateUserPayload {
-    pub user: CreateUserInput,
+pub struct CreateApiClientPayload {
+    pub user: CreateApiClientInput,
     pub group_id: Option<String>,
     pub access: Option<String>,
     pub context: Option<InfraContext>,
 }
 
 #[derive(Debug, Clone, SimpleObject)]
-pub struct User {
+pub struct ApiClient {
     pub id: Arc<str>,
     pub username: Arc<str>,
     pub email: Arc<str>,
@@ -151,38 +167,38 @@ pub struct User {
     pub enabled: bool,
 }
 
-pub type UserMap = HashMap<Arc<str>, Arc<User>>;
-pub type UserUidMap = HashMap<Uuid, Arc<User>>;
-pub type UserGroupMap = HashMap<Arc<str>, HashSet<Arc<str>>>;
-pub type UserRoleMap = HashMap<Arc<str>, HashSet<Arc<str>>>;
+pub type ApiClientMap = HashMap<Arc<str>, Arc<ApiClient>>;
+pub type ApiClientUidMap = HashMap<Uuid, Arc<ApiClient>>;
+pub type ApiClientGroupMap = HashMap<Arc<str>, HashSet<Arc<str>>>;
+pub type ApiClientRoleMap = HashMap<Arc<str>, HashSet<Arc<str>>>;
 
 #[derive(Debug, serde::Deserialize)]
-pub struct UserRoleMappingUpdate {
+pub struct ApiClientRoleMappingUpdate {
     pub role_id: Arc<str>,
     pub user_id: Arc<str>,
 }
 
 #[derive(Debug, serde::Deserialize)]
-pub struct UserGroupMembershipUpdate {
+pub struct ApiClientGroupMembershipUpdate {
     pub group_id: Arc<str>,
     pub user_id: Arc<str>,
 }
 
 #[derive(Debug)]
-pub struct UserGroupMembership {
+pub struct ApiClientGroupMembership {
     pub group_id: Arc<str>,
     pub user_id: Arc<str>,
 }
 
 #[derive(Debug, Clone, SimpleObject)]
-pub struct UserList {
-    pub items: Arc<[UserDetails]>,
+pub struct ApiClientList {
+    pub items: Arc<[ApiClientDetails]>,
     pub limit: Option<i64>,
     pub total: Option<i64>,
     pub page: Option<i64>,
 }
 
-impl IsAdmin for UserDetails {
+impl IsAdmin for ApiClientDetails {
     fn is_admin(&self) -> bool {
         self.access
             .as_ref()
@@ -192,10 +208,10 @@ impl IsAdmin for UserDetails {
 }
 
 #[derive(Debug, Clone, SimpleObject)]
-#[graphql(complex)]
-pub struct UserDetails {
+// #[graphql(complex)]
+pub struct ApiClientDetails {
     #[graphql(flatten)]
-    pub user: Arc<User>,
+    pub user: Arc<ApiClient>,
     #[graphql(skip)]
     pub context: Option<InfraContext>,
     #[graphql(skip)]
@@ -204,7 +220,7 @@ pub struct UserDetails {
     pub group: Option<Arc<GroupDetail>>,
 }
 
-impl PartialEqual<'_, InfraContext> for UserDetails {
+impl PartialEqual<'_, InfraContext> for ApiClientDetails {
     fn partial_equal(&'_ self, r: &'_ InfraContext) -> bool {
         if let Some(context) = self.context.as_ref() {
             match r {
@@ -219,7 +235,7 @@ impl PartialEqual<'_, InfraContext> for UserDetails {
     }
 }
 
-impl PartialEqual<'_, InstitutionId> for UserDetails {
+impl PartialEqual<'_, InstitutionId> for ApiClientDetails {
     fn partial_equal(&'_ self, r: &'_ InstitutionId) -> bool {
         if let Some(context) = self.context.as_ref() {
             context.has_institution(r)
@@ -230,7 +246,7 @@ impl PartialEqual<'_, InstitutionId> for UserDetails {
 }
 
 #[derive(Debug, Clone)]
-pub struct UserGroup {
+pub struct ApiClientGroup {
     pub group_id: Arc<str>,
     pub group_detail: Arc<GroupDetail>,
 }

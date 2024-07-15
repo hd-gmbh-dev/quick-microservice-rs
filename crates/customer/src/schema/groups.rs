@@ -20,7 +20,7 @@ use crate::marker::Marker;
 use crate::model::{Group, GroupDetail, Role, UserGroup};
 use qm_role::AccessLevel;
 
-use crate::model::{Customer, Institution, Organization, OrganizationUnit};
+use crate::model::{Customer, Institution, Organization, /* OrganizationUnit */};
 use crate::schema::auth::AuthCtx;
 use crate::schema::RelatedAuth;
 use crate::schema::RelatedPermission;
@@ -83,23 +83,23 @@ impl UserGroup {
         None
     }
 
-    async fn organization_unit(&self, ctx: &Context<'_>) -> Option<Arc<OrganizationUnit>> {
-        let cache = ctx.data::<CacheDB>().ok();
-        if cache.is_none() {
-            log::warn!("qm::customer::cache::CacheDB is not installed in schema context");
-            return None;
-        }
-        let cache = cache.unwrap();
-        if let Some(id) = self
-            .group_detail
-            .context
-            .as_ref()
-            .and_then(InfraContext::organization_unit_id)
-        {
-            return cache.organization_unit_by_id(&id).await;
-        }
-        None
-    }
+    // async fn organization_unit(&self, ctx: &Context<'_>) -> Option<Arc<OrganizationUnit>> {
+    //     let cache = ctx.data::<CacheDB>().ok();
+    //     if cache.is_none() {
+    //         log::warn!("qm::customer::cache::CacheDB is not installed in schema context");
+    //         return None;
+    //     }
+    //     let cache = cache.unwrap();
+    //     if let Some(id) = self
+    //         .group_detail
+    //         .context
+    //         .as_ref()
+    //         .and_then(InfraContext::organization_unit_id)
+    //     {
+    //         return cache.organization_unit_by_id(&id).await;
+    //     }
+    //     None
+    // }
 
     async fn institution(&self, ctx: &Context<'_>) -> Option<Arc<Institution>> {
         let cache = ctx.data::<CacheDB>().ok();
@@ -121,6 +121,10 @@ impl UserGroup {
 
     async fn allowed_access_levels(&self) -> Option<Arc<[AccessLevel]>> {
         self.group_detail.allowed_access_levels.clone()
+    }
+
+    async fn allowed_types(&self) -> Option<Arc<[Arc<str>]>> {
+        self.group_detail.allowed_types.clone()
     }
 }
 

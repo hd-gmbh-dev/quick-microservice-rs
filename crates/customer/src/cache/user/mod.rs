@@ -22,6 +22,7 @@ pub mod roles;
 pub mod user_groups;
 pub mod user_roles;
 pub mod users;
+pub mod api_clients;
 
 pub struct UserDB {
     pub realm: RwLock<Realm>,

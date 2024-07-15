@@ -106,7 +106,8 @@ async fn remove_documents(
     let result = db
         .get()
         .collection::<Document>(collection)
-        .delete_many_with_session(query.clone(), None, session)
+        .delete_many(query.clone())
+        .session(session)
         .await?;
     Ok(result.deleted_count)
 }
@@ -159,7 +160,8 @@ where
     };
     for collection in db
         .get()
-        .list_collection_names_with_session(None, &mut session)
+        .list_collection_names()
+        .session(&mut session)
         .await?
     {
         log::debug!("remove all organization related resources from db {collection}");
@@ -244,7 +246,8 @@ where
     };
     for collection in db
         .get()
-        .list_collection_names_with_session(None, &mut session)
+        .list_collection_names()
+        .session(&mut session)
         .await?
     {
         log::debug!("remove all organization related resources from db {collection}");
@@ -301,7 +304,8 @@ where
     };
     for collection in db
         .get()
-        .list_collection_names_with_session(None, &mut session)
+        .list_collection_names()
+        .session(&mut session)
         .await?
     {
         log::debug!("remove all organization related resources from db {collection}");
@@ -366,7 +370,8 @@ where
     };
     for collection in db
         .get()
-        .list_collection_names_with_session(None, &mut session)
+        .list_collection_names()
+        .session(&mut session)
         .await?
     {
         log::debug!("remove all organization unit related resources from db {collection}");

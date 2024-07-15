@@ -423,9 +423,9 @@ dependencies = [
 
 [[package]]
 name = "bson"
-version = "2.10.0"
+version = "2.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4d43b38e074cc0de2957f10947e376a1d88b9c4dbab340b590800cc1b2e066b2"
+checksum = "d8a88e82b9106923b5c4d6edfca9e7db958d4e98a478ec115022e81b9b38e2c8"
 dependencies = [
  "ahash",
  "base64 0.13.1",
@@ -724,7 +724,7 @@ dependencies = [
  "globwalk",
  "humantime",
  "inventory",
- "itertools",
+ "itertools 0.12.1",
  "junit-report",
  "lazy-regex",
  "linked-hash-map",
@@ -745,7 +745,7 @@ checksum = "01091e28d1f566c8b31b67948399d2efd6c0a8f6228a9785519ed7b73f7f0aef"
 dependencies = [
  "cucumber-expressions",
  "inflections",
- "itertools",
+ "itertools 0.12.1",
  "proc-macro2",
  "quote",
  "regex",
@@ -1484,7 +1484,7 @@ dependencies = [
  "http-body",
  "hyper",
  "pin-project-lite",
- "socket2 0.5.7",
+ "socket2",
  "tokio",
  "tower",
  "tower-service",
@@ -1608,7 +1608,7 @@ version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b58db92f96b720de98181bbbe63c831e87005ab460c1bf306eb2622b4707997f"
 dependencies = [
- "socket2 0.5.7",
+ "socket2",
  "widestring",
  "windows-sys 0.48.0",
  "winreg 0.50.0",
@@ -1631,6 +1631,15 @@ name = "itertools"
 version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ba291022dbbd398a455acf126c1e341954079855bc60dfdda641363bd6922569"
+dependencies = [
+ "either",
+]
+
+[[package]]
+name = "itertools"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "413ee7dfc52ee1a4949ceeb7dbc8a33f2d6c088194d9f922fb8318faf1f01186"
 dependencies = [
  "either",
 ]
@@ -1679,9 +1688,9 @@ dependencies = [
 
 [[package]]
 name = "keycloak"
-version = "24.0.301"
+version = "25.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e71e4f18ea46c9cce555f04351e7a24b793cb35a1a77f8591f1d5d9685899a3b"
+checksum = "b55874e9c1f8cb311177a76368dcdf89e83b22f88c0e834da8f7abd19da7dd1b"
 dependencies = [
  "async-trait",
  "reqwest",
@@ -1862,9 +1871,9 @@ dependencies = [
 
 [[package]]
 name = "mongodb"
-version = "2.8.2"
+version = "3.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ef206acb1b72389b49bc9985efe7eb1f8a9bb18e5680d262fac26c07f44025f1"
+checksum = "bb4af699cbb12a221e978134999b16cbf030d964c3a7cd6c4af2584734190e58"
 dependencies = [
  "async-trait",
  "base64 0.13.1",
@@ -1879,8 +1888,9 @@ dependencies = [
  "futures-util",
  "hex",
  "hmac",
- "lazy_static",
  "md-5",
+ "mongodb-internal-macros",
+ "once_cell",
  "pbkdf2",
  "percent-encoding",
  "rand",
@@ -1892,7 +1902,7 @@ dependencies = [
  "serde_with 1.14.0",
  "sha-1",
  "sha2",
- "socket2 0.4.10",
+ "socket2",
  "stringprep",
  "strsim 0.10.0",
  "take_mut",
@@ -1905,6 +1915,17 @@ dependencies = [
  "typed-builder 0.10.0",
  "uuid",
  "webpki-roots",
+]
+
+[[package]]
+name = "mongodb-internal-macros"
+version = "3.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1159486b5e1993138c385369c3c46f5608cb0b1c53734e503538366f3c4cedcc"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.61",
 ]
 
 [[package]]
@@ -2418,7 +2439,7 @@ dependencies = [
 
 [[package]]
 name = "qm"
-version = "0.0.18"
+version = "0.1.0"
 dependencies = [
  "qm-customer",
  "qm-entity",
@@ -2436,7 +2457,7 @@ dependencies = [
 
 [[package]]
 name = "qm-customer"
-version = "0.0.18"
+version = "0.1.0"
 dependencies = [
  "Inflector",
  "anyhow",
@@ -2447,7 +2468,7 @@ dependencies = [
  "deadpool-redis",
  "envy",
  "futures",
- "itertools",
+ "itertools 0.13.0",
  "lazy_static",
  "log",
  "prometheus-client",
@@ -2469,7 +2490,7 @@ dependencies = [
 
 [[package]]
 name = "qm-entity"
-version = "0.0.18"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-graphql",
@@ -2494,7 +2515,7 @@ dependencies = [
 
 [[package]]
 name = "qm-entity-derive"
-version = "0.0.18"
+version = "0.1.0"
 dependencies = [
  "Inflector",
  "darling 0.20.8",
@@ -2508,7 +2529,7 @@ dependencies = [
 
 [[package]]
 name = "qm-example-auth"
-version = "0.0.18"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-graphql",
@@ -2529,7 +2550,7 @@ dependencies = [
 
 [[package]]
 name = "qm-example-cli"
-version = "0.0.18"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -2541,7 +2562,7 @@ dependencies = [
 
 [[package]]
 name = "qm-example-ctx"
-version = "0.0.18"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-graphql",
@@ -2552,7 +2573,7 @@ dependencies = [
 
 [[package]]
 name = "qm-example-model"
-version = "0.0.18"
+version = "0.1.0"
 dependencies = [
  "async-graphql",
  "qm",
@@ -2561,7 +2582,7 @@ dependencies = [
 
 [[package]]
 name = "qm-example-server"
-version = "0.0.18"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-graphql",
@@ -2586,7 +2607,7 @@ dependencies = [
 
 [[package]]
 name = "qm-kafka"
-version = "0.0.18"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "envy",
@@ -2598,7 +2619,7 @@ dependencies = [
 
 [[package]]
 name = "qm-keycloak"
-version = "0.0.18"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-graphql",
@@ -2620,7 +2641,7 @@ dependencies = [
 
 [[package]]
 name = "qm-mongodb"
-version = "0.0.18"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "envy",
@@ -2633,7 +2654,7 @@ dependencies = [
 
 [[package]]
 name = "qm-pg"
-version = "0.0.18"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "envy",
@@ -2645,7 +2666,7 @@ dependencies = [
 
 [[package]]
 name = "qm-redis"
-version = "0.0.18"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -2663,7 +2684,7 @@ dependencies = [
 
 [[package]]
 name = "qm-role"
-version = "0.0.18"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-graphql",
@@ -2674,7 +2695,7 @@ dependencies = [
 
 [[package]]
 name = "qm-role-build"
-version = "0.0.18"
+version = "0.1.0"
 dependencies = [
  "Inflector",
  "anyhow",
@@ -2682,11 +2703,11 @@ dependencies = [
 
 [[package]]
 name = "qm-s3"
-version = "0.0.18"
+version = "0.1.0"
 
 [[package]]
 name = "qm-server"
-version = "0.0.18"
+version = "0.1.0"
 dependencies = [
  "async-graphql",
  "async-graphql-axum",
@@ -2699,14 +2720,14 @@ dependencies = [
 
 [[package]]
 name = "qm-utils"
-version = "0.0.18"
+version = "0.1.0"
 dependencies = [
  "qm-utils-derive",
 ]
 
 [[package]]
 name = "qm-utils-derive"
-version = "0.0.18"
+version = "0.1.0"
 dependencies = [
  "convert_case 0.6.0",
  "lazy_static",
@@ -2820,7 +2841,7 @@ dependencies = [
  "pin-project-lite",
  "ryu",
  "sha1_smol",
- "socket2 0.5.7",
+ "socket2",
  "tokio",
  "tokio-util",
  "url",
@@ -3388,16 +3409,6 @@ checksum = "b7c388c1b5e93756d0c740965c41e8822f866621d41acbdf6336a6a168f8840c"
 
 [[package]]
 name = "socket2"
-version = "0.4.10"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9f7916fc008ca5542385b89a3d3ce689953c143e9304a9bf8beec1de48994c0d"
-dependencies = [
- "libc",
- "winapi",
-]
-
-[[package]]
-name = "socket2"
 version = "0.5.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ce305eb0b4296696835b71df73eb912e0f1ffd2556a501fcede6e0c50349191c"
@@ -3437,7 +3448,7 @@ version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ce81b7bd7c4493975347ef60d8c7e8b742d4694f4c49f93e0a12ea263938176c"
 dependencies = [
- "itertools",
+ "itertools 0.12.1",
  "nom",
  "unicode_categories",
 ]
@@ -3930,7 +3941,7 @@ dependencies = [
  "parking_lot",
  "pin-project-lite",
  "signal-hook-registry",
- "socket2 0.5.7",
+ "socket2",
  "tokio-macros",
  "windows-sys 0.48.0",
 ]

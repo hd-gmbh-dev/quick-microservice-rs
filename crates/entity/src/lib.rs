@@ -92,8 +92,13 @@ pub trait AsNumber {
     fn as_number(&self) -> u32;
 }
 
-pub struct Collection<T>(pub qm_mongodb::Collection<T>);
-impl<T> AsRef<qm_mongodb::Collection<T>> for Collection<T> {
+pub struct Collection<T>(pub qm_mongodb::Collection<T>)
+where
+    T: Send + Sync;
+impl<T> AsRef<qm_mongodb::Collection<T>> for Collection<T>
+where
+    T: Send + Sync,
+{
     fn as_ref(&self) -> &qm_mongodb::Collection<T> {
         &self.0
     }
@@ -104,15 +109,15 @@ where
     T: DeserializeOwned + Send + Sync + Unpin,
 {
     pub async fn by_id(&self, id: &ObjectId) -> qm_mongodb::error::Result<Option<T>> {
-        self.as_ref().find_one(doc! { "_id": id }, None).await
+        self.as_ref().find_one(doc! { "_id": id }).await
     }
 
     pub async fn by_name(&self, name: &str) -> qm_mongodb::error::Result<Option<T>> {
-        self.as_ref().find_one(doc! { "name": name }, None).await
+        self.as_ref().find_one(doc! { "name": name }).await
     }
 
     pub async fn by_field(&self, field: &str, value: &str) -> qm_mongodb::error::Result<Option<T>> {
-        self.as_ref().find_one(doc! { field: value }, None).await
+        self.as_ref().find_one(doc! { field: value }).await
     }
 
     pub async fn remove_all_by_strings(
@@ -121,7 +126,7 @@ where
         values: &[String],
     ) -> qm_mongodb::error::Result<DeleteResult> {
         self.as_ref()
-            .delete_many(doc! { field: { "$in": values } }, None)
+            .delete_many(doc! { field: { "$in": values } })
             .await
     }
 
@@ -131,7 +136,7 @@ where
         values: &[&Uuid],
     ) -> qm_mongodb::error::Result<DeleteResult> {
         self.as_ref()
-            .delete_many(doc! { field: { "$in": values } }, None)
+            .delete_many(doc! { field: { "$in": values } })
             .await
     }
 
@@ -142,13 +147,10 @@ where
         value: &str,
     ) -> qm_mongodb::error::Result<Option<T>> {
         self.as_ref()
-            .find_one(
-                doc! {
-                    "owner.entityId.cid": &cid,
-                    field: value
-                },
-                None,
-            )
+            .find_one(doc! {
+                "owner.entityId.cid": &cid,
+                field: value
+            })
             .await
     }
 
@@ -167,11 +169,13 @@ where
             .and_then(|filter| filter.page.as_ref().copied())
             .unwrap_or(0);
         let offset = page as u64 * limit as u64;
-        let total = self.as_ref().count_documents(query.clone(), None).await?;
+        let total = self.as_ref().count_documents(query.clone()).await?;
         let options = FindOptions::builder().limit(limit).skip(offset).build();
+
         let items = self
             .as_ref()
-            .find(query, options)
+            .find(query)
+            .with_options(options)
             .await?
             .try_collect::<Vec<T>>()
             .await?;
@@ -189,7 +193,7 @@ where
     T: Serialize + Send + Sync + Unpin + AsMut<Option<ID>>,
 {
     pub async fn save(&self, mut value: T) -> qm_mongodb::error::Result<T> {
-        let id: qm_mongodb::bson::Bson = self.as_ref().insert_one(&value, None).await?.inserted_id;
+        let id: qm_mongodb::bson::Bson = self.as_ref().insert_one(&value).await?.inserted_id;
         if let qm_mongodb::bson::Bson::ObjectId(cid) = id {
             *value.as_mut() = Some(cid);
         }

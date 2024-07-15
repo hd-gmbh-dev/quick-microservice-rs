@@ -93,6 +93,10 @@ where
         self.0.store.cache_db().organization_by_id(&id.into()).await
     }
 
+    pub async fn exists(&self, cid: InfraId, name: Arc<str>) -> bool {
+        self.0.store.cache_db().organization_by_name(cid, name).await.is_some()
+    }
+
     pub async fn create(&self, organization: OrganizationData) -> EntityResult<Arc<Organization>> {
         let user_id = self.0.auth.user_id().unwrap();
         let cid = organization.0;
@@ -243,6 +247,24 @@ where
         .await)
     }
 
+    async fn organization_exists(
+        &self,
+        ctx: &Context<'_>,
+        id: CustomerId,
+        name: Arc<str>,
+    ) -> async_graphql::FieldResult<bool> {
+        Ok(Ctx(
+            &AuthCtx::<'_, Auth, Store, Resource, Permission>::new_with_role(
+                ctx,
+                (Resource::organization(), Permission::view()),
+            )
+            .await
+            .extend()?,
+        )
+        .exists(id.into(), name)
+        .await)
+    }
+
     async fn organizations(
         &self,
         ctx: &Context<'_>,
@@ -293,51 +315,51 @@ where
         context: CustomerId,
         input: CreateOrganizationInput,
     ) -> async_graphql::FieldResult<Arc<Organization>> {
-        let group_path = Auth::organization_owner_group()
-            .ok_or(EntityError::bad_request(
-                "Organization",
-                "create organization is not activated",
-            ))
-            .extend()?;
+        // let group_path = Auth::organization_owner_group()
+        //     .ok_or(EntityError::bad_request(
+        //         "Organization",
+        //         "create organization is not activated",
+        //     ))
+        //     .extend()?;
         let auth_ctx = AuthCtx::<Auth, Store, Resource, Permission>::mutate_with_role(
             ctx,
             qm_entity::ids::InfraContext::Customer(context),
             (Resource::organization(), Permission::create()),
         )
         .await?;
-        let group_id = auth_ctx
-            .store
-            .cache_db()
-            .group_id_by_path(group_path)
-            .await
-            .ok_or(EntityError::internal())
-            .extend()?;
+        // let group_id = auth_ctx
+        //     .store
+        //     .cache_db()
+        //     .group_id_by_path(group_path)
+        //     .await
+        //     .ok_or(EntityError::internal())
+        //     .extend()?;
         let result = Ctx(&auth_ctx)
             .create(OrganizationData(context.into(), input.name, input.ty))
             .await
             .extend()?;
-        if let Some(user) = input.initial_user {
-            let id = result.as_ref().into();
-            crate::schema::user::Ctx(
-                &AuthCtx::<'_, Auth, Store, Resource, Permission>::new_with_role(
-                    ctx,
-                    (Resource::user(), Permission::create()),
-                )
-                .await?,
-            )
-            .create(CreateUserPayload {
-                access: Some(
-                    qm_role::Access::new(AccessLevel::Organization)
-                        .with_fmt_id(Some(&id))
-                        .to_string(),
-                ),
-                user,
-                group_id: Some(group_id),
-                context: Some(qm_entity::ids::InfraContext::Organization(id)),
-            })
-            .await
-            .extend()?;
-        }
+        // if let Some(user) = input.initial_user {
+        //     let id = result.as_ref().into();
+        //     crate::schema::user::Ctx(
+        //         &AuthCtx::<'_, Auth, Store, Resource, Permission>::new_with_role(
+        //             ctx,
+        //             (Resource::user(), Permission::create()),
+        //         )
+        //         .await?,
+        //     )
+        //     .create(CreateUserPayload {
+        //         access: Some(
+        //             qm_role::Access::new(AccessLevel::Organization)
+        //                 .with_fmt_id(Some(&id))
+        //                 .to_string(),
+        //         ),
+        //         user,
+        //         group_id: Some(group_id),
+        //         context: Some(qm_entity::ids::InfraContext::Organization(id)),
+        //     })
+        //     .await
+        //     .extend()?;
+        // }
         Ok(result)
     }
 

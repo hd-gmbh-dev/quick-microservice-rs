@@ -1,3 +1,5 @@
+mod shared;
+pub use shared::*;
 mod customer;
 pub use customer::*;
 mod institution;
@@ -14,3 +16,5 @@ mod role;
 pub use role::*;
 mod user;
 pub use user::*;
+mod api_client;
+pub use api_client::*;

@@ -7,6 +7,7 @@ pub mod institution;
 pub mod organization;
 pub mod organization_unit;
 pub mod user;
+pub mod api_client;
 
 use crate::context::RelatedAuth;
 use crate::context::RelatedPermission;
@@ -22,6 +23,7 @@ pub struct QmCustomerQueryRoot<Auth, Store, Resource, Permission, BuiltInGroup>(
     institution::InstitutionQueryRoot<Auth, Store, Resource, Permission, BuiltInGroup>,
     user::UserQueryRoot<Auth, Store, Resource, Permission, BuiltInGroup>,
     groups::GroupQueryRoot<Auth, Store, Resource, Permission, BuiltInGroup>,
+    api_client::ApiClientQueryRoot<Auth, Store, Resource, Permission, BuiltInGroup>,
 )
 where
     Auth: RelatedAuth<Resource, Permission>,
@@ -47,6 +49,7 @@ where
             institution::InstitutionQueryRoot::<Auth, Store, Resource, Permission, BuiltInGroup>::default(),
             user::UserQueryRoot::<Auth, Store, Resource, Permission, BuiltInGroup>::default(),
             groups::GroupQueryRoot::<Auth, Store, Resource, Permission, BuiltInGroup>::default(),
+            api_client::ApiClientQueryRoot::<Auth, Store, Resource, Permission, BuiltInGroup>::default(),
         )
     }
 }
@@ -65,6 +68,7 @@ pub struct QmCustomerMutationRoot<Auth, Store, Resource, Permission, BuiltInGrou
     institution::InstitutionMutationRoot<Auth, Store, Resource, Permission, BuiltInGroup>,
     user::UserMutationRoot<Auth, Store, Resource, Permission, BuiltInGroup>,
     groups::GroupMutationRoot<Auth, Store, Resource, Permission, BuiltInGroup>,
+    api_client::ApiClientMutationRoot<Auth, Store, Resource, Permission, BuiltInGroup>,
 )
 where
     Auth: RelatedAuth<Resource, Permission>,
@@ -90,6 +94,7 @@ where
             institution::InstitutionMutationRoot::<Auth, Store, Resource, Permission, BuiltInGroup>::default(),
             user::UserMutationRoot::<Auth, Store, Resource, Permission, BuiltInGroup>::default(),
             groups::GroupMutationRoot::<Auth, Store, Resource, Permission, BuiltInGroup>::default(),
+            api_client::ApiClientMutationRoot::<Auth, Store, Resource, Permission, BuiltInGroup>::default(),
         )
     }
 }
