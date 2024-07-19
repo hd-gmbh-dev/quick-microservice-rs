@@ -390,6 +390,7 @@ struct Inner<T> {
     decoded: RwLock<Option<T>>,
 }
 
+#[derive(Clone)]
 pub struct AuthContainer<T> {
     inner: Arc<Inner<T>>,
 }
