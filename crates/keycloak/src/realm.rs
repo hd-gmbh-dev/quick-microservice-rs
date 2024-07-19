@@ -275,6 +275,12 @@ where
                         .map(|v| v.as_ref())
                         .collect::<Vec<&str>>()
                         .join(",");
+                    let allowed_types = group
+                        .allowed_types()
+                        .iter()
+                        .map(|v| v.as_ref())
+                        .collect::<Vec<&str>>()
+                        .join(",");
                     let result = keycloak
                         .create_sub_group_with_id(
                             realm,
@@ -284,11 +290,12 @@ where
                                 attributes: Some(if built_in {
                                     HashMap::from_iter([
                                         ("built_in".to_string(), vec!["1".to_string()]),
+                                        ("display_name".to_string(), vec![group.name.to_string()]),
                                         (
                                             "allowed_access_levels".to_string(),
                                             vec![allowed_access_levels],
                                         ),
-                                        ("display_name".to_string(), vec![group.name.to_string()]),
+                                        ("allowed_types".to_string(), vec![allowed_types]),
                                     ])
                                 } else {
                                     HashMap::from_iter([
@@ -297,6 +304,7 @@ where
                                             "allowed_access_levels".to_string(),
                                             vec![allowed_access_levels],
                                         ),
+                                        ("allowed_types".to_string(), vec![allowed_types]),
                                     ])
                                 }),
                                 ..Default::default()

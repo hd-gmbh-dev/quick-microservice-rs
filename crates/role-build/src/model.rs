@@ -40,6 +40,7 @@ pub struct UserGroupNameMapping {
     pub path: Rc<str>,
     pub display_name: Rc<str>,
     pub access_level: Rc<str>,
+    pub allowed_types: Rc<str>,
 }
 
 #[derive(Debug, PartialEq, Eq)]

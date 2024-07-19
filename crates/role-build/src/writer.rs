@@ -67,11 +67,13 @@ where
             user_group_name_mappings,
             ..
         } = parse_result;
-        let user_group_name_mappings = BTreeMap::from_iter(
-            user_group_name_mappings
-                .into_iter()
-                .map(|v| (v.user_group, (v.path, v.display_name, v.access_level))),
-        );
+        let user_group_name_mappings =
+            BTreeMap::from_iter(user_group_name_mappings.into_iter().map(|v| {
+                (
+                    v.user_group,
+                    (v.path, v.display_name, v.access_level, v.allowed_types),
+                )
+            }));
         self.write_line(0, "use strum::{EnumString, EnumIter, AsRefStr};")?;
         self.write_line(0, "use qm::role::AccessLevel;")?;
         self.write_line(0, "")?;
@@ -115,7 +117,7 @@ where
         let mut group_names = BTreeSet::new();
         let mut fn_names = vec![];
         for role_mapping in role_mappings.iter() {
-            if let Some((user_group_name, user_group_display_name, access_level)) =
+            if let Some((user_group_name, user_group_display_name, access_level, allowed_types)) =
                 user_group_name_mappings.get(&role_mapping.user_group)
             {
                 group_names.insert(user_group_name);
@@ -141,9 +143,10 @@ where
                 self.write_line(
                     1,
                     &format!(
-                        "qm::role::Group::new(\"{}\".to_string(), {cnst_name}_PATH.to_string(), vec![{}], vec![",
+                        "qm::role::Group::new(\"{}\".to_string(), {cnst_name}_PATH.to_string(), vec![{}], vec![{}], vec![",
                         user_group_display_name,
                         access_level.as_ref().split(',').map(|s| format!("AccessLevel::{}", inflector::cases::classcase::to_class_case(s.trim()))).collect::<Vec<String>>().join(","),
+                        allowed_types.as_ref().split(',').filter(|&s| s != "none").map(|s| format!("{s:?}.into()")).collect::<Vec<String>>().join(","),
                     ),
                 )?;
                 for role in role_mapping.roles.iter() {

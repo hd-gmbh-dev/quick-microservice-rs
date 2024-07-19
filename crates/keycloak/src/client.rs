@@ -1,13 +1,17 @@
-use std::sync::Arc;
+use std::{borrow::Cow, sync::Arc};
+
+pub use keycloak::{
+    types::{
+        ClientRepresentation, CredentialRepresentation, GroupRepresentation, RealmRepresentation,
+        RoleRepresentation, UserRepresentation,
+    },
+    KeycloakAdmin, KeycloakError, KeycloakTokenSupplier,
+};
+
+use crate::session::{KeycloakSession, KeycloakSessionClient};
 
 pub use crate::config::Config as KeycloakConfig;
 
-use crate::session::{KeycloakSession, KeycloakSessionClient};
-pub use keycloak::types::{
-    ClientRepresentation, CredentialRepresentation, GroupRepresentation, RealmRepresentation,
-    RoleRepresentation, UserRepresentation,
-};
-pub use keycloak::{KeycloakAdmin, KeycloakError, KeycloakTokenSupplier};
 #[derive(Debug, serde::Deserialize, serde::Serialize)]
 pub struct ServerInfo {
     #[serde(default)]
@@ -530,5 +534,66 @@ impl Keycloak {
             .realm_users_with_user_id_delete(realm, user_id)
             .await?;
         Ok(())
+    }
+
+    pub async fn send_verify_email_user(
+        &self,
+        realm: &str,
+        user_id: &str,
+        redirect_url: Option<String>,
+    ) -> Result<(), KeycloakError> {
+        self.inner
+            .admin
+            .realm_users_with_user_id_send_verify_email_put(
+                realm,
+                user_id,
+                None,
+                None,
+                redirect_url,
+            )
+            .await?;
+        Ok(())
+    }
+
+    pub async fn send_custom_email_user(
+        &self,
+        realm: &str,
+        user_id: &str,
+        redirect_url: Option<String>,
+        body: Vec<String>,
+    ) -> Result<(), KeycloakError> {
+        self.inner
+            .admin
+            .realm_users_with_user_id_execute_actions_email_put(
+                realm,
+                user_id,
+                None,
+                None,
+                redirect_url,
+                body,
+            )
+            .await?;
+        Ok(())
+    }
+
+    pub fn error_message<'e>(&self, err: &'e KeycloakError) -> Cow<'e, str> {
+        match err {
+            KeycloakError::ReqwestFailure(err) => Cow::Owned(err.to_string()),
+            KeycloakError::HttpFailure { status, body, text } => body
+                .as_ref()
+                .and_then(|e| {
+                    e.error
+                        .as_deref()
+                        .or(e.error_message.as_deref())
+                        .map(Cow::Borrowed)
+                })
+                .unwrap_or_else(|| {
+                    if !text.is_empty() {
+                        Cow::Borrowed(text.as_str())
+                    } else {
+                        Cow::Owned(status.to_string())
+                    }
+                }),
+        }
     }
 }

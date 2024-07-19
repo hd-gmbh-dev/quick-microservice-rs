@@ -56,6 +56,7 @@ pub struct KcGroupDetailsQuery {
     pub group_id: Option<String>,
     pub context: Option<String>,
     pub allowed_access_levels: Option<String>,
+    pub allowed_types: Option<String>,
     pub display_name: Option<String>,
     pub built_in: Option<String>,
 }
@@ -66,6 +67,7 @@ impl KcGroupDetailsQuery {
             self.group_id.as_ref(),
             self.display_name.as_ref(),
             self.allowed_access_levels.as_ref(),
+            self.allowed_types.as_ref(),
         ]
         .iter()
         .all(Option::is_some)
@@ -84,6 +86,7 @@ pub struct GroupDetail {
     pub built_in: bool,
     pub display_name: Option<Arc<str>>,
     pub allowed_access_levels: Option<Arc<[AccessLevel]>>,
+    pub allowed_types: Option<Arc<[Arc<str>]>>,
     pub context: Option<InfraContext>,
 }
 
