@@ -8,7 +8,7 @@ members = [
 
 [workspace.package]
 edition = "2021"
-version = "0.1.0"
+version = "0.0.20"
 rust-version = "1.75.0"
 authors = ["Jürgen Seitz <juergen.seitz@h-d-gmbh.de>"]
 license = "MIT"
@@ -60,21 +60,22 @@ hex = "0.4.3"
 serde_with = "3.7.0"
 sea-orm = { version = "0.12.15", default-features = false, features = [ "sqlx-postgres" ] }
 
-qm-entity = { path = "crates/entity", version = "0.1.0" }
-qm-entity-derive = { path = "crates/entity-derive", version = "0.1.0" }
-qm-customer = { path = "crates/customer", version = "0.1.0" }
-qm-server = { path = "crates/server", version = "0.1.0" }
-qm-mongodb = { path = "crates/mongodb", version = "0.1.0" }
-qm-pg = { path = "crates/pg", version = "0.1.0" }
-qm-redis = { path = "crates/redis", version = "0.1.0" }
-qm-s3 = { path = "crates/s3", version = "0.1.0" }
-qm-kafka = { path = "crates/kafka", version = "0.1.0" }
-qm-keycloak = { path = "crates/keycloak", version = "0.1.0" }
-qm-role = { path = "crates/role", version = "0.1.0" }
-qm-role-build = { path = "crates/role-build", version = "0.1.0" }
-qm-utils = { path = "crates/utils", version = "0.1.0" }
-qm-utils-derive = { path = "crates/utils-derive", version = "0.1.0" }
-qm = { path = ".", default-features = false, version = "0.1.0" }
+qm-entity = { path = "crates/entity", version = "0.0.20" }
+qm-entity-derive = { path = "crates/entity-derive", version = "0.0.20" }
+qm-customer = { path = "crates/customer", version = "0.0.20" }
+qm-server = { path = "crates/server", version = "0.0.20" }
+qm-mongodb = { path = "crates/mongodb", version = "0.0.20" }
+qm-pg = { path = "crates/pg", version = "0.0.20" }
+qm-redis = { path = "crates/redis", version = "0.0.20" }
+qm-s3 = { path = "crates/s3", version = "0.0.20" }
+qm-kafka = { path = "crates/kafka", version = "0.0.20" }
+qm-keycloak = { path = "crates/keycloak", version = "0.0.20" }
+qm-role = { path = "crates/role", version = "0.0.20" }
+qm-role-build = { path = "crates/role-build", version = "0.0.20" }
+qm-utils = { path = "crates/utils", version = "0.0.20" }
+qm-utils-derive = { path = "crates/utils-derive", version = "0.0.20" }
+qm = { path = ".", default-features = false, version = "0.0.20" }
+
 
 [package]
 name = "qm"
