@@ -13,8 +13,6 @@ fn sorted(v: HashSet<Rc<str>>) -> Rc<[Rc<str>]> {
 pub struct ParseResult {
     pub user_group_name_mappings: Vec<UserGroupNameMapping>,
     pub role_mappings: Vec<RoleMapping>,
-    pub roles: Rc<[Rc<str>]>,
-    pub user_groups: Rc<[Rc<str>]>,
     pub permissions: Rc<[Rc<str>]>,
     pub resources: Rc<[Rc<str>]>,
 }
@@ -24,10 +22,6 @@ impl ParseResult {
         user_group_name_mappings: Vec<UserGroupNameMapping>,
         role_mappings: Vec<RoleMapping>,
     ) -> Self {
-        let user_groups: HashSet<Rc<str>> = user_group_name_mappings
-            .iter()
-            .map(|v| v.user_group.clone())
-            .collect();
         let roles: HashSet<Rc<str>> = role_mappings
             .iter()
             .flat_map(|v| v.roles.iter().cloned())
@@ -48,8 +42,6 @@ impl ParseResult {
         Self {
             user_group_name_mappings,
             role_mappings,
-            roles,
-            user_groups: sorted(user_groups),
             permissions,
             resources,
         }

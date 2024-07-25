@@ -394,6 +394,8 @@ where
                     .add_user_to_group(realm, &user_id, &group.id)
                     .await?;
                 user_groups.push(group);
+            } else {
+                panic!("group with id {group_id} was not found");
             }
         }
         let mut user_roles = vec![];

@@ -24,7 +24,6 @@ use crate::context::RelatedResource;
 use crate::context::RelatedStorage;
 use crate::groups::RelatedBuiltInGroup;
 use crate::marker::Marker;
-use crate::model::CreateUserPayload;
 use crate::model::Customer;
 use crate::model::Institution;
 use crate::model::Organization;
@@ -97,6 +96,15 @@ where
 
     pub async fn by_id(&self, id: InstitutionId) -> Option<Arc<Institution>> {
         self.0.store.cache_db().institution_by_id(&id.into()).await
+    }
+
+    pub async fn exists(&self, cid: InfraId, oid: InfraId, name: Arc<str>) -> bool {
+        self.0
+            .store
+            .cache_db()
+            .institution_by_name(cid, oid, name)
+            .await
+            .is_some()
     }
 
     pub async fn create(&self, institution: InstitutionData) -> EntityResult<Arc<Institution>> {
@@ -240,6 +248,25 @@ where
         .await)
     }
 
+    async fn institution_exists(
+        &self,
+        ctx: &Context<'_>,
+        id: OrganizationId,
+        name: Arc<str>,
+    ) -> async_graphql::FieldResult<bool> {
+        let (cid, oid) = id.unzip();
+        Ok(Ctx(
+            &AuthCtx::<'_, Auth, Store, Resource, Permission>::new_with_role(
+                ctx,
+                (Resource::institution(), Permission::view()),
+            )
+            .await
+            .extend()?,
+        )
+        .exists(cid.into(), oid.into(), name)
+        .await)
+    }
+
     async fn institutions(
         &self,
         ctx: &Context<'_>,
@@ -290,46 +317,16 @@ where
         context: OrganizationId,
         input: CreateInstitutionInput,
     ) -> async_graphql::FieldResult<Arc<Institution>> {
-        let group_path = Auth::institution_owner_group()
-            .ok_or(EntityError::bad_request(
-                "Institution",
-                "create institution is not activated",
-            ))
-            .extend()?;
         let auth_ctx = AuthCtx::<Auth, Store, Resource, Permission>::mutate_with_role(
             ctx,
             qm_entity::ids::InfraContext::Organization(context),
             (Resource::institution(), Permission::create()),
         )
         .await?;
-        let group_id = auth_ctx
-            .store
-            .cache_db()
-            .group_id_by_path(group_path)
-            .await
-            .ok_or(EntityError::internal())
-            .extend()?;
-        let result = Ctx(&auth_ctx)
+        Ctx(&auth_ctx)
             .create(InstitutionData(context, input.name, input.ty))
             .await
-            .extend()?;
-        if let Some(user) = input.initial_user {
-            let id: InstitutionId = result.as_ref().into();
-            crate::schema::user::Ctx(&auth_ctx)
-                .create(CreateUserPayload {
-                    access: Some(
-                        qm_role::Access::new(AccessLevel::Institution)
-                            .with_fmt_id(Some(&id))
-                            .to_string(),
-                    ),
-                    user,
-                    group_id: Some(group_id),
-                    context: Some(qm_entity::ids::InfraContext::Institution(id)),
-                })
-                .await
-                .extend()?;
-        }
-        Ok(result)
+            .extend()
     }
 
     async fn update_institution(

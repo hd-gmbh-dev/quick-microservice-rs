@@ -11,7 +11,7 @@ use crate::config::Config as MongoDbConfig;
 async fn collections(client: &Client, database: &str) -> mongodb::error::Result<Arc<[Arc<str>]>> {
     Ok(client
         .database(database)
-        .list_collection_names(None)
+        .list_collection_names()
         .await?
         .into_iter()
         .map(Arc::from)
@@ -57,23 +57,20 @@ impl DB {
         if collections.read().await.is_empty() {
             admin
                 .database(cfg.database())
-                .create_collection("counters", None)
+                .create_collection("counters")
                 .await?;
         }
         let db_users = mongodb::bson::from_document::<DbUsers>(
             admin
                 .database(cfg.database())
-                .run_command(
-                    doc! {
-                        "usersInfo": [{
-                            "db": cfg.database(),
-                            "user": cfg.username(),
-                        }],
-                        "showPrivileges": false,
-                        "showCredentials": false,
-                    },
-                    None,
-                )
+                .run_command(doc! {
+                    "usersInfo": [{
+                        "db": cfg.database(),
+                        "user": cfg.username(),
+                    }],
+                    "showPrivileges": false,
+                    "showCredentials": false,
+                })
                 .await?,
         )
         .ok();
@@ -88,19 +85,16 @@ impl DB {
             log::info!("{app_name} -> create db {}", cfg.database());
             admin
                 .database(cfg.database())
-                .run_command(
-                    doc! {
-                        "createUser": cfg.username(),
-                        "pwd": cfg.password(),
-                        "roles": [
-                            {
-                                "role": "readWrite",
-                                "db": cfg.database(),
-                            }
-                        ]
-                    },
-                    None,
-                )
+                .run_command(doc! {
+                    "createUser": cfg.username(),
+                    "pwd": cfg.password(),
+                    "roles": [
+                        {
+                            "role": "readWrite",
+                            "db": cfg.database(),
+                        }
+                    ]
+                })
                 .await?;
         }
         let mut client_options = ClientOptions::parse(cfg.address()).await?;
@@ -126,7 +120,7 @@ impl DB {
     }
 
     pub async fn session(&self) -> mongodb::error::Result<ClientSession> {
-        self.inner.client.start_session(None).await
+        self.inner.client.start_session().await
     }
 
     pub fn get(&self) -> Database {
@@ -144,12 +138,9 @@ impl DB {
     pub async fn setup<'a>(&'a self, cfg: &MongoDbConfig) -> mongodb::error::Result<()> {
         if self.is_sharded() {
             self.get_admin()
-                .run_command(
-                    doc! {
-                        "enableSharding": cfg.database()
-                    },
-                    None,
-                )
+                .run_command(doc! {
+                    "enableSharding": cfg.database()
+                })
                 .await?;
         }
         for col in self.inner.collections.read().await.as_ref().iter() {
@@ -158,7 +149,10 @@ impl DB {
         Ok(())
     }
 
-    pub fn counters<T>(&self) -> Collection<T> {
+    pub fn counters<T>(&self) -> Collection<T>
+    where
+        T: Send + Sync,
+    {
         self.get().collection::<T>("counters")
     }
 
@@ -179,23 +173,17 @@ impl DB {
         shard_key: &str,
     ) -> mongodb::error::Result<()> {
         if !collections.iter().any(|c| c == name) {
-            self.get().create_collection(name, None).await.ok();
+            self.get().create_collection(name).await.ok();
             self.get()
                 .collection::<()>(name)
-                .create_index(
-                    IndexModel::builder().keys(doc! { shard_key: 1 }).build(),
-                    None,
-                )
+                .create_index(IndexModel::builder().keys(doc! { shard_key: 1 }).build())
                 .await?;
             if self.is_sharded() {
                 self.get_admin()
-                    .run_command(
-                        doc! {
-                            "shardCollection": &format!("{}.{}", self.inner.db_name, name),
-                            "key": { shard_key: "hashed" },
-                        },
-                        None,
-                    )
+                    .run_command(doc! {
+                        "shardCollection": &format!("{}.{}", self.inner.db_name, name),
+                        "key": { shard_key: "hashed" },
+                    })
                     .await?;
             }
         }
@@ -209,7 +197,7 @@ impl DB {
         indexes: Vec<(Document, bool)>,
     ) -> mongodb::error::Result<bool> {
         if !collections.iter().any(|c| c == name) {
-            self.get().create_collection(name, None).await?;
+            self.get().create_collection(name).await?;
             for index in indexes {
                 self.get()
                     .collection::<()>(name)
@@ -218,7 +206,6 @@ impl DB {
                             .keys(index.0)
                             .options(IndexOptions::builder().unique(index.1).build())
                             .build(),
-                        None,
                     )
                     .await?;
             }
@@ -232,7 +219,7 @@ impl DB {
             .inner
             .admin
             .database(self.db_name())
-            .list_collection_names(None)
+            .list_collection_names()
             .await?
         {
             if &collection != "api_jwt_secrets" {
@@ -240,7 +227,7 @@ impl DB {
                     .admin
                     .database(self.db_name())
                     .collection::<Document>(&collection)
-                    .delete_many(doc! {}, None)
+                    .delete_many(doc! {})
                     .await?;
             }
         }

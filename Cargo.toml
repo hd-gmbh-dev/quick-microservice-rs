@@ -8,7 +8,7 @@ members = [
 
 [workspace.package]
 edition = "2021"
-version = "0.0.19"
+version = "0.0.20"
 rust-version = "1.75.0"
 authors = ["Jürgen Seitz <juergen.seitz@h-d-gmbh.de>"]
 license = "MIT"
@@ -26,14 +26,14 @@ futures = "0.3.30"
 tokio = { version = "1.35.1", features = ["full"] }
 tower-http = { version = "0.5.0", features = ["cors"] }
 thiserror = "1.0.56"
-itertools = "0.12.1"
+itertools = "0.13.0"
 envy = "0.4.2"
 reqwest = { version = "0.12.2", default-features = false, features = ["json"] }
 jsonwebtoken = "9.2.0"
 serde = { version = "1.0.195", features = ["derive", "rc"] }
 serde_json = "1.0.111"
-keycloak = "24.0.200"
-mongodb = "2.8.0"
+keycloak = "25.0.0"
+mongodb = "3.0.0"
 lazy_static = "1.4.0"
 log = "0.4"
 strum = { version = "0.26", features = ["derive"] }
@@ -54,26 +54,28 @@ async-graphql = { version = "7.0.1", features = [
     "time"
 ] }
 prometheus-client = "0.22.1"
-rdkafka = { version = "0.36.0" }
+rdkafka = { version = "0.36.2" }
+
 hex = "0.4.3"
 serde_with = "3.7.0"
 sea-orm = { version = "0.12.15", default-features = false, features = [ "sqlx-postgres" ] }
 
-qm-entity = { path = "crates/entity", version = "0.0.19" }
-qm-entity-derive = { path = "crates/entity-derive", version = "0.0.19" }
-qm-customer = { path = "crates/customer", version = "0.0.19" }
-qm-server = { path = "crates/server", version = "0.0.19" }
-qm-mongodb = { path = "crates/mongodb", version = "0.0.19" }
-qm-pg = { path = "crates/pg", version = "0.0.19" }
-qm-redis = { path = "crates/redis", version = "0.0.19" }
-qm-s3 = { path = "crates/s3", version = "0.0.19" }
-qm-kafka = { path = "crates/kafka", version = "0.0.19" }
-qm-keycloak = { path = "crates/keycloak", version = "0.0.19" }
-qm-role = { path = "crates/role", version = "0.0.19" }
-qm-role-build = { path = "crates/role-build", version = "0.0.19" }
-qm-utils = { path = "crates/utils", version = "0.0.19" }
-qm-utils-derive = { path = "crates/utils-derive", version = "0.0.19" }
-qm = { path = ".", default-features = false, version = "0.0.19" }
+qm-entity = { path = "crates/entity", version = "0.0.20" }
+qm-entity-derive = { path = "crates/entity-derive", version = "0.0.20" }
+qm-customer = { path = "crates/customer", version = "0.0.20" }
+qm-server = { path = "crates/server", version = "0.0.20" }
+qm-mongodb = { path = "crates/mongodb", version = "0.0.20" }
+qm-pg = { path = "crates/pg", version = "0.0.20" }
+qm-redis = { path = "crates/redis", version = "0.0.20" }
+qm-s3 = { path = "crates/s3", version = "0.0.20" }
+qm-kafka = { path = "crates/kafka", version = "0.0.20" }
+qm-keycloak = { path = "crates/keycloak", version = "0.0.20" }
+qm-role = { path = "crates/role", version = "0.0.20" }
+qm-role-build = { path = "crates/role-build", version = "0.0.20" }
+qm-utils = { path = "crates/utils", version = "0.0.20" }
+qm-utils-derive = { path = "crates/utils-derive", version = "0.0.20" }
+qm = { path = ".", default-features = false, version = "0.0.20" }
+
 
 [package]
 name = "qm"

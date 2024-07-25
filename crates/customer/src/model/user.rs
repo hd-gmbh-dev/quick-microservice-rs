@@ -174,13 +174,6 @@ pub struct UserGroupMembership {
     pub user_id: Arc<str>,
 }
 
-#[derive(Debug, serde::Deserialize)]
-pub struct GroupAttributeUpdate {
-    pub group_id: Arc<str>,
-    pub name: Option<String>,
-    pub value: Option<String>,
-}
-
 #[derive(Debug, Clone, SimpleObject)]
 pub struct UserList {
     pub items: Arc<[UserDetails]>,

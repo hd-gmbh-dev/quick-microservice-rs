@@ -1,3 +1,5 @@
+mod shared;
+pub use shared::*;
 mod customer;
 pub use customer::*;
 mod institution;

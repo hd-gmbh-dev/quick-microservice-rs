@@ -10,7 +10,10 @@ where
     fn new(items: Vec<T>, limit: Option<i64>, total: Option<i64>, page: Option<i64>) -> Self;
 }
 
-pub struct ListCtx<T> {
+pub struct ListCtx<T>
+where
+    T: Send + Sync,
+{
     collection: crate::Collection<T>,
     query: Option<Document>,
 }
