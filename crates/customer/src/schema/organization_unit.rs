@@ -30,7 +30,6 @@ use crate::context::RelatedStorage;
 use crate::groups::RelatedBuiltInGroup;
 use crate::marker::Marker;
 use crate::model::CreateOrganizationUnitInput;
-use crate::model::CreateUserPayload;
 use crate::model::Institution;
 use crate::model::OrganizationUnit;
 use crate::model::OrganizationUnitData;
@@ -310,29 +309,16 @@ where
         context: CustomerOrOrganization,
         input: CreateOrganizationUnitInput,
     ) -> async_graphql::FieldResult<Arc<OrganizationUnit>> {
-        let (result, auth_ctx, access_level, group_id) = match context {
+        match context {
             CustomerOrOrganization::Customer(context) => {
-                let group_path = Auth::customer_unit_owner_group()
-                    .ok_or(EntityError::bad_request(
-                        "OrganizationUnit",
-                        "create OrganizationUnit::Customer is not activated",
-                    ))
-                    .extend()?;
                 let auth_ctx = AuthCtx::<Auth, Store, Resource, Permission>::mutate_with_role(
                     ctx,
                     qm_entity::ids::InfraContext::Customer(context),
                     (Resource::organization_unit(), Permission::create()),
                 )
                 .await?;
-                let group_id = auth_ctx
-                    .store
-                    .cache_db()
-                    .group_id_by_path(group_path)
-                    .await
-                    .ok_or(EntityError::internal())
-                    .extend()?;
                 let access_level = AccessLevel::CustomerUnit;
-                let result = Ctx(&auth_ctx)
+                Ctx(&auth_ctx)
                     .create(
                         access_level,
                         OrganizationUnitData {
@@ -344,16 +330,9 @@ where
                         },
                     )
                     .await
-                    .extend()?;
-                (result, auth_ctx, access_level, group_id)
+                    .extend()
             }
             CustomerOrOrganization::Organization(context) => {
-                let group_path = Auth::institution_unit_owner_group()
-                    .ok_or(EntityError::bad_request(
-                        "OrganizationUnit",
-                        "create OrganizationUnit::Organization is not activated",
-                    ))
-                    .extend()?;
                 let (cid, oid) = context.unzip();
                 let auth_ctx = AuthCtx::<Auth, Store, Resource, Permission>::mutate_with_role(
                     ctx,
@@ -361,15 +340,8 @@ where
                     (Resource::organization_unit(), Permission::create()),
                 )
                 .await?;
-                let group_id = auth_ctx
-                    .store
-                    .cache_db()
-                    .group_id_by_path(group_path)
-                    .await
-                    .ok_or(EntityError::internal())
-                    .extend()?;
                 let access_level = AccessLevel::InstitutionUnit;
-                let result = Ctx(&auth_ctx)
+                Ctx(&auth_ctx)
                     .create(
                         access_level,
                         OrganizationUnitData {
@@ -381,27 +353,9 @@ where
                         },
                     )
                     .await
-                    .extend()?;
-                (result, auth_ctx, access_level, group_id)
+                    .extend()
             }
-        };
-        if let Some(user) = input.initial_user {
-            let id: OrganizationUnitId = result.as_ref().into();
-            crate::schema::user::Ctx(&auth_ctx)
-                .create(CreateUserPayload {
-                    access: Some(
-                        qm_role::Access::new(access_level)
-                            .with_fmt_id(Some(&id))
-                            .to_string(),
-                    ),
-                    user,
-                    group_id: Some(group_id),
-                    context: Some(qm_entity::ids::InfraContext::OrganizationUnit(id)),
-                })
-                .await
-                .extend()?;
         }
-        Ok(result)
     }
 
     async fn update_organization_unit(
