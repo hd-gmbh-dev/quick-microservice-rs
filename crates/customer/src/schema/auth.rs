@@ -51,16 +51,16 @@ pub struct AuthCtx<'ctx, Auth, Store, Resource, Permission> {
     _marker: RpMarker<Resource, Permission>,
 }
 
-impl<'ctx, Auth, Store, Resource, Permission> AuthCtx<'ctx, Auth, Store, Resource, Permission>
+impl<'ctx, Auth, Store, Resource, Permission> TryFrom<(&'ctx Store, Auth)>
+    for AuthCtx<'ctx, Auth, Store, Resource, Permission>
 where
     Auth: RelatedAuth<Resource, Permission>,
     Store: RelatedStorage,
     Resource: RelatedResource,
     Permission: RelatedPermission,
 {
-    pub async fn new(graphql_context: &'ctx Context<'_>) -> FieldResult<Self> {
-        let auth = Auth::from_graphql_context(graphql_context).await.extend()?;
-        let store = graphql_context.data_unchecked::<Store>();
+    type Error = async_graphql::FieldError;
+    fn try_from((store, auth): (&'ctx Store, Auth)) -> FieldResult<Self> {
         let is_admin = auth.is_admin();
         if auth.user_id().is_none() {
             return Err(EntityError::Forbidden).extend();
@@ -78,6 +78,20 @@ where
             context: Default::default(),
             _marker: Default::default(),
         })
+    }
+}
+
+impl<'ctx, Auth, Store, Resource, Permission> AuthCtx<'ctx, Auth, Store, Resource, Permission>
+where
+    Auth: RelatedAuth<Resource, Permission>,
+    Store: RelatedStorage,
+    Resource: RelatedResource,
+    Permission: RelatedPermission,
+{
+    pub async fn new(graphql_context: &'ctx Context<'_>) -> FieldResult<Self> {
+        let auth = Auth::from_graphql_context(graphql_context).await.extend()?;
+        let store = graphql_context.data_unchecked::<Store>();
+        Self::try_from((store, auth))
     }
 
     pub async fn new_with_role(

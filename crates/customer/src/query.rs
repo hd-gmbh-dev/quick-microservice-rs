@@ -2,46 +2,6 @@ use crate::model::*;
 use qm_pg::DB;
 use sqlx::query_as;
 
-pub async fn fetch_api_clients(db: &DB, realm: &str) -> anyhow::Result<Vec<KcApiClientQuery>> {
-    Ok(query_as!(
-        KcApiClientQuery,
-        r#"
-SELECT
-    c.id AS id,
-    c.enabled AS enabled,
-    c.full_scope_allowed AS full_scope_allowed,
-    c.client_id AS client_id,
-    c.not_before AS not_before,
-    c.public_client AS public_client,
-    c.secret AS secret,
-    c.base_url AS base_url,
-    c.bearer_only AS bearer_only,
-    c.management_url AS management_url,
-    c.surrogate_auth_required AS surrogate_auth_required,
-    c.realm_id AS realm_id,
-    c.protocol AS protocol,
-    c.node_rereg_timeout AS node_rereg_timeout,
-    c.frontchannel_logout AS frontchannel_logout,
-    c.consent_required AS consent_required,
-    c.name AS name,
-    c.service_accounts_enabled AS service_accounts_enabled,
-    c.client_authenticator_type AS client_authenticator_type,
-    c.root_url AS root_url,
-    c.description AS description,
-    c.registration_token AS registration_token,
-    c.standard_flow_enabled AS standard_flow_enabled,
-    c.implicit_flow_enabled AS implicit_flow_enabled,
-    c.direct_access_grants_enabled AS direct_access_grants_enabled,
-    c.always_display_in_console AS always_display_in_console
-FROM realm re
-    JOIN client c on re.id = c.realm_id
-WHERE re.name = $1;"#,
-        realm
-    )
-    .fetch_all(db.pool())
-    .await?)
-}
-
 pub async fn fetch_users(db: &DB, realm: &str) -> anyhow::Result<Vec<KcUserQuery>> {
     Ok(query_as!(
         KcUserQuery,

@@ -20,7 +20,7 @@ use crate::marker::Marker;
 use crate::model::{Group, GroupDetail, Role, UserGroup};
 use qm_role::AccessLevel;
 
-use crate::model::{Customer, Institution, Organization, /* OrganizationUnit */};
+use crate::model::{Customer, Institution, Organization /* OrganizationUnit */};
 use crate::schema::auth::AuthCtx;
 use crate::schema::RelatedAuth;
 use crate::schema::RelatedPermission;

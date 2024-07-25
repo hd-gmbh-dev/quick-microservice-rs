@@ -31,7 +31,6 @@ use crate::context::RelatedStorage;
 use crate::groups::RelatedBuiltInGroup;
 use crate::marker::Marker;
 use crate::model::CreateOrganizationInput;
-use crate::model::CreateUserPayload;
 use crate::model::Customer;
 use crate::model::Organization;
 use crate::model::OrganizationData;
@@ -94,7 +93,12 @@ where
     }
 
     pub async fn exists(&self, cid: InfraId, name: Arc<str>) -> bool {
-        self.0.store.cache_db().organization_by_name(cid, name).await.is_some()
+        self.0
+            .store
+            .cache_db()
+            .organization_by_name(cid, name)
+            .await
+            .is_some()
     }
 
     pub async fn create(&self, organization: OrganizationData) -> EntityResult<Arc<Organization>> {

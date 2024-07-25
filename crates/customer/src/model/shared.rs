@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-
 #[derive(Debug, serde::Deserialize)]
 pub struct GroupAttributeUpdate {
     pub group_id: Arc<str>,

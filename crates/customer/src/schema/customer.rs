@@ -22,7 +22,6 @@ use crate::context::{RelatedAuth, RelatedPermission, RelatedResource};
 use crate::groups::RelatedBuiltInGroup;
 use crate::marker::Marker;
 use crate::model::CreateCustomerInput;
-use crate::model::CreateUserPayload;
 use crate::model::Customer;
 use crate::model::CustomerData;
 use crate::model::CustomerList;

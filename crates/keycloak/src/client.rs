@@ -433,7 +433,7 @@ impl Keycloak {
             .await?
             .pop())
     }
-    
+
     pub async fn get_client_by_id(
         &self,
         realm: &str,
@@ -464,14 +464,19 @@ impl Keycloak {
         Ok(())
     }
 
-    pub async fn remove_client(
-        &self,
-        realm: &str,
-        client_id: &str,
-    ) -> Result<(), KeycloakError> {
-        let client = self.get_client_by_id(realm, client_id).await?
-            .ok_or_else(|| KeycloakError::HttpFailure { status: 404, body: None, text: format!("client with id: '{client_id}' not found") })?;
-        self.inner.admin.realm_clients_with_client_uuid_delete(realm, &client.id.unwrap()).await?;
+    pub async fn remove_client(&self, realm: &str, client_id: &str) -> Result<(), KeycloakError> {
+        let client = self
+            .get_client_by_id(realm, client_id)
+            .await?
+            .ok_or_else(|| KeycloakError::HttpFailure {
+                status: 404,
+                body: None,
+                text: format!("client with id: '{client_id}' not found"),
+            })?;
+        self.inner
+            .admin
+            .realm_clients_with_client_uuid_delete(realm, &client.id.unwrap())
+            .await?;
         Ok(())
     }
 
