@@ -20,8 +20,8 @@ pub struct Users {
 }
 
 impl Users {
-    pub async fn new(db: &DB, realm: &str) -> anyhow::Result<Self> {
-        let user_id_map = fetch_users(db, realm)
+    pub async fn new(db: &DB, realm: &str, realm_admin_username: &str) -> anyhow::Result<Self> {
+        let user_id_map = fetch_users(db, realm, realm_admin_username)
             .await?
             .into_iter()
             .filter(|row| row.has_all_fields())

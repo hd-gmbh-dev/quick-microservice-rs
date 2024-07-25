@@ -14,8 +14,8 @@ use qm::{
         },
     },
     entity::{
-        err, AsNumber, FromGraphQLContext, HasAccess, HasRole, IsAdmin, MutatePermissions,
-        QueryPermissions, SessionAccess, UserId,
+        err, AsNumber, FromGraphQLContext, HasAccess, HasRole, IsAdmin, IsSupport,
+        MutatePermissions, QueryPermissions, SessionAccess, UserId,
     },
     keycloak::token::jwt::Claims,
     role::{Access, AccessLevel},
@@ -37,6 +37,7 @@ struct Inner {
     access: Option<Access>,
     roles: BTreeSet<Role>,
     is_admin: bool,
+    is_support: bool,
     user_id: Option<Uuid>,
 }
 
@@ -63,6 +64,7 @@ impl FromGraphQLContext for Authorization {
             let is_admin = parsed
                 .roles
                 .contains(&qm::role::role!(Resource::Administration));
+            let is_support = parsed.roles.contains(&qm::role::role!(Resource::Support));
 
             let access = if is_admin {
                 Access::new(AccessLevel::Admin)
@@ -78,6 +80,7 @@ impl FromGraphQLContext for Authorization {
                     access: Some(access),
                     roles: parsed.roles,
                     is_admin,
+                    is_support,
                     user_id: Some(user_id),
                 }),
             };
@@ -91,6 +94,18 @@ impl FromGraphQLContext for Authorization {
 impl IsAdmin for Authorization {
     fn is_admin(&self) -> bool {
         self.inner.is_admin
+    }
+}
+
+impl IsSupport for Authorization {
+    fn is_support(&self) -> bool {
+        self.inner.is_support
+    }
+}
+
+impl IsSupport for Resource {
+    fn is_support(&self) -> bool {
+        matches!(self, Resource::Support)
     }
 }
 

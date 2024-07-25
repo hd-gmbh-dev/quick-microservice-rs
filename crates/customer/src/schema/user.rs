@@ -22,7 +22,6 @@ use crate::model::{Group, RequiredUserAction, Role, UserGroup};
 use qm_entity::err;
 use qm_entity::error::EntityError;
 use qm_entity::error::EntityResult;
-use qm_entity::IsAdmin;
 use qm_keycloak::CredentialRepresentation;
 use qm_keycloak::Keycloak;
 use qm_keycloak::KeycloakError;
@@ -670,11 +669,16 @@ where
         for id in ids.as_ref().iter() {
             let id = id.to_string();
             let user = cache.user_details_by_id(&id).await;
-            if let Some(user) = user {
-                if user.is_admin() {
+            if let Some(user_details) = user {
+                if user_details.user.username.as_ref()
+                    == auth_ctx.store.keycloak().config().realm_admin_username()
+                {
                     return exerr!(unauthorized(&auth_ctx.auth));
                 }
-                auth_ctx.can_mutate(user.context.as_ref()).await.extend()?;
+                auth_ctx
+                    .can_mutate(user_details.context.as_ref())
+                    .await
+                    .extend()?;
                 user_ids.push(Arc::from(id));
             } else {
                 return exerr!(not_found_by_id::<User>(id.to_string()));

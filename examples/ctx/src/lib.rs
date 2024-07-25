@@ -71,7 +71,13 @@ impl Storage {
         )
         .await?;
         let keycloak = qm::keycloak::Keycloak::new().await?;
-        let cache_db = CacheDB::new(&customer_db, &keycloak_db, keycloak.config().realm()).await?;
+        let cache_db = CacheDB::new(
+            &customer_db,
+            &keycloak_db,
+            keycloak.config().realm(),
+            keycloak.config().realm_admin_username(),
+        )
+        .await?;
         let jwt_store = JwtStore::new(keycloak.config());
         let redis = Redis::new()?;
         // let cache = Cache::new("qm-example", keycloak.config().realm()).await?;

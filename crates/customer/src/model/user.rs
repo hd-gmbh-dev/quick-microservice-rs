@@ -1,6 +1,5 @@
 use async_graphql::{Enum, InputObject, SimpleObject};
 use qm_entity::ids::{InfraContext, InstitutionId, PartialEqual};
-use qm_entity::IsAdmin;
 use sqlx::types::Uuid;
 use sqlx::FromRow;
 use std::collections::{HashMap, HashSet};
@@ -180,15 +179,6 @@ pub struct UserList {
     pub limit: Option<i64>,
     pub total: Option<i64>,
     pub page: Option<i64>,
-}
-
-impl IsAdmin for UserDetails {
-    fn is_admin(&self) -> bool {
-        self.access
-            .as_ref()
-            .map(|a| a.ty().is_admin())
-            .unwrap_or(false)
-    }
 }
 
 #[derive(Debug, Clone, SimpleObject)]
