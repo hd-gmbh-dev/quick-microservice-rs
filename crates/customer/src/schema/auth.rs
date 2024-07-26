@@ -48,6 +48,7 @@ pub struct AuthCtx<'ctx, Auth, Store, Resource, Permission> {
     pub requires_context: bool,
     pub context: Arc<RwLock<Option<InfraContext>>>,
     pub is_admin: bool,
+    pub is_support: bool,
     _marker: RpMarker<Resource, Permission>,
 }
 
@@ -62,6 +63,7 @@ where
     type Error = async_graphql::FieldError;
     fn try_from((store, auth): (&'ctx Store, Auth)) -> FieldResult<Self> {
         let is_admin = auth.is_admin();
+        let is_support = auth.is_support();
         if auth.user_id().is_none() {
             return Err(EntityError::Forbidden).extend();
         }
@@ -69,9 +71,10 @@ where
             .session_access()
             .map(|v| v.id().is_some())
             .ok_or(EntityError::unauthorized(&auth).extend())?;
-        let requires_context = !is_admin && has_id;
+        let requires_context = !(is_admin || is_support) && has_id;
         Ok(Self {
             is_admin,
+            is_support,
             auth,
             store,
             requires_context,
@@ -123,7 +126,7 @@ where
             ))
             .extend()?;
 
-        if self.is_admin {
+        if self.is_admin || self.is_support {
             return Ok(self);
         }
 
@@ -146,7 +149,7 @@ where
             ))
             .extend()?;
 
-        if self.is_admin {
+        if self.is_admin || self.is_support {
             return Ok(self);
         }
 
@@ -203,7 +206,7 @@ where
         &self,
         context: Option<CustomerId>,
     ) -> EntityResult<Option<CustomerId>> {
-        if self.is_admin {
+        if self.is_admin || self.is_support {
             return Ok(context);
         }
         let lvl = self.lvl();
@@ -263,7 +266,7 @@ where
         &self,
         context: Option<InfraContext>,
     ) -> EntityResult<Option<InfraContext>> {
-        if self.is_admin {
+        if self.is_admin || self.is_support {
             return Ok(context);
         }
         let lvl = self.lvl();

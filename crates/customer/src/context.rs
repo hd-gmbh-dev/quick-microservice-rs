@@ -6,6 +6,7 @@ use qm_entity::FromGraphQLContext;
 use qm_entity::HasAccess;
 use qm_entity::HasRole;
 use qm_entity::IsAdmin;
+use qm_entity::IsSupport;
 use qm_entity::MutatePermissions;
 use qm_entity::QueryPermissions;
 use qm_entity::SessionAccess;
@@ -84,20 +85,21 @@ pub trait RelatedStorage:
 }
 
 pub trait UserContext<R, P>:
-    IsAdmin + HasRole<R, P> + HasAccess + AsNumber + UserId + Send + Sync + 'static
+    IsAdmin + IsSupport + HasRole<R, P> + HasAccess + AsNumber + UserId + Send + Sync + 'static
 where
     R: std::fmt::Debug,
     P: std::fmt::Debug,
 {
 }
 
-pub trait AdminContext: IsAdmin + AsNumber + UserId + Send + Sync + 'static {}
+pub trait AdminContext: IsAdmin + IsSupport + AsNumber + UserId + Send + Sync + 'static {}
 
 pub trait RelatedAuth<R, P>:
     RelatedGroups<R, P>
     + Clone
     + FromGraphQLContext
     + IsAdmin
+    + IsSupport
     + UserContext<R, P>
     + AsNumber
     + UserId

@@ -38,7 +38,11 @@ pub struct UserDB {
 }
 
 impl UserDB {
-    pub async fn new(db: &DB, realm_name: &str) -> anyhow::Result<Self> {
+    pub async fn new(
+        db: &DB,
+        realm_name: &str,
+        realm_admin_username: &str,
+    ) -> anyhow::Result<Self> {
         let mut migrator = sqlx::migrate!("./migrations/keycloak");
         migrator.set_ignore_missing(true);
         migrator.run(db.pool()).await?;
@@ -49,7 +53,7 @@ impl UserDB {
         let user_groups = RwLock::new(UserGroups::new(db, realm_name).await?);
         let user_roles = RwLock::new(UserRoles::new(db, realm_name).await?);
         let group_roles = RwLock::new(GroupRoles::new(db, realm_name).await?);
-        let users = RwLock::new(Users::new(db, realm_name).await?);
+        let users = RwLock::new(Users::new(db, realm_name, realm_admin_username).await?);
         let users_total = Gauge::default();
         users_total.set(users.read().await.total());
         let groups_total = Gauge::default();

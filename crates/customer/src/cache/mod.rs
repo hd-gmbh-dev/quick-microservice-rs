@@ -32,9 +32,10 @@ impl CacheDB {
         customer_db: &qm_pg::DB,
         keycloak_db: &qm_pg::DB,
         realm: &str,
+        realm_admin_username: &str,
     ) -> anyhow::Result<Self> {
         let infra = InfraDB::new(customer_db).await?;
-        let user = UserDB::new(keycloak_db, realm).await?;
+        let user = UserDB::new(keycloak_db, realm, realm_admin_username).await?;
         Ok(Self {
             inner: Arc::new(Inner { infra, user }),
         })

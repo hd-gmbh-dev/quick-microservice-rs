@@ -2,7 +2,11 @@ use crate::model::*;
 use qm_pg::DB;
 use sqlx::query_as;
 
-pub async fn fetch_users(db: &DB, realm: &str) -> anyhow::Result<Vec<KcUserQuery>> {
+pub async fn fetch_users(
+    db: &DB,
+    realm: &str,
+    realm_admin_username: &str,
+) -> anyhow::Result<Vec<KcUserQuery>> {
     Ok(query_as!(
         KcUserQuery,
         r#"
@@ -15,8 +19,9 @@ SELECT
     u.enabled AS enabled
 FROM realm re
     JOIN user_entity u on re.id = u.realm_id
-WHERE re.name = $1;"#,
-        realm
+WHERE re.name = $1 AND u.username != $2;"#,
+        realm,
+        realm_admin_username
     )
     .fetch_all(db.pool())
     .await?)

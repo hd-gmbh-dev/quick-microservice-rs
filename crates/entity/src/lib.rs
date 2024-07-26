@@ -68,6 +68,12 @@ pub trait IsAdmin {
     }
 }
 
+pub trait IsSupport {
+    fn is_support(&self) -> bool {
+        false
+    }
+}
+
 pub trait HasAccess {
     fn has_access(&self, a: &qm_role::Access) -> bool;
 }
