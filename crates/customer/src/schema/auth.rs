@@ -119,7 +119,10 @@ where
     pub async fn new_with_roles<I>(
         graphql_context: &'ctx Context<'_>,
         roles: I,
-    ) -> FieldResult<Self> where I: IntoIterator<Item = (Resource, Permission)> {
+    ) -> FieldResult<Self>
+    where
+        I: IntoIterator<Item = (Resource, Permission)>,
+    {
         let result = Self::new(graphql_context).await?;
         if result.is_admin {
             return Ok(result);
