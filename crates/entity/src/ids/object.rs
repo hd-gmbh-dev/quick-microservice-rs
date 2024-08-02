@@ -104,6 +104,18 @@ pub struct Owner {
     o: OwnerType,
 }
 
+impl Owner {
+    pub fn new(o: OwnerType) -> Self {
+        Self { o }
+    }
+}
+
+impl From<InfraContext> for Owner {
+    fn from(value: InfraContext) -> Self {
+        Self { o: value.into() }
+    }
+}
+
 #[derive(Default, serde::Deserialize, serde::Serialize, Debug, Clone)]
 #[serde(tag = "ty", content = "id")]
 pub enum OwnerType {

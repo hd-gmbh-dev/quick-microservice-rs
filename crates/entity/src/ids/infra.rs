@@ -207,6 +207,48 @@ macro_rules! impl_customer_unit_id_from_ty_tuple {
     };
 }
 
+macro_rules! impl_customer_resource_id_from_ty_tuple {
+    ($n:ty) => {
+        impl From<($n, ID)> for CustomerResourceId {
+            fn from(value: ($n, ID)) -> Self {
+                CustomerResourceId {
+                    cid: value.0 as i64,
+                    id: value.1,
+                }
+            }
+        }
+    };
+}
+
+macro_rules! impl_organization_resource_id_from_ty_tuple {
+    ($n:ty) => {
+        impl From<($n, $n, ID)> for OrganizationResourceId {
+            fn from(value: ($n, $n, ID)) -> Self {
+                OrganizationResourceId {
+                    cid: value.0 as i64,
+                    oid: value.1 as i64,
+                    id: value.2,
+                }
+            }
+        }
+    };
+}
+
+macro_rules! impl_institution_resource_id_from_ty_tuple {
+    ($n:ty) => {
+        impl From<($n, $n, $n, ID)> for InstitutionResourceId {
+            fn from(value: ($n, $n, $n, ID)) -> Self {
+                InstitutionResourceId {
+                    cid: value.0 as i64,
+                    oid: value.1 as i64,
+                    iid: value.2 as i64,
+                    id: value.3,
+                }
+            }
+        }
+    };
+}
+
 /// Customer Id
 ///
 /// - Prefix: V
@@ -369,6 +411,14 @@ impl FromStr for CustomerResourceId {
 
 impl_id!(CustomerResourceId, CUSTOMER_RESOURCE_ID_PREFIX);
 impl_display_for_resource_id!(CustomerResourceId);
+impl_customer_resource_id_from_ty_tuple!(i64);
+impl_customer_resource_id_from_ty_tuple!(u64);
+impl_customer_resource_id_from_ty_tuple!(i32);
+impl_customer_resource_id_from_ty_tuple!(u32);
+impl_customer_resource_id_from_ty_tuple!(u16);
+impl_customer_resource_id_from_ty_tuple!(i16);
+impl_customer_resource_id_from_ty_tuple!(u8);
+impl_customer_resource_id_from_ty_tuple!(i8);
 
 /// Organization Id
 ///
@@ -429,6 +479,10 @@ impl OrganizationId {
 
     pub fn unzip(&self) -> (i64, i64) {
         (self.cid, self.oid)
+    }
+
+    pub fn resource(&self, id: ID) -> OrganizationResourceId {
+        OrganizationResourceId::from((self.cid, self.oid, id))
     }
 }
 
@@ -553,6 +607,14 @@ impl FromStr for OrganizationResourceId {
 
 impl_id!(OrganizationResourceId, ORGANIZATION_RESOURCE_ID_PREFIX);
 impl_display_for_resource_id!(OrganizationResourceId);
+impl_organization_resource_id_from_ty_tuple!(i64);
+impl_organization_resource_id_from_ty_tuple!(u64);
+impl_organization_resource_id_from_ty_tuple!(i32);
+impl_organization_resource_id_from_ty_tuple!(u32);
+impl_organization_resource_id_from_ty_tuple!(u16);
+impl_organization_resource_id_from_ty_tuple!(i16);
+impl_organization_resource_id_from_ty_tuple!(u8);
+impl_organization_resource_id_from_ty_tuple!(i8);
 
 /// Institution Id
 ///
@@ -744,6 +806,14 @@ impl FromStr for InstitutionResourceId {
 
 impl_id!(InstitutionResourceId, INSTITUTION_RESOURCE_ID_PREFIX);
 impl_display_for_resource_id!(InstitutionResourceId);
+impl_institution_resource_id_from_ty_tuple!(i64);
+impl_institution_resource_id_from_ty_tuple!(u64);
+impl_institution_resource_id_from_ty_tuple!(i32);
+impl_institution_resource_id_from_ty_tuple!(u32);
+impl_institution_resource_id_from_ty_tuple!(u16);
+impl_institution_resource_id_from_ty_tuple!(i16);
+impl_institution_resource_id_from_ty_tuple!(u8);
+impl_institution_resource_id_from_ty_tuple!(i8);
 
 /// Institution Unit Id
 ///

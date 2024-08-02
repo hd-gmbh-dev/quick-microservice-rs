@@ -193,6 +193,43 @@ impl KeycloakSessionClient {
         serde_json::from_value(result).map_err(|err| KeycloakSessionError::Decode(Arc::new(err)))
     }
 
+    async fn acquire_with_secret(
+        &self,
+        secret: &str,
+    ) -> Result<KeycloakSessionToken, KeycloakSessionError> {
+        let url = self.inner.url.as_ref();
+        let realm = self.inner.realm.as_ref();
+        let client_id = self.inner.client_id.as_ref();
+
+        // curl \
+        // -d "client_id=R09219E08" \
+        // -d "client_secret=wBdk1Z3GXm2YXRrtbgcEMLrVsbL8jjwn" \
+        // -d "grant_type=client_credentials" \
+        // "https://id.shapth.homenet/realms/shapth/protocol/openid-connect/token"
+        let result = error(
+            self.inner
+                .client
+                .post(&format!(
+                    "{url}/realms/{realm}/protocol/openid-connect/token",
+                ))
+                .form(&serde_json::json!({
+                    "client_id": client_id,
+                    "client_secret": secret,
+                    "grant_type": "client_credentials"
+                }))
+                .send()
+                .await?,
+        )
+        .await?
+        .json::<serde_json::Value>()
+        .await?;
+        log::debug!(
+            "Acquire result: {}",
+            serde_json::to_string_pretty(&result).unwrap()
+        );
+        serde_json::from_value(result).map_err(|err| KeycloakSessionError::Decode(Arc::new(err)))
+    }
+
     async fn refresh(
         &self,
         refresh_token: &str,
@@ -241,6 +278,33 @@ async fn try_refresh(
                     log::error!("{:#?}", err);
                     keycloak
                         .acquire(username, password)
+                        .await
+                        .map(KeycloakSessionToken::parse_access_token)
+                } else {
+                    Err(err)
+                }
+            } else {
+                Err(err)
+            }
+        }
+    }
+}
+
+async fn try_refresh_with_secret(
+    keycloak: &KeycloakSessionClient,
+    refresh_token: &str,
+    secret: &str,
+) -> Result<KeycloakSessionToken, KeycloakSessionError> {
+    log::debug!("refresh session for api client");
+    match keycloak.refresh(refresh_token).await {
+        Ok(token) => Ok(KeycloakSessionToken::parse_access_token(token)),
+        Err(err) => {
+            if let KeycloakSessionError::HttpFailure { status, .. } = &err {
+                if *status == 400 {
+                    log::error!("refresh token expired try to acquire new token with credentials");
+                    log::error!("{:#?}", err);
+                    keycloak
+                        .acquire_with_secret(secret)
                         .await
                         .map(KeycloakSessionToken::parse_access_token)
                 } else {
@@ -381,6 +445,133 @@ impl KeycloakSession {
 
 #[async_trait::async_trait]
 impl KeycloakTokenSupplier for KeycloakSession {
+    async fn get(&self, _url: &str) -> Result<String, KeycloakError> {
+        Ok(self.inner.token.read().await.access_token.to_string())
+    }
+}
+
+struct KeycloakApiClientSessionInner {
+    secret: Arc<str>,
+    token: RwLock<KeycloakSessionToken>,
+    stop_tx: tokio::sync::watch::Sender<bool>,
+}
+
+#[derive(Clone)]
+pub struct KeycloakApiClientSession {
+    inner: Arc<KeycloakApiClientSessionInner>,
+}
+
+impl Drop for KeycloakApiClientSession {
+    fn drop(&mut self) {
+        self.inner.stop_tx.send(false).ok();
+    }
+}
+
+impl KeycloakApiClientSession {
+    pub async fn new(
+        keycloak: KeycloakSessionClient,
+        secret: &str,
+        refresh_enabled: bool,
+    ) -> anyhow::Result<Self> {
+        let token = keycloak
+            .acquire_with_secret(secret)
+            .await
+            .map(KeycloakSessionToken::parse_access_token)?;
+        let secret: Arc<str> = Arc::from(secret.to_string());
+        let (stop_tx, stop_signal) = tokio::sync::watch::channel(true);
+        let result = KeycloakApiClientSession {
+            inner: Arc::new(KeycloakApiClientSessionInner {
+                secret,
+                token: RwLock::new(token),
+                stop_tx,
+            }),
+        };
+        if refresh_enabled {
+            let keycloak = keycloak.clone();
+            let session = result.clone();
+            std::thread::spawn(move || {
+                let rt = Builder::new_current_thread().enable_all().build().unwrap();
+                let local = LocalSet::new();
+                local.spawn_local(async move {
+                    let secret = &session.inner.secret;
+                    loop {
+                        let expires_in = session.inner.token.read().await.expires_in;
+                        let refresh_future = async {
+                            tokio::time::sleep(Duration::from_secs(
+                                expires_in
+                                    .checked_sub(30)
+                                    .ok_or(anyhow::anyhow!("unable to calculate refresh timeout"))?
+                                    as u64,
+                            ))
+                            .await;
+                            let next_token = async {
+                                try_refresh_with_secret(
+                                    &keycloak,
+                                    &session.inner.token.read().await.refresh_token,
+                                    secret,
+                                )
+                                .await
+                            }
+                            .await;
+                            match next_token {
+                                Ok(next_token) => {
+                                    *session.inner.token.write().await = next_token;
+                                }
+                                Err(err) => {
+                                    log::error!("{err:#?}");
+                                    std::process::exit(1)
+                                }
+                            }
+                            anyhow::Ok(true)
+                        };
+                        let stop_future = async {
+                            let mut stop_signal = stop_signal.clone();
+                            stop_signal.changed().await?;
+                            let result = *stop_signal.borrow_and_update();
+                            anyhow::Ok(result)
+                        };
+                        tokio::select! {
+                            _ = refresh_future => {}
+                            is_logged_in = stop_future => {
+                                if !is_logged_in.unwrap_or(false) {
+                                    break
+                                }
+                            }
+                        }
+                    }
+                    log::debug!("session ends for api client");
+                    anyhow::Ok(())
+                });
+                rt.block_on(local);
+            });
+        }
+        Ok(result)
+    }
+
+    pub fn stop(&self) -> anyhow::Result<()> {
+        log::debug!("stop session for {}", self.inner.secret);
+        self.inner.stop_tx.send(false)?;
+        Ok(())
+    }
+
+    pub async fn access_token(&self) -> Arc<str> {
+        self.inner.token.read().await.access_token.clone()
+    }
+
+    pub async fn token(&self) -> Arc<str> {
+        self.inner
+            .token
+            .read()
+            .await
+            .client_token
+            .as_ref()
+            .unwrap()
+            .clone()
+    }
+}
+
+#[async_trait::async_trait]
+impl KeycloakTokenSupplier for KeycloakApiClientSession {
     async fn get(&self, _url: &str) -> Result<String, KeycloakError> {
         Ok(self.inner.token.read().await.access_token.to_string())
     }
