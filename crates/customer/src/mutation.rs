@@ -8,39 +8,72 @@ pub const DEFAULT_TYPE: &str = "none";
 
 pub async fn create_customer(
     pool: &PgPool,
+    id: Option<i64>,
     name: &str,
     ty: Option<&str>,
     created_by: &Uuid,
 ) -> anyhow::Result<Customer> {
-    let rec = sqlx::query!(
-        r#"
-INSERT INTO customers ( name, ty, created_by )
-VALUES ( $1, $2, $3 )
-RETURNING
-    id,
-    name,
-    ty,
-    created_by,
-    created_at,
-    updated_by,
-    updated_at
-"#,
+    if let Some(id) = id {
+        let rec = sqlx::query!(
+            r#"
+    INSERT INTO customers ( id, name, ty, created_by )
+    VALUES ( $1, $2, $3, $4 )
+    RETURNING
+        id,
         name,
-        ty.unwrap_or(DEFAULT_TYPE),
-        created_by
-    )
-    .fetch_one(pool)
-    .await?;
+        ty,
+        created_by,
+        created_at,
+        updated_by,
+        updated_at
+    "#,
+            id,
+            name,
+            ty.unwrap_or(DEFAULT_TYPE),
+            created_by
+        )
+        .fetch_one(pool)
+        .await?;
+        Ok(Customer {
+            id: rec.id.into(),
+            name: Arc::from(rec.name),
+            ty: Arc::from(rec.ty),
+            created_by: rec.created_by,
+            created_at: rec.created_at,
+            updated_by: rec.updated_by,
+            updated_at: rec.updated_at,
+        })
+    } else {
+        let rec = sqlx::query!(
+            r#"
+    INSERT INTO customers ( name, ty, created_by )
+    VALUES ( $1, $2, $3 )
+    RETURNING
+        id,
+        name,
+        ty,
+        created_by,
+        created_at,
+        updated_by,
+        updated_at
+    "#,
+            name,
+            ty.unwrap_or(DEFAULT_TYPE),
+            created_by
+        )
+        .fetch_one(pool)
+        .await?;
 
-    Ok(Customer {
-        id: rec.id.into(),
-        name: Arc::from(rec.name),
-        ty: Arc::from(rec.ty),
-        created_by: rec.created_by,
-        created_at: rec.created_at,
-        updated_by: rec.updated_by,
-        updated_at: rec.updated_at,
-    })
+        Ok(Customer {
+            id: rec.id.into(),
+            name: Arc::from(rec.name),
+            ty: Arc::from(rec.ty),
+            created_by: rec.created_by,
+            created_at: rec.created_at,
+            updated_by: rec.updated_by,
+            updated_at: rec.updated_at,
+        })
+    }
 }
 
 pub async fn update_customer(
