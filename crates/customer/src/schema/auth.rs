@@ -116,6 +116,26 @@ where
         Ok(result)
     }
 
+    pub async fn new_with_roles<I>(
+        graphql_context: &'ctx Context<'_>,
+        roles: I,
+    ) -> FieldResult<Self>
+    where
+        I: IntoIterator<Item = (Resource, Permission)>,
+    {
+        let result = Self::new(graphql_context).await?;
+        if result.is_admin {
+            return Ok(result);
+        }
+
+        for (resource, permission) in roles {
+            if !result.auth.has_role(&resource, &permission) {
+                return err!(unauthorized(&result.auth)).extend();
+            }
+        }
+        Ok(result)
+    }
+
     async fn with_customer(self, customer_id: CustomerId) -> FieldResult<Self> {
         let cache = self.store.cache_db();
         let _ = cache

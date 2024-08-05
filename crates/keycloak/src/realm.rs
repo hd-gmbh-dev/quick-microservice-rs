@@ -16,6 +16,10 @@ lazy_static::lazy_static! {
     static ref APP_URL: String = std::env::var("SERVER_APP_URL").unwrap_or_else(|_| "http://localhost:5173".to_string());
 }
 
+pub fn app_url() -> &'static str {
+    APP_URL.as_str()
+}
+
 pub async fn create(keycloak: &Keycloak) -> anyhow::Result<()> {
     let realm = keycloak.config().realm();
     let url = APP_URL.as_str();
