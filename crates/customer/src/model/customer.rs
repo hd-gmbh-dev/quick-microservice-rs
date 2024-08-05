@@ -11,6 +11,7 @@ use time::PrimitiveDateTime;
 
 #[derive(Debug, InputObject)]
 pub struct CreateCustomerInput {
+    pub id: Option<i64>,
     pub name: String,
     pub ty: Option<String>,
     pub initial_user: Option<CreateUserInput>,
@@ -21,7 +22,7 @@ pub struct UpdateCustomerInput {
     pub name: String,
 }
 
-pub struct CustomerData(pub String, pub Option<String>);
+pub struct CustomerData(pub String, pub Option<String>, pub Option<i64>);
 
 #[derive(Debug, Clone, SimpleObject, FromRow, Serialize, Deserialize)]
 #[graphql(complex)]

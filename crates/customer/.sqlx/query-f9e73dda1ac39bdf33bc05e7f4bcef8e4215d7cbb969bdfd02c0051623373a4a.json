@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\nINSERT INTO customers ( name, ty, created_by )\nVALUES ( $1, $2, $3 )\nRETURNING\n    id,\n    name,\n    ty,\n    created_by,\n    created_at,\n    updated_by,\n    updated_at\n",
+  "query": "\n    INSERT INTO customers ( name, ty, created_by )\n    VALUES ( $1, $2, $3 )\n    RETURNING\n        id,\n        name,\n        ty,\n        created_by,\n        created_at,\n        updated_by,\n        updated_at\n    ",
   "describe": {
     "columns": [
       {
@@ -56,5 +56,5 @@
       true
     ]
   },
-  "hash": "a7b0506a3734f8d930a5ec1ade86fd0109d89d24eede3fef1b98fabdfefa5b83"
+  "hash": "f9e73dda1ac39bdf33bc05e7f4bcef8e4215d7cbb969bdfd02c0051623373a4a"
 }

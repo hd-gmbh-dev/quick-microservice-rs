@@ -119,6 +119,7 @@ impl CacheDB {
         } else {
             itertools::Either::Left(iter)
         };
+        let total = iter.clone().count();
         if let Some(filter) = filter {
             let page = filter.page.unwrap_or(0);
             let limit = filter.limit.unwrap_or(100);
@@ -127,7 +128,7 @@ impl CacheDB {
             OrganizationList {
                 items,
                 limit: Some(limit as i64),
-                total: Some(self.inner.infra.organizations_total.get()),
+                total: Some(total as i64),
                 page: Some(page as i64),
             }
         } else {
@@ -135,7 +136,7 @@ impl CacheDB {
             OrganizationList {
                 items,
                 limit: None,
-                total: Some(self.inner.infra.organizations_total.get()),
+                total: Some(total as i64),
                 page: Some(0),
             }
         }

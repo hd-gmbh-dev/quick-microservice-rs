@@ -79,6 +79,7 @@ where
                 } else {
                     let result = crate::mutation::create_customer(
                         self.0.store.customer_db().pool(),
+                        customer.2,
                         &name,
                         ty.as_deref(),
                         user_id,
@@ -255,7 +256,7 @@ where
         )
         .await?;
         Ctx(&auth_ctx)
-            .create(CustomerData(input.name, input.ty))
+            .create(CustomerData(input.name, input.ty, input.id))
             .await
             .extend()
     }
