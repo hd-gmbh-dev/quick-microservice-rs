@@ -1,8 +1,7 @@
-use std::collections::HashSet;
-use std::sync::Arc;
+use std::{collections::HashSet, sync::Arc};
 
 use jsonwebtoken::{decode, Algorithm, DecodingKey, Validation};
-use serde::{Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ResourceAccess {
@@ -134,12 +133,23 @@ impl Jwt {
     }
 
     pub fn decode(&self, token: &str) -> anyhow::Result<Claims> {
-        let result = decode::<Claims>(token, &self.decoding_key, &self.validation)?;
+        self.decode_custom(token)
+    }
+
+    pub fn decode_custom<C: DeserializeOwned>(&self, token: &str) -> anyhow::Result<C> {
+        let result = decode(token, &self.decoding_key, &self.validation)?;
         Ok(result.claims)
     }
 
     pub fn decode_logout_token(&self, token: &str) -> anyhow::Result<LogoutClaims> {
-        let result = decode::<LogoutClaims>(token, &self.decoding_key, &self.logout_validation)?;
+        self.decode_logout_token_custom(token)
+    }
+
+    pub fn decode_logout_token_custom<C: DeserializeOwned>(
+        &self,
+        token: &str,
+    ) -> anyhow::Result<C> {
+        let result = decode(token, &self.decoding_key, &self.logout_validation)?;
         Ok(result.claims)
     }
 }
