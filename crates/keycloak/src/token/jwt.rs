@@ -44,6 +44,7 @@ pub struct Claims {
     pub name: String,
     #[serde(default)]
     pub preferred_username: String,
+    #[serde(default)]
     pub given_name: String,
     #[serde(default)]
     pub family_name: String,
