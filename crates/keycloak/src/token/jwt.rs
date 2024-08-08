@@ -32,7 +32,7 @@ pub struct Claims {
     pub session_state: String,
     pub acr: String,
     #[serde(rename = "allowed-origins")]
-    pub allowed_origins: Vec<Arc<str>>,
+    pub allowed_origins: Option<Vec<Arc<str>>>,
     pub realm_access: RealmAccess,
     pub resource_access: ResourceAccess,
     #[serde(default)]
@@ -67,7 +67,7 @@ impl Default for Claims {
             azp: "".to_string(),
             session_state: "".to_string(),
             acr: "".to_string(),
-            allowed_origins: vec![],
+            allowed_origins: None,
             realm_access: RealmAccess { roles: vec![] },
             resource_access: ResourceAccess {
                 account: RealmAccess { roles: vec![] },
