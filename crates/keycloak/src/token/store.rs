@@ -1,18 +1,17 @@
-use std::collections::HashMap;
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use base64::engine::{general_purpose::URL_SAFE_NO_PAD, Engine};
-use jsonwebtoken::Algorithm;
-use jsonwebtoken::Header;
+use jsonwebtoken::{Algorithm, Header};
 use reqwest::Client;
+use serde::de::DeserializeOwned;
 use tokio::sync::RwLock;
 
-use crate::token::jwt::Claims;
-use crate::token::jwt::Jwt;
-use crate::RealmInfo;
+use crate::{
+    token::jwt::{Claims, Jwt},
+    RealmInfo,
+};
 
-use super::jwt::LogoutClaims;
-use super::jwt::PartialClaims;
+use super::jwt::{LogoutClaims, PartialClaims};
 
 struct Inner {
     url: Arc<str>,
@@ -98,7 +97,12 @@ impl JwtStore {
         }
         Err(anyhow::anyhow!("Invalid token"))
     }
+
     pub async fn decode(&self, token: &str) -> anyhow::Result<Claims> {
+        self.decode_custom(token).await
+    }
+
+    pub async fn decode_custom<C: DeserializeOwned>(&self, token: &str) -> anyhow::Result<C> {
         let token_header = jsonwebtoken::decode_header(token)?;
         let kid = token_header
             .kid
@@ -106,15 +110,23 @@ impl JwtStore {
             .ok_or(anyhow::anyhow!("Invalid token"))?;
         {
             if let Some(key) = self.inner.keys.read().await.get(kid) {
-                return key.decode(token);
+                return key.decode_custom(token);
             }
         }
         let jwt = self.get_jwt_from_partial_claims(token).await?;
-        let claims = jwt.decode(token)?;
+        let claims = jwt.decode_custom(token)?;
         self.inner.keys.write().await.insert(jwt.kid.clone(), jwt);
         Ok(claims)
     }
+
     pub async fn decode_logout_token(&self, token: &str) -> anyhow::Result<LogoutClaims> {
+        self.decode_logout_token_custom(token).await
+    }
+
+    pub async fn decode_logout_token_custom<C: DeserializeOwned>(
+        &self,
+        token: &str,
+    ) -> anyhow::Result<C> {
         let token_header = jsonwebtoken::decode_header(token)?;
         let kid = token_header
             .kid
@@ -122,11 +134,11 @@ impl JwtStore {
             .ok_or(anyhow::anyhow!("Invalid token"))?;
         {
             if let Some(key) = self.inner.keys.read().await.get(kid) {
-                return key.decode_logout_token(token);
+                return key.decode_logout_token_custom(token);
             }
         }
         let jwt = self.get_jwt_from_partial_claims(token).await?;
-        let logout_claims = jwt.decode_logout_token(token)?;
+        let logout_claims = jwt.decode_logout_token_custom(token)?;
         self.inner.keys.write().await.insert(jwt.kid.clone(), jwt);
         Ok(logout_claims)
     }
