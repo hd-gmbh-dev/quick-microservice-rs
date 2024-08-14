@@ -37,8 +37,8 @@ mongodb = "3.0.0"
 lazy_static = "1.4.0"
 log = "0.4"
 strum = { version = "0.26", features = ["derive"] }
-redis = { version = "0.25.3", features = ["tokio-comp"] }
-deadpool-redis = "0.15.0"
+redis = { version = "0.26.1", features = ["tokio-comp"] }
+deadpool-redis = "0.16.0"
 uuid = { version = "1.6.1", features = ["v4", "v7"]}
 glob = "0.3.1"
 async-graphql-axum = "7.0.1"
@@ -58,7 +58,7 @@ rdkafka = { version = "0.36.2" }
 
 hex = "0.4.3"
 serde_with = "3.7.0"
-sea-orm = { version = "0.12.15", default-features = false, features = [ "sqlx-postgres" ] }
+sea-orm = { version = "1.0.0", default-features = false, features = [ "sqlx-postgres" ] }
 
 qm-entity = { path = "crates/entity", version = "0.0.23" }
 qm-entity-derive = { path = "crates/entity-derive", version = "0.0.23" }

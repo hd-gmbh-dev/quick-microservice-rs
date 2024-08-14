@@ -11,7 +11,32 @@ use crate::{
     RealmInfo,
 };
 
-use super::jwt::{LogoutClaims, PartialClaims};
+use super::{
+    config::Config,
+    jwt::{LogoutClaims, PartialClaims},
+};
+pub trait JwtConfig {
+    fn address(&self) -> &str;
+    fn public_url(&self) -> &str;
+}
+
+impl JwtConfig for Config {
+    fn address(&self) -> &str {
+        Config::address(self)
+    }
+    fn public_url(&self) -> &str {
+        Config::public_url(self)
+    }
+}
+
+impl JwtConfig for crate::config::Config {
+    fn address(&self) -> &str {
+        crate::config::Config::address(self)
+    }
+    fn public_url(&self) -> &str {
+        crate::config::Config::public_url(self)
+    }
+}
 
 struct Inner {
     url: Arc<str>,
@@ -26,7 +51,7 @@ pub struct JwtStore {
 }
 
 impl JwtStore {
-    pub fn new(config: &crate::KeycloakConfig) -> Self {
+    pub fn new(config: &impl JwtConfig) -> Self {
         let client = reqwest::Client::new();
         let url = Arc::from(config.address());
         let public_url = Arc::from(config.public_url());

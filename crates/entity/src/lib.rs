@@ -19,6 +19,7 @@ pub mod error;
 pub mod ids;
 pub mod list;
 pub mod model;
+pub mod owned;
 
 pub trait MutatePermissions {
     fn create() -> Self;

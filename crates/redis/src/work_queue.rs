@@ -109,15 +109,14 @@ impl WorkQueue {
     pub async fn recover<C: AsyncCommands>(&self, db: &mut C) -> RedisResult<()> {
         let processing: RedisResult<Value> = db.lrange(&self.processing_key, 0, -1).await;
         let mut pipeline = Box::new(redis::pipe());
-        if let Ok(Value::Bulk(processing)) = processing {
+        if let Ok(Value::Array(processing)) = processing {
             for v in processing {
-                if let Value::Data(v) = v {
-                    let item_id = String::from_utf8_lossy(&v);
+                if let Value::SimpleString(item_id) = v {
                     let a: bool = db.exists(self.lease_key.of(&item_id)).await?;
                     let b: bool = db.exists(self.item_data_key.of(&item_id)).await?;
                     if !a && b {
                         log::info!("requeue '{}' -> item '{item_id}'", self.processing_key);
-                        pipeline.lpush(&self.main_queue_key, &*item_id);
+                        pipeline.lpush(&self.main_queue_key, &item_id);
                     }
                 }
             }
