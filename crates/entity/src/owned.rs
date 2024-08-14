@@ -1,18 +1,19 @@
 use std::{borrow::Cow, str::FromStr, sync::Arc};
 
-use crate::ids::{InstitutionId, InstitutionResourceId, OrganizationId};
-use async_graphql::{
-    Description, InputValueError, InputValueResult, Scalar, ScalarType, SimpleObject, Value,
-};
+use async_graphql::{Description, InputValueError, InputValueResult, Scalar, ScalarType, Value};
 use chrono::{DateTime, Utc};
 use futures::TryStreamExt as _;
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
+
 use qm_mongodb::{
     bson::{doc, oid::ObjectId, serde_helpers::chrono_datetime_as_bson_datetime, Document, Uuid},
     Collection, Database,
 };
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
-use crate::error::EntityError;
+use crate::{
+    error::EntityError,
+    ids::{InstitutionId, InstitutionResourceId, OrganizationId, OwnerId},
+};
 
 const EMPTY_ID: &str = "000000000000000000000000";
 
@@ -94,35 +95,6 @@ impl From<Id> for GraphQLId {
     }
 }
 
-// TODO: update when customer schema is ready again
-#[derive(Debug, Default, Clone, Deserialize, Serialize, SimpleObject, Description)]
-pub struct Owner {
-    pub cid: Option<i64>,
-    pub oid: Option<i64>,
-    pub iid: Option<i64>,
-}
-
-impl From<InstitutionId> for Owner {
-    fn from(value: InstitutionId) -> Self {
-        let (cid, oid, iid) = value.unzip();
-        Self {
-            cid: Some(cid),
-            oid: Some(oid),
-            iid: Some(iid),
-        }
-    }
-}
-
-impl From<OrganizationId> for Owner {
-    fn from(value: OrganizationId) -> Self {
-        let (cid, _) = value.unzip();
-        Self {
-            cid: Some(cid),
-            ..Default::default()
-        }
-    }
-}
-
 pub trait ToMongoFilterMany {
     fn to_mongo_filter_many(&self) -> Option<Document>;
 }
@@ -149,7 +121,7 @@ impl ToMongoFilterMany for InstitutionId {
 impl ToMongoFilterMany for OrganizationId {
     fn to_mongo_filter_many(&self) -> Option<Document> {
         let (cid, oid) = self.unzip();
-        Some(doc! { "owner.id.cid": cid, "owner.id.oid": oid })
+        Some(doc! { "owner.cid": cid, "owner.oid": oid })
     }
 }
 
@@ -205,7 +177,7 @@ pub trait UpdateEntity<T: Clone> {
 pub struct EntityOwned<T, ID = Id> {
     #[serde(rename = "_id")]
     pub id: ID,
-    pub owner: Arc<Owner>,
+    pub owner: Arc<OwnerId>,
     #[serde(flatten)]
     pub fields: T,
     #[serde(flatten)]
@@ -218,13 +190,13 @@ where
 {
     pub async fn create(
         db: &Database,
-        owner: impl Into<Owner>,
+        owner: impl Into<OwnerId>,
         fields: T,
         user_id: Uuid,
     ) -> Result<Self, EntityError> {
         #[derive(Serialize)]
         struct CreateOwnedEntity<'f, F> {
-            owner: Arc<Owner>,
+            owner: Arc<OwnerId>,
             #[serde(flatten)]
             fields: &'f F,
             #[serde(flatten)]
@@ -319,12 +291,12 @@ where
     ) -> Result<bool, EntityError>
     where
         T: Clone + std::fmt::Debug,
-        C: ToMongoFilterOne + Into<Owner>,
+        C: ToMongoFilterOne + Into<OwnerId>,
     {
         let filter = context.to_mongo_filter_one();
         #[derive(Debug, Serialize)]
         struct SaveEntity<F> {
-            owner: Owner,
+            owner: OwnerId,
             #[serde(flatten)]
             fields: F,
             #[serde(flatten)]

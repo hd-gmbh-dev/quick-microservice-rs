@@ -97,6 +97,20 @@ impl From<OrganizationUnitId> for OwnerId {
     }
 }
 
+impl From<InfraContext> for OwnerId {
+    fn from(value: InfraContext) -> Self {
+        match value {
+            InfraContext::Customer(v) => v.into(),
+            InfraContext::Organization(v) => v.into(),
+            InfraContext::Institution(v) => v.into(),
+            InfraContext::OrganizationUnit(v) => match v {
+                OrganizationUnitId::Customer(v) => v.into(),
+                OrganizationUnitId::Organization(v) => v.into(),
+            },
+        }
+    }
+}
+
 #[derive(Default, serde::Deserialize, serde::Serialize, Debug, Clone)]
 #[serde(transparent)]
 pub struct Owner {
@@ -107,6 +121,10 @@ pub struct Owner {
 impl Owner {
     pub fn new(o: OwnerType) -> Self {
         Self { o }
+    }
+
+    pub fn as_owner_id(&self) -> Option<&OwnerId> {
+        self.o.as_owner_id()
     }
 }
 
@@ -131,6 +149,17 @@ pub enum OwnerType {
 impl OwnerType {
     pub fn is_none(&self) -> bool {
         matches!(self, Self::None)
+    }
+
+    pub fn as_owner_id(&self) -> Option<&OwnerId> {
+        match self {
+            OwnerType::None => None,
+            OwnerType::Customer(id)
+            | OwnerType::Organization(id)
+            | OwnerType::Institution(id)
+            | OwnerType::InstitutionUnit(id)
+            | OwnerType::CustomerUnit(id) => Some(id),
+        }
     }
 }
 
