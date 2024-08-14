@@ -33,6 +33,10 @@ pub enum EntityError {
     Forbidden,
     #[error("internal server error")]
     Internal,
+    #[error("not found")]
+    NotFound,
+    #[error("Required fields are missing")]
+    RequiredFields,
     /// Unauthorized user.
     #[error("the user with id '{0}' is unauthorized")]
     Unauthorized(String),
@@ -48,6 +52,8 @@ pub enum EntityError {
     /// bad request.
     #[error("{1}")]
     BadRequest(String, String),
+    #[error("No id field in inserted entity")]
+    NoId,
 }
 
 pub type EntityResult<T> = Result<T, EntityError>;
