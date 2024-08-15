@@ -23,6 +23,9 @@ pub enum EntityError {
     #[error(transparent)]
     UnexpectedError(#[from] anyhow::Error),
     /// Conflicting error, because resource already exists.
+    #[error("the resource {0} with id '{1}' already exists")]
+    IdConflict(String, String),
+    /// Conflicting error, because resource already exists.
     #[error("the resource {0} with name '{1}' already exists")]
     NameConflict(String, String),
     /// Conflicting error, because resource already exists.
@@ -54,6 +57,10 @@ pub enum EntityError {
     BadRequest(String, String),
     #[error("No id field in inserted entity")]
     NoId,
+    #[error("Query document cannot be empty")]
+    NotEmpty,
+    #[error("List of ids only allowed with same owner")]
+    NotSameOwner,
 }
 
 pub type EntityResult<T> = Result<T, EntityError>;

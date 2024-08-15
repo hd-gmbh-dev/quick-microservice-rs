@@ -575,6 +575,10 @@ impl OrganizationResourceId {
         OrganizationId::from((self.cid, self.oid))
     }
 
+    pub fn id(&self) -> &ID {
+        &self.id
+    }
+
     pub fn unzip(&self) -> (i64, i64, ID) {
         (self.cid, self.oid, self.id)
     }
@@ -679,6 +683,10 @@ impl InstitutionId {
     }
     pub fn untuple(&self) -> (i64, (i64, i64)) {
         (self.cid, (self.oid, self.iid))
+    }
+
+    pub fn resource(&self, id: ID) -> InstitutionResourceId {
+        InstitutionResourceId::from((self.cid, self.oid, self.iid, id))
     }
 }
 

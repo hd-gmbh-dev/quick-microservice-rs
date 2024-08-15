@@ -10,6 +10,7 @@ use qm_entity::ids::CustomerOrOrganization;
 use qm_entity::ids::InfraContext;
 use qm_entity::ids::InstitutionId;
 use qm_entity::ids::OrganizationId;
+use qm_entity::ids::OrganizationOrInstitution;
 use qm_mongodb::bson::Document;
 use qm_role::AccessLevel;
 
@@ -245,6 +246,52 @@ where
         Err(EntityError::unauthorized(&self.auth))
     }
 
+    pub async fn enforce_organization_context(
+        &self,
+        context: Option<OrganizationId>,
+    ) -> EntityResult<Option<OrganizationId>> {
+        if self.is_admin || self.is_support {
+            return Ok(context);
+        }
+        let lvl = self.lvl();
+        if matches!(lvl, Lvl::Organization) {
+            let access = self
+                .auth
+                .session_access()
+                .ok_or(EntityError::unauthorized(&self.auth))?;
+            let id = access.id().ok_or(EntityError::unauthorized(&self.auth))?;
+            return Ok(Some(
+                OrganizationId::parse(id)
+                    .ok()
+                    .ok_or(EntityError::unauthorized(&self.auth))?,
+            ));
+        }
+        Err(EntityError::unauthorized(&self.auth))
+    }
+
+    pub async fn enforce_institution_context(
+        &self,
+        context: Option<InstitutionId>,
+    ) -> EntityResult<Option<InstitutionId>> {
+        if self.is_admin || self.is_support {
+            return Ok(context);
+        }
+        let lvl = self.lvl();
+        if matches!(lvl, Lvl::Institution) {
+            let access = self
+                .auth
+                .session_access()
+                .ok_or(EntityError::unauthorized(&self.auth))?;
+            let id = access.id().ok_or(EntityError::unauthorized(&self.auth))?;
+            return Ok(Some(
+                InstitutionId::parse(id)
+                    .ok()
+                    .ok_or(EntityError::unauthorized(&self.auth))?,
+            ));
+        }
+        Err(EntityError::unauthorized(&self.auth))
+    }
+
     pub async fn enforce_customer_or_organization_context(
         &self,
         context: Option<CustomerOrOrganization>,
@@ -275,6 +322,43 @@ where
             return Ok(Some(
                 OrganizationId::parse(id)
                     .map(CustomerOrOrganization::Organization)
+                    .ok()
+                    .ok_or(EntityError::unauthorized(&self.auth))?,
+            ));
+        }
+        Err(EntityError::unauthorized(&self.auth))
+    }
+
+    pub async fn enforce_organization_or_institution_context(
+        &self,
+        context: Option<OrganizationOrInstitution>,
+    ) -> EntityResult<Option<OrganizationOrInstitution>> {
+        if self.is_admin || self.is_support {
+            return Ok(context);
+        }
+        let lvl = self.lvl();
+        if matches!(lvl, Lvl::Organization) {
+            let access = self
+                .auth
+                .session_access()
+                .ok_or(EntityError::unauthorized(&self.auth))?;
+            let id = access.id().ok_or(EntityError::unauthorized(&self.auth))?;
+            return Ok(Some(
+                OrganizationId::parse(id)
+                    .map(OrganizationOrInstitution::Organization)
+                    .ok()
+                    .ok_or(EntityError::unauthorized(&self.auth))?,
+            ));
+        }
+        if matches!(lvl, Lvl::Institution) {
+            let access = self
+                .auth
+                .session_access()
+                .ok_or(EntityError::unauthorized(&self.auth))?;
+            let id = access.id().ok_or(EntityError::unauthorized(&self.auth))?;
+            return Ok(Some(
+                InstitutionId::parse(id)
+                    .map(OrganizationOrInstitution::Institution)
                     .ok()
                     .ok_or(EntityError::unauthorized(&self.auth))?,
             ));
