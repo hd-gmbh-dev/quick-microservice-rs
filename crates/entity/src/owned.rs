@@ -323,7 +323,7 @@ pub struct Defaults {
 }
 
 impl Defaults {
-    fn now(user_id: Uuid) -> Self {
+    pub fn now(user_id: Uuid) -> Self {
         let modify = UserModification::now(user_id);
         Self {
             created: modify.clone(),
@@ -331,7 +331,7 @@ impl Defaults {
         }
     }
 
-    fn update_by(&self, user_id: Uuid) -> Self {
+    pub fn update_by(&self, user_id: Uuid) -> Self {
         let modified = UserModification::now(user_id);
         Self {
             created: self.created.clone(),
@@ -349,7 +349,7 @@ pub struct UserModification {
 }
 
 impl UserModification {
-    fn now(user_id: Uuid) -> Self {
+    pub fn now(user_id: Uuid) -> Self {
         Self {
             user_id,
             at: Utc::now(),
