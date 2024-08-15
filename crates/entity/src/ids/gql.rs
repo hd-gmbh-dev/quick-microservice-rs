@@ -19,6 +19,7 @@ use crate::ids::OrganizationId;
 use crate::ids::OrganizationResourceId;
 use crate::ids::OrganizationUnitId;
 
+#[macro_export]
 macro_rules! impl_id_scalar {
     ($t:ty) => {
         #[Scalar(use_type_description)]
@@ -57,6 +58,13 @@ impl_id_scalar!(OrganizationUnitId);
 pub enum CustomerOrOrganization {
     Customer(CustomerId),
     Organization(OrganizationId),
+}
+
+#[derive(OneofObject, serde::Serialize, serde::Deserialize)]
+#[serde(tag = "t", content = "c")]
+pub enum OrganizationOrInstitution {
+    Organization(OrganizationId),
+    Institution(InstitutionId),
 }
 
 pub type CustomerIds = Arc<[CustomerId]>;

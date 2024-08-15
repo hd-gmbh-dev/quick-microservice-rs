@@ -12,11 +12,13 @@ use qm_mongodb::{
 
 use crate::{
     error::EntityError,
-    ids::{InstitutionId, InstitutionResourceId, OrganizationId, OwnerId},
+    ids::{
+        InstitutionId, InstitutionResourceId, OrganizationId, OrganizationOrInstitution,
+        OrganizationResourceId, OwnerId,
+    },
 };
 
 const EMPTY_ID: &str = "000000000000000000000000";
-
 #[derive(Debug, Default, Clone, PartialEq, Deserialize, Serialize, Description)]
 pub struct Id(ObjectId);
 
@@ -125,6 +127,27 @@ impl ToMongoFilterMany for OrganizationId {
     }
 }
 
+impl ToMongoFilterMany for Option<OrganizationId> {
+    fn to_mongo_filter_many(&self) -> Option<Document> {
+        self.as_ref().and_then(|v| v.to_mongo_filter_many())
+    }
+}
+
+impl ToMongoFilterMany for OrganizationOrInstitution {
+    fn to_mongo_filter_many(&self) -> Option<Document> {
+        match self {
+            Self::Institution(v) => v.to_mongo_filter_many(),
+            Self::Organization(v) => v.to_mongo_filter_many(),
+        }
+    }
+}
+
+impl ToMongoFilterMany for Option<OrganizationOrInstitution> {
+    fn to_mongo_filter_many(&self) -> Option<Document> {
+        self.as_ref().and_then(|v| v.to_mongo_filter_many())
+    }
+}
+
 pub trait ToMongoFilterOne {
     fn to_mongo_filter_one(&self) -> Document;
 }
@@ -142,6 +165,13 @@ impl ToMongoFilterOne for InstitutionResourceId {
     }
 }
 
+impl ToMongoFilterOne for OrganizationResourceId {
+    fn to_mongo_filter_one(&self) -> Document {
+        let (cid, oid, id) = self.unzip();
+        doc! { "owner.cid": cid, "owner.oid": oid, "_id": id }
+    }
+}
+
 impl ToMongoFilterOne for OrganizationId {
     fn to_mongo_filter_one(&self) -> Document {
         let (cid, oid) = self.unzip();
@@ -153,6 +183,40 @@ impl ToMongoFilterOne for InstitutionId {
     fn to_mongo_filter_one(&self) -> Document {
         let (cid, oid, iid) = self.unzip();
         doc! { "owner.cid": cid, "owner.oid": oid, "_id": iid }
+    }
+}
+
+impl ToMongoFilterOne for OrganizationOrInstitution {
+    fn to_mongo_filter_one(&self) -> Document {
+        match self {
+            Self::Institution(v) => v.to_mongo_filter_one(),
+            Self::Organization(v) => v.to_mongo_filter_one(),
+        }
+    }
+}
+
+pub trait ToMongoFilterExact {
+    fn to_mongo_filter_exact(&self) -> Result<Document, EntityError>;
+}
+
+pub struct ResourcesFilter<'a, I>(pub &'a [I])
+where
+    I: ToMongoFilterOne;
+impl<'a, I> ToMongoFilterExact for ResourcesFilter<'a, I>
+where
+    I: ToMongoFilterOne,
+{
+    fn to_mongo_filter_exact(&self) -> Result<Document, EntityError> {
+        if self.0.is_empty() {
+            return Err(EntityError::NotEmpty);
+        }
+        if self.0.len() == 1 {
+            return Ok(self.0.first().unwrap().to_mongo_filter_one());
+        }
+        let items: Vec<Document> = self.0.iter().map(|v| v.to_mongo_filter_one()).collect();
+        Ok(doc! {
+            "$or": items,
+        })
     }
 }
 
@@ -243,6 +307,18 @@ where
             .map_err(From::from)
     }
 
+    pub async fn list_exact(
+        db: &Database,
+        filter: impl ToMongoFilterExact,
+    ) -> Result<Vec<Self>, EntityError> {
+        T::mongo_collection(db)
+            .find(filter.to_mongo_filter_exact()?)
+            .await?
+            .try_collect()
+            .await
+            .map_err(From::from)
+    }
+
     pub async fn by_id(
         db: &Database,
         id: impl ToMongoFilterOne,
@@ -314,12 +390,22 @@ where
             .await?;
         Ok(result.modified_count > 0 || result.upserted_id.is_some())
     }
+
+    pub async fn remove<I>(db: &Database, ids: I) -> Result<i32, EntityError>
+    where
+        I: ToMongoFilterExact,
+    {
+        let result = T::mongo_collection::<Document>(db)
+            .delete_many(ids.to_mongo_filter_exact()?)
+            .await?;
+        Ok(result.deleted_count as i32)
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Defaults {
-    created: UserModification,
-    modified: UserModification,
+    pub created: UserModification,
+    pub modified: UserModification,
 }
 
 impl Defaults {
