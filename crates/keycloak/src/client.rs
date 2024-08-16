@@ -455,6 +455,17 @@ impl Keycloak {
             .pop())
     }
 
+    pub async fn get_client_service_account(
+        &self,
+        realm: &str,
+        client_uuid: &str,
+    ) -> Result<UserRepresentation, KeycloakError> {
+        self.inner
+            .admin
+            .realm_clients_with_client_uuid_service_account_user_get(realm, client_uuid)
+            .await
+    }
+
     pub async fn create_client(
         &self,
         realm: &str,
