@@ -29,7 +29,6 @@ pub struct Claims {
     pub sub: Arc<str>,
     pub typ: String,
     pub azp: String,
-    pub session_state: String,
     pub acr: String,
     #[serde(rename = "allowed-origins")]
     pub allowed_origins: Option<Vec<Arc<str>>>,
@@ -66,7 +65,6 @@ impl Default for Claims {
             sub: Arc::from("user-id"),
             typ: "".to_string(),
             azp: "".to_string(),
-            session_state: "".to_string(),
             acr: "".to_string(),
             allowed_origins: None,
             realm_access: RealmAccess { roles: vec![] },
