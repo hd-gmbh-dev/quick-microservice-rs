@@ -2,11 +2,12 @@ use std::{borrow::Cow, str::FromStr, sync::Arc};
 
 use async_graphql::{Description, InputValueError, InputValueResult, Scalar, ScalarType, Value};
 use chrono::{DateTime, Utc};
-use futures::TryStreamExt as _;
+use futures::{StreamExt as _, TryStreamExt as _};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 use qm_mongodb::{
     bson::{doc, oid::ObjectId, serde_helpers::chrono_datetime_as_bson_datetime, Document, Uuid},
+    options::FindOptions,
     Collection, Database,
 };
 
@@ -16,9 +17,12 @@ use crate::{
         InstitutionId, InstitutionResourceId, OrganizationId, OrganizationOrInstitution,
         OrganizationResourceId, OwnerId,
     },
+    model::ListFilter,
 };
 
 const EMPTY_ID: &str = "000000000000000000000000";
+const DEFAULT_PAGE_LIMIT: i64 = 100;
+
 #[derive(Debug, Default, Clone, PartialEq, Deserialize, Serialize, Description)]
 pub struct Id(ObjectId);
 
@@ -233,6 +237,72 @@ pub struct Entity<T> {
     defaults: Defaults,
 }
 
+#[derive(Debug, Default, Deserialize, Serialize)]
+pub struct Page<I> {
+    pub items: Vec<I>,
+    pub skip: u64,
+    pub limit: Option<i64>,
+    pub total: usize,
+}
+
+impl<I> Page<I> {
+    /// Empty page.
+    pub fn empty() -> Self {
+        Self {
+            items: vec![],
+            total: 0,
+            skip: 0,
+            limit: Some(DEFAULT_PAGE_LIMIT),
+        }
+    }
+
+    /// Returns page index.
+    pub fn index(&self) -> u64 {
+        if let Some(limit) = self.limit.filter(|l| *l > 0).map(|l| l as u64) {
+            self.skip / limit
+        } else {
+            0
+        }
+    }
+
+    /// Returns page count.
+    pub fn count(&self) -> usize {
+        if let Some(limit) = self.limit.filter(|l| *l > 0).map(|l| l as usize) {
+            (self.total + (limit - 1)) / limit
+        } else {
+            0
+        }
+    }
+}
+
+#[derive(Default)]
+pub struct PageInfo {
+    skip: Option<u64>,
+    limit: Option<i64>,
+}
+
+impl TryFrom<ListFilter> for PageInfo {
+    type Error = EntityError;
+
+    fn try_from(value: ListFilter) -> Result<Self, Self::Error> {
+        let limit = value.limit.map(|l| l as i64).unwrap_or(DEFAULT_PAGE_LIMIT);
+        Ok(Self {
+            skip: value.page.map(|page| limit as u64 * page as u64),
+            limit: Some(limit),
+        })
+    }
+}
+
+impl TryFrom<Option<ListFilter>> for PageInfo {
+    type Error = EntityError;
+
+    fn try_from(value: Option<ListFilter>) -> Result<Self, Self::Error> {
+        value
+            .map(|v| v.try_into())
+            .unwrap_or_else(|| Ok(Default::default()))
+    }
+}
+
 pub trait UpdateEntity<T: Clone> {
     fn update_entity(self, entity: &T) -> Result<Cow<T>, EntityError>;
 }
@@ -307,6 +377,19 @@ where
             .map_err(From::from)
     }
 
+    pub async fn page(
+        db: &Database,
+        filter: impl ToMongoFilterMany,
+        page_selector: impl TryInto<PageInfo, Error = EntityError>,
+    ) -> Result<Page<Self>, EntityError> {
+        Self::page_filter(
+            db,
+            filter.to_mongo_filter_many().unwrap_or_default(),
+            page_selector,
+        )
+        .await
+    }
+
     pub async fn list_exact(
         db: &Database,
         filter: impl ToMongoFilterExact,
@@ -317,6 +400,14 @@ where
             .try_collect()
             .await
             .map_err(From::from)
+    }
+
+    pub async fn page_exact(
+        db: &Database,
+        filter: impl ToMongoFilterExact,
+        page_selector: impl TryInto<PageInfo, Error = EntityError>,
+    ) -> Result<Page<Self>, EntityError> {
+        Self::page_filter(db, filter.to_mongo_filter_exact()?, page_selector).await
     }
 
     pub async fn by_id(
@@ -399,6 +490,45 @@ where
             .delete_many(ids.to_mongo_filter_exact()?)
             .await?;
         Ok(result.deleted_count as i32)
+    }
+
+    pub async fn page_filter(
+        db: &Database,
+        filter: Document,
+        page_selector: impl TryInto<PageInfo, Error = EntityError>,
+    ) -> Result<Page<Self>, EntityError> {
+        let total = T::mongo_collection::<Self>(db)
+            .find(filter.clone())
+            .await?
+            .count()
+            .await;
+
+        if total == 0 {
+            return Ok(Page::empty());
+        }
+
+        let page_info: PageInfo = page_selector.try_into()?;
+
+        let limit = page_info.limit;
+
+        T::mongo_collection(db)
+            .find(filter)
+            .with_options(
+                FindOptions::builder()
+                    .limit(limit)
+                    .skip(page_info.skip)
+                    .build(),
+            )
+            .await?
+            .try_collect()
+            .await
+            .map(|items| Page {
+                items,
+                total,
+                skip: page_info.skip.unwrap_or_default(),
+                limit,
+            })
+            .map_err(From::from)
     }
 }
 
