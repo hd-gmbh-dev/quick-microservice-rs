@@ -1,7 +1,10 @@
 use futures::stream::FuturesUnordered;
 
+use log::error;
+use qm_entity::ids::InfraContext;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
+use std::collections::HashSet;
 use std::sync::Arc;
 use strum::AsRefStr;
 use tokio::sync::Semaphore;
@@ -65,6 +68,54 @@ async fn remove_users_by_access(
             _ => Err(err)?,
         },
     }
+    Ok(())
+}
+
+pub async fn cleanup_api_clients(
+    keycloak: &Keycloak,
+    client_ids: Vec<String>,
+) -> anyhow::Result<()> {
+    let client_ids_set: HashSet<InfraContext> = HashSet::from_iter(
+        client_ids
+            .into_iter()
+            .filter_map(|v| v.parse::<InfraContext>().ok()),
+    );
+    let mut clients = keycloak.clients(keycloak.config().realm()).await?;
+    clients.retain(|v| {
+        v.client_id
+            .as_ref()
+            .and_then(|v| v.parse::<InfraContext>().ok())
+            .map(|id| match &id {
+                InfraContext::Customer(_) => client_ids_set.contains(&id),
+                InfraContext::Organization(v) => {
+                    client_ids_set.contains(&id)
+                        || client_ids_set.contains(&InfraContext::Customer(v.parent()))
+                }
+                InfraContext::Institution(v) => {
+                    client_ids_set.contains(&id)
+                        || client_ids_set.contains(&InfraContext::Organization(v.parent()))
+                        || client_ids_set.contains(&InfraContext::Customer(v.root()))
+                }
+                _ => false,
+            })
+            .unwrap_or(false)
+    });
+    for client in clients {
+        if let Some(client_id) = client.id.as_deref() {
+            let result = keycloak
+                .remove_client_with_uuid(keycloak.config().realm(), client_id)
+                .await;
+            if let Err(e) = result {
+                match e {
+                    KeycloakError::HttpFailure { status: 404, .. } => {}
+                    _ => {
+                        error!("{e:#?}");
+                    }
+                }
+            }
+        }
+    }
+
     Ok(())
 }
 

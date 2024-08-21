@@ -1,3 +1,4 @@
+use crate::cleanup::cleanup_api_clients;
 use crate::cleanup::cleanup_roles;
 use crate::cleanup::CleanupTaskType;
 use crate::context::RelatedAuth;
@@ -134,7 +135,9 @@ where
         .filter(|k| k.name.contains("access@"))
         .map(|v| v.name.as_ref())
         .collect();
+    let mut client_ids = Vec::with_capacity(cids.len());
     for cid in cids.iter() {
+        client_ids.push(cid.to_string());
         roles.insert(
             qm_role::Access::new(AccessLevel::Customer)
                 .with_fmt_id(Some(cid))
@@ -154,7 +157,7 @@ where
     }
     let cids: Vec<i64> = cids.iter().map(CustomerId::unzip).collect();
     let query = doc! {
-        "owner.entityId.cid": {
+        "owner.cid": {
             "$in": &cids
         },
     };
@@ -167,6 +170,8 @@ where
         log::debug!("remove all organization related resources from db {collection}");
         remove_documents(db, &mut session, &collection, &query).await?;
     }
+    log::debug!("cleanup api clients");
+    cleanup_api_clients(store.keycloak(), client_ids).await?;
     log::debug!("cleanup roles");
     cleanup_roles(store.keycloak(), roles).await?;
     // Emit the Kafka event
@@ -222,7 +227,9 @@ where
         .filter(|k| k.name.contains("access@"))
         .map(|v| v.name.as_ref())
         .collect();
+    let mut client_ids = Vec::with_capacity(strict_oids.len());
     for v in strict_oids.iter() {
+        client_ids.push(v.to_string());
         roles.insert(
             qm_role::Access::new(AccessLevel::Organization)
                 .with_fmt_id(Some(&v))
@@ -237,10 +244,10 @@ where
     }
     let (cids, oids): (Vec<i64>, Vec<i64>) = strict_oids.iter().map(OrganizationId::unzip).unzip();
     let query = doc! {
-        "owner.entityId.cid": {
+        "owner.cid": {
             "$in": &cids
         },
-        "owner.entityId.oid": {
+        "owner.oid": {
             "$in": &oids
         }
     };
@@ -253,12 +260,14 @@ where
         log::debug!("remove all organization related resources from db {collection}");
         remove_documents(db, &mut session, &collection, &query).await?;
     }
+    log::debug!("cleanup api clients");
+    cleanup_api_clients(store.keycloak(), client_ids).await?;
     log::debug!("cleanup roles");
     cleanup_roles(store.keycloak(), roles).await?;
     // // Emit the Kafka event
     if let Some(producer) = store.mutation_event_producer() {
         producer
-            .delete_event(&EventNs::Organization, "organization", cids)
+            .delete_event(&EventNs::Organization, "organization", strict_oids)
             .await?;
     }
     worker_ctx.complete().await?;
@@ -282,7 +291,9 @@ where
     let db = store.as_ref();
     let mut session = db.session().await?;
     let mut roles = BTreeSet::new();
+    let mut client_ids = Vec::with_capacity(strict_iids.len());
     for id in strict_iids.iter() {
+        client_ids.push(id.to_string());
         roles.insert(
             qm_role::Access::new(AccessLevel::Institution)
                 .with_fmt_id(Some(&id))
@@ -292,13 +303,13 @@ where
     let (cids, (oids, iids)): (Vec<i64>, (Vec<i64>, Vec<i64>)) =
         strict_iids.iter().map(InstitutionId::untuple).unzip();
     let query = doc! {
-        "owner.entityId.cid": {
+        "owner.cid": {
             "$in": &cids
         },
-        "owner.entityId.oid": {
+        "owner.oid": {
             "$in": &oids
         },
-        "owner.entityId.iid": {
+        "owner.iid": {
             "$in": &iids
         }
     };
@@ -311,6 +322,8 @@ where
         log::debug!("remove all organization related resources from db {collection}");
         remove_documents(db, &mut session, &collection, &query).await?;
     }
+    log::debug!("cleanup api clients");
+    cleanup_api_clients(store.keycloak(), client_ids).await?;
     log::debug!("cleanup roles");
     cleanup_roles(store.keycloak(), roles).await?;
     // // Emit the Kafka event
@@ -340,7 +353,9 @@ where
     let db: &DB = store.as_ref();
     let mut session = db.session().await?;
     let mut roles = BTreeSet::new();
+    let mut client_ids = Vec::with_capacity(strict_uids.len());
     for id in strict_uids.iter() {
+        client_ids.push(id.to_string());
         match id {
             OrganizationUnitId::Customer(_) => {
                 roles.insert(
@@ -361,10 +376,10 @@ where
     let (cids, uids): (Vec<i64>, Vec<i64>) =
         strict_uids.iter().map(OrganizationUnitId::untuple).unzip();
     let query = doc! {
-        "owner.entityId.cid": {
+        "owner.cid": {
             "$in": &cids
         },
-        "owner.entityId.uid": {
+        "owner.uid": {
             "$in": &uids
         }
     };
@@ -377,6 +392,8 @@ where
         log::debug!("remove all organization unit related resources from db {collection}");
         remove_documents(db, &mut session, &collection, &query).await?;
     }
+    log::debug!("cleanup api clients");
+    cleanup_api_clients(store.keycloak(), client_ids).await?;
     log::debug!("cleanup roles");
     cleanup_roles(store.keycloak(), roles).await?;
     // Emit the Kafka event

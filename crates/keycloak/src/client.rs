@@ -224,6 +224,33 @@ impl Keycloak {
             .collect())
     }
 
+    pub async fn clients(&self, realm: &str) -> Result<Vec<ClientRepresentation>, KeycloakError> {
+        let page_offset = 1000;
+        let mut offset = 0;
+        let mut clients = vec![];
+        loop {
+            let result = self
+                .inner
+                .admin
+                .realm_clients_get(
+                    realm,
+                    None,
+                    Some(offset),
+                    Some(page_offset),
+                    None,
+                    None,
+                    None,
+                )
+                .await?;
+            if result.is_empty() {
+                break;
+            }
+            offset += page_offset;
+            clients.extend(result);
+        }
+        Ok(clients)
+    }
+
     pub async fn realm_by_name(&self, realm: &str) -> Result<RealmRepresentation, KeycloakError> {
         self.inner.admin.realm_get(realm).await
     }
@@ -487,6 +514,18 @@ impl Keycloak {
         self.inner
             .admin
             .realm_clients_with_client_uuid_delete(realm, &client.id.unwrap())
+            .await?;
+        Ok(())
+    }
+
+    pub async fn remove_client_with_uuid(
+        &self,
+        realm: &str,
+        client_uuid: &str,
+    ) -> Result<(), KeycloakError> {
+        self.inner
+            .admin
+            .realm_clients_with_client_uuid_delete(realm, client_uuid)
             .await?;
         Ok(())
     }
