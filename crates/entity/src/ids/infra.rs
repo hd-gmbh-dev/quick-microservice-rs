@@ -1293,7 +1293,7 @@ impl From<OrganizationUnitId> for InfraId {
     }
 }
 
-#[derive(Debug, Clone, Copy, OneofObject, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, OneofObject, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum InfraContext {
     Customer(CustomerId),
     Organization(OrganizationId),
