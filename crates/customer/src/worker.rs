@@ -267,7 +267,7 @@ where
     // // Emit the Kafka event
     if let Some(producer) = store.mutation_event_producer() {
         producer
-            .delete_event(&EventNs::Organization, "organization", cids)
+            .delete_event(&EventNs::Organization, "organization", strict_oids)
             .await?;
     }
     worker_ctx.complete().await?;
