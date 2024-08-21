@@ -518,6 +518,18 @@ impl Keycloak {
         Ok(())
     }
 
+    pub async fn remove_client_with_uuid(
+        &self,
+        realm: &str,
+        client_uuid: &str,
+    ) -> Result<(), KeycloakError> {
+        self.inner
+            .admin
+            .realm_clients_with_client_uuid_delete(realm, client_uuid)
+            .await?;
+        Ok(())
+    }
+
     pub async fn update_client(
         &self,
         realm: &str,

@@ -103,7 +103,7 @@ pub async fn cleanup_api_clients(
     for client in clients {
         if let Some(client_id) = client.id.as_deref() {
             let result = keycloak
-                .remove_client(keycloak.config().realm(), client_id)
+                .remove_client_with_uuid(keycloak.config().realm(), client_id)
                 .await;
             if let Err(e) = result {
                 match e {
