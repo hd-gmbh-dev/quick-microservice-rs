@@ -5,7 +5,6 @@ use qm_entity::ids::InfraContext;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 use std::collections::HashSet;
-use std::hash::RandomState;
 use std::sync::Arc;
 use strum::AsRefStr;
 use tokio::sync::Semaphore;
@@ -76,7 +75,7 @@ pub async fn cleanup_api_clients(
     keycloak: &Keycloak,
     client_ids: Vec<String>,
 ) -> anyhow::Result<()> {
-    let client_ids_set: HashSet<InfraContext, RandomState> = HashSet::from_iter(
+    let client_ids_set: HashSet<InfraContext> = HashSet::from_iter(
         client_ids
             .into_iter()
             .filter_map(|v| v.parse::<InfraContext>().ok()),
