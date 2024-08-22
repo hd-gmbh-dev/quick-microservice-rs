@@ -290,9 +290,11 @@ async fn update_realm_settings(
                 authenticator: Some("emailotp-authenticator".to_string()),
                 authenticator_config: Some("email_otp_flow".to_string()),
                 authenticator_flow: Some(false),
+                autheticator_flow: Some(false),
                 requirement: Some("REQUIRED".to_string()),
                 priority: Some(0),
                 user_setup_allowed: Some(false),
+                flow_alias: None,
             };
 
             let email_2fa = AuthenticationFlowRepresentation {
@@ -312,6 +314,8 @@ async fn update_realm_settings(
                 authenticator_flow: Some(false),
                 autheticator_flow: Some(false),
                 user_setup_allowed: Some(false),
+                authenticator_config: None,
+                flow_alias: None,
             };
 
             let exec1 = AuthenticationExecutionExportRepresentation {
@@ -321,6 +325,8 @@ async fn update_realm_settings(
                 authenticator_flow: Some(false),
                 autheticator_flow: Some(false),
                 user_setup_allowed: Some(false),
+                authenticator_config: None,
+                flow_alias: None,
             };
 
             let exec2 = AuthenticationExecutionExportRepresentation {
@@ -330,6 +336,8 @@ async fn update_realm_settings(
                 authenticator_flow: Some(false),
                 autheticator_flow: Some(false),
                 user_setup_allowed: Some(false),
+                authenticator_config: None,
+                flow_alias: None,
             };
 
             let exec3 = AuthenticationExecutionExportRepresentation {
@@ -339,6 +347,8 @@ async fn update_realm_settings(
                 authenticator_flow: Some(true),
                 autheticator_flow: Some(true),
                 user_setup_allowed: Some(false),
+                authenticator: None,
+                authenticator_config: None,
             };
 
             let browser_email_otp = AuthenticationFlowRepresentation {
@@ -358,6 +368,8 @@ async fn update_realm_settings(
                 authenticator_flow: Some(false),
                 autheticator_flow: Some(false),
                 user_setup_allowed: Some(false),
+                authenticator_config: None,
+                flow_alias: None,
             };
 
             let exec5 = AuthenticationExecutionExportRepresentation {
@@ -367,6 +379,8 @@ async fn update_realm_settings(
                 authenticator_flow: Some(true),
                 autheticator_flow: Some(true),
                 user_setup_allowed: Some(false),
+                authenticator: None,
+                authenticator_config: None,
             };
 
             let browser_email_otp_forms = AuthenticationFlowRepresentation {

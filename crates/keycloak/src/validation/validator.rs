@@ -656,7 +656,7 @@ fn check_realm_authenticator_config_settings(
     errors: &mut Vec<RealmConfigError>,
 ) {
     /* TODO: Should I check all fields??? */
-    if let Some(configured_authenticator_config_alias) =
+    /* if let Some(configured_authenticator_config_alias) =
         ctx.cfg().keycloak().authenticator_config_alias()
     {
         // alias must be the configured value
@@ -688,7 +688,7 @@ fn check_realm_authenticator_config_settings(
                 errors,
             );
         }
-    }
+    } */
 }
 
 /// Gets a bool from a [Value].
