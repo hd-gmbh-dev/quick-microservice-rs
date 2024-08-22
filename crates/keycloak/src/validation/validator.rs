@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use keycloak::types::AuthenticatorConfigRepresentation;
+
 use crate::validation::context::ValidationContext as Ctx;
 use crate::validation::model::RealmConfigError;
 use crate::validation::realm_errors;
@@ -172,6 +174,33 @@ async fn check_realm_settings(
         );
     }
 
+    // browser flow
+    if let Some(browser_flow) = &rep.browser_flow {
+        if browser_flow != ctx.keycloak().config().browser_flow() {
+            add_error(
+                realm_errors::REALM_BROWSER_FLOW_INVALID_ID,
+                realm_errors::REALM_BROWSER_FLOW_INVALID_KEY,
+                errors,
+            );
+        }
+    } else {
+        add_error(
+            realm_errors::REALM_LOGIN_THEME_MISSING_ID,
+            realm_errors::REALM_LOGIN_THEME_MISSING_KEY,
+            errors,
+        );
+    }
+
+    // authenticatorConfig should be configured
+    if let Some(authenticator_config) = &rep.authenticator_config {
+        check_realm_authenticator_config_settings(ctx, authenticator_config, errors);
+    } else {
+        add_error(
+            realm_errors::REALM_AUTHENTICATOR_CONFIG_MISSING_ID,
+            realm_errors::REALM_AUTHENTICATOR_CONFIG_MISSING_KEY,
+            errors,
+        );
+    }
     Ok(())
 }
 
@@ -618,6 +647,47 @@ fn check_realm_smtp_settings(
             realm_errors::REALM_SMTP_SERVER_SSL_MISSING_KEY,
             errors,
         );
+    }
+}
+
+fn check_realm_authenticator_config_settings(
+    ctx: &Ctx<'_>,
+    authenticator_config: &Vec<AuthenticatorConfigRepresentation>,
+    errors: &mut Vec<RealmConfigError>,
+) {
+    /* TODO: Should I check all fields??? */
+    if let Some(configured_authenticator_config_alias) =
+        ctx.cfg().keycloak().authenticator_config_alias()
+    {
+        // alias must be the configured value
+        if let Some(first_config) = authenticator_config.first() {
+            if let Some(authenticator_config_alias) = first_config.get("alias") {
+                if configured_authenticator_config_alias != authenticator_config_alias {
+                    log::info!(
+                    "The configured 'KEYCLOAK_AUTHENTICATOR_CONFIG_ALIAS' '{}' does not match with the value in keycloak '{}'",
+                    configured_authenticator_config_alias,
+                    authenticator_config_alias
+                );
+                    add_error(
+                        realm_errors::REALM_AUTHENTICATOR_CONFIG_ALIAS_MISMATCHED_ID,
+                        realm_errors::REALM_AUTHENTICATOR_CONFIG_ALIAS_MISMATCHED_KEY,
+                        errors,
+                    );
+                }
+            } else {
+                add_error(
+                    realm_errors::REALM_AUTHENTICATOR_CONFIG_ALIAS_MISSING_ID,
+                    realm_errors::REALM_AUTHENTICATOR_CONFIG_ALIAS_MISSING_KEY,
+                    errors,
+                );
+            }
+        } else {
+            add_error(
+                realm_errors::REALM_AUTHENTICATOR_CONFIG_ALIAS_MISSING_ID,
+                realm_errors::REALM_AUTHENTICATOR_CONFIG_ALIAS_MISSING_KEY,
+                errors,
+            );
+        }
     }
 }
 

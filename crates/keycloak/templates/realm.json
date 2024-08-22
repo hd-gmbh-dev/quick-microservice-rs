@@ -224,5 +224,35 @@
   },
   "clientPolicies": {
     "policies": []
-  }
+  },
+  "authenticatorConfig": [
+    {
+      "id": "576197e9-e353-4029-88b5-9bfde1b89036",
+      "alias": "create unique user config",
+      "config": {
+        "require.password.update.after.registration": "false"
+      }
+    },
+    {
+      "id": "09c44053-1b5a-4f38-8221-a06c13db06bc",
+      "alias": "email_otp_flow",
+      "config": {
+        "maxRetries": "3",
+        "simulation": "false",
+        "length": "6",
+        "allowNumbers": "true",
+        "allowUppercase": "true",
+        "emailSubject": "Temporary Authentication Code",
+        "ttl": "300",
+        "allowLowercase": "true"
+      }
+    },
+    {
+      "id": "34d85f40-37e4-443a-824f-10e5e3061a5e",
+      "alias": "review profile config",
+      "config": {
+        "update.profile.on.first.login": "missing"
+      }
+    }
+  ]
 }

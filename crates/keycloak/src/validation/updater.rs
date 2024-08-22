@@ -1,6 +1,11 @@
 use std::collections::HashMap;
 use std::env;
 
+use keycloak::types::{
+    AuthenticationExecutionExportRepresentation, AuthenticationFlowRepresentation,
+    AuthenticatorConfigRepresentation, TypeVec,
+};
+
 use crate::{ClientRepresentation, RealmRepresentation};
 
 use crate::validation::context::ValidationContext as Ctx;
@@ -248,6 +253,145 @@ async fn update_realm_settings(
                 ctx.cfg().keycloak().smtp_ssl().unwrap().to_string(),
             );
         }
+        realm_errors::REALM_BROWSER_FLOW_INVALID_ID
+        | realm_errors::REALM_BROWSER_FLOW_MISSING_ID => {
+            log::trace!("Setting 'browser_flow' for realm '{}'", realm);
+            rep.browser_flow = Some(ctx.cfg().keycloak().browser_flow().to_string());
+        }
+
+        realm_errors::REALM_AUTHENTICATOR_CONFIG_MISSING_ID
+        | realm_errors::REALM_AUTHENTICATOR_CONFIG_MISMATCHED_ID
+        | realm_errors::REALM_AUTHENTICATOR_CONFIG_INVALID_ID => {
+            log::trace!("Setting 'authenticator_config' for realm '{}'", realm);
+
+            let new_config = AuthenticatorConfigRepresentation {
+                alias: Some(
+                    ctx.cfg()
+                        .keycloak()
+                        .authenticator_config_alias()
+                        .unwrap()
+                        .to_string(),
+                ),
+                config: Some(get_email_otp_config_default(ctx).unwrap()),
+                id: Some("".to_string()), /* TODO: How can I create it */
+            };
+
+            rep.authenticator_config
+                .get_or_insert_with(TypeVec::new)
+                .push(new_config)
+        }
+
+        realm_errors::REALM_AUTHENTICATION_FLOWS_MISSING_ID
+        | realm_errors::REALM_AUTHENTICATION_FLOWS_MISSING_ID
+        | realm_errors::REALM_AUTHENTICATION_FLOWS_MISSING_ID => {
+            log::trace!("Setting 'authentication_flows' for realm '{}'", realm);
+
+            let email_2fa_authentication_executions = AuthenticationExecutionExportRepresentation {
+                authenticator: Some("emailotp-authenticator".to_string()),
+                authenticator_config: Some("email_otp_flow".to_string()),
+                authenticator_flow: Some(false),
+                requirement: Some("REQUIRED".to_string()),
+                priority: Some(0),
+                user_setup_allowed: Some(false),
+            };
+
+            let email_2fa = AuthenticationFlowRepresentation {
+                id: Some("".to_string()), /* TODO: How can I create it */
+                description: Some("Email 2FA".to_string()),
+                alias: Some("Email_2FA".to_string()),
+                built_in: Some(false),
+                top_level: Some(true),
+                provider_id: Some("basic-flow".to_string()),
+                authentication_executions: Some([email_2fa_authentication_executions].to_vec()),
+            };
+
+            let exec0 = AuthenticationExecutionExportRepresentation {
+                authenticator: Some("auth-cookie".to_string()),
+                requirement: Some("ALTERNATIVE".to_string()),
+                priority: Some(10),
+                authenticator_flow: Some(false),
+                autheticator_flow: Some(false),
+                user_setup_allowed: Some(false),
+            };
+
+            let exec1 = AuthenticationExecutionExportRepresentation {
+                authenticator: Some("auth-spnego".to_string()),
+                requirement: Some("DISABLED".to_string()),
+                priority: Some(20),
+                authenticator_flow: Some(false),
+                autheticator_flow: Some(false),
+                user_setup_allowed: Some(false),
+            };
+
+            let exec2 = AuthenticationExecutionExportRepresentation {
+                authenticator: Some("identity-provider-redirector".to_string()),
+                requirement: Some("ALTERNATIVE".to_string()),
+                priority: Some(25),
+                authenticator_flow: Some(false),
+                autheticator_flow: Some(false),
+                user_setup_allowed: Some(false),
+            };
+
+            let exec3 = AuthenticationExecutionExportRepresentation {
+                flow_alias: Some("browser_email_otp forms".to_string()),
+                requirement: Some("ALTERNATIVE".to_string()),
+                priority: Some(30),
+                authenticator_flow: Some(true),
+                autheticator_flow: Some(true),
+                user_setup_allowed: Some(false),
+            };
+
+            let browser_email_otp = AuthenticationFlowRepresentation {
+                id: Some("".to_string()), /* TODO: How can I create it */
+                description: Some("browser based authentication".to_string()),
+                alias: Some("browser_email_otp".to_string()),
+                built_in: Some(false),
+                top_level: Some(true),
+                provider_id: Some("basic-flow".to_string()),
+                authentication_executions: Some([exec0, exec1, exec2, exec3].to_vec()),
+            };
+
+            let exec4 = AuthenticationExecutionExportRepresentation {
+                authenticator: Some("auth-username-password-form".to_string()),
+                requirement: Some("REQUIRED".to_string()),
+                priority: Some(10),
+                authenticator_flow: Some(false),
+                autheticator_flow: Some(false),
+                user_setup_allowed: Some(false),
+            };
+
+            let exec5 = AuthenticationExecutionExportRepresentation {
+                flow_alias: Some("Email_2FA".to_string()),
+                requirement: Some("REQUIRED".to_string()),
+                priority: Some(11),
+                authenticator_flow: Some(true),
+                autheticator_flow: Some(true),
+                user_setup_allowed: Some(false),
+            };
+
+            let browser_email_otp_forms = AuthenticationFlowRepresentation {
+                id: Some("".to_string()), /* TODO: How can I create it */
+                description: Some("Username, password, otp and other auth forms.".to_string()),
+                alias: Some("browser_email_otp forms".to_string()),
+                built_in: Some(false),
+                top_level: Some(true),
+                provider_id: Some("basic-flow".to_string()),
+                authentication_executions: Some([exec4, exec5].to_vec()),
+            };
+
+            rep.authentication_flows
+                .get_or_insert_with(TypeVec::new)
+                .push(email_2fa);
+
+            rep.authentication_flows
+                .get_or_insert_with(TypeVec::new)
+                .push(browser_email_otp);
+
+            rep.authentication_flows
+                .get_or_insert_with(TypeVec::new)
+                .push(browser_email_otp_forms);
+        }
+
         _ => log::warn!("Unknown realm error id '{}'. No action taken.", e.id),
     });
 
@@ -438,6 +582,31 @@ pub fn get_smtp_server_defaults(ctx: &Ctx<'_>) -> Option<HashMap<String, String>
     } else {
         defaults.insert(String::from("ssl"), "false".to_string());
     }
+
+    Some(defaults)
+}
+
+pub fn get_email_otp_config_default(ctx: &Ctx<'_>) -> Option<HashMap<String, String>> {
+    let mut defaults: HashMap<String, String> = HashMap::new();
+
+    defaults.insert(String::from("maxRetries"), "3".to_string());
+    defaults.insert(String::from("simulation"), "false".to_string());
+    defaults.insert(String::from("length"), "6".to_string());
+    defaults.insert(String::from("allowNumbers"), "true".to_string());
+    defaults.insert(String::from("allowUppercase"), "true".to_string());
+    if let Some(configured_email_subject) = ctx.cfg().keycloak().authenticator_email_subject() {
+        defaults.insert(
+            String::from("emailSubject"),
+            configured_email_subject.to_string(),
+        );
+    } else {
+        defaults.insert(
+            String::from("emailSubject"),
+            "Temporary Authentication Code".to_string(),
+        );
+    }
+    defaults.insert(String::from("ttl"), "300".to_string());
+    defaults.insert(String::from("allowLowercase"), "true".to_string());
 
     Some(defaults)
 }
