@@ -488,7 +488,7 @@ where
         Ok(Ctx(
             &AuthCtx::<'_, Auth, Store, Resource, Permission>::new_with_role(
                 ctx,
-                (Resource::user(), Permission::view()),
+                &qm_role::role!(Resource::user(), Permission::view()),
             )
             .await
             .extend()?,
@@ -506,7 +506,7 @@ where
         Ctx(
             &AuthCtx::<'_, Auth, Store, Resource, Permission>::new_with_role(
                 ctx,
-                (Resource::user(), Permission::list()),
+                &qm_role::role!(Resource::user(), Permission::list()),
             )
             .await?,
         )
@@ -551,7 +551,7 @@ where
     ) -> async_graphql::FieldResult<Arc<User>> {
         let auth_ctx = AuthCtx::<'_, Auth, Store, Resource, Permission>::new_with_role(
             ctx,
-            (Resource::user(), Permission::create()),
+            &qm_role::role!(Resource::user(), Permission::create()),
         )
         .await?;
         if !SchemaConfig::new(ctx).allow_multiple_admin_users() && access_level.is_admin() {
@@ -654,7 +654,7 @@ where
     ) -> async_graphql::FieldResult<u64> {
         let auth_ctx = AuthCtx::<'_, Auth, Store, Resource, Permission>::new_with_role(
             ctx,
-            (Resource::user(), Permission::delete()),
+            &qm_role::role!(Resource::user(), Permission::delete()),
         )
         .await?;
         let active_user_id = auth_ctx
