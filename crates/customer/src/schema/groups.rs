@@ -292,7 +292,7 @@ where
     BuiltInGroup: RelatedBuiltInGroup,
 {
     #[graphql(
-        guard = "AuthGuard::<Auth, Store, Resource, Permission>::new(Resource::user(), Permission::create())"
+        guard = "AuthGuard::<Auth, Store, Resource, Permission>::new(qm_role::role!(Resource::user(), Permission::create()))"
     )]
     async fn groups(&self) -> Groups {
         Groups
@@ -334,7 +334,7 @@ where
     ) -> async_graphql::FieldResult<Arc<UserGroup>> {
         let auth_ctx = AuthCtx::<'_, Auth, Store, Resource, Permission>::new_with_role(
             ctx,
-            (Resource::user(), Permission::create()),
+            &qm_role::role!(Resource::user(), Permission::create()),
         )
         .await?;
         auth_ctx.can_mutate(Some(&context)).await?;
@@ -373,7 +373,7 @@ where
     ) -> async_graphql::FieldResult<u64> {
         let auth_ctx = AuthCtx::<'_, Auth, Store, Resource, Permission>::new_with_role(
             ctx,
-            (Resource::user(), Permission::create()),
+            &qm_role::role!(Resource::user(), Permission::create()),
         )
         .await?;
         let mut group_ids = vec![];

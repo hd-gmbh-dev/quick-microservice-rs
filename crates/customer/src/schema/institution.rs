@@ -239,7 +239,7 @@ where
         Ok(Ctx(
             &AuthCtx::<'_, Auth, Store, Resource, Permission>::new_with_role(
                 ctx,
-                (Resource::institution(), Permission::view()),
+                &qm_role::role!(Resource::institution(), Permission::view()),
             )
             .await
             .extend()?,
@@ -258,7 +258,7 @@ where
         Ok(Ctx(
             &AuthCtx::<'_, Auth, Store, Resource, Permission>::new_with_role(
                 ctx,
-                (Resource::institution(), Permission::view()),
+                &qm_role::role!(Resource::institution(), Permission::view()),
             )
             .await
             .extend()?,
@@ -277,7 +277,7 @@ where
         Ctx(
             &AuthCtx::<'_, Auth, Store, Resource, Permission>::new_with_role(
                 ctx,
-                (Resource::institution(), Permission::list()),
+                &qm_role::role!(Resource::institution(), Permission::list()),
             )
             .await?,
         )
@@ -320,7 +320,7 @@ where
         let auth_ctx = AuthCtx::<Auth, Store, Resource, Permission>::mutate_with_role(
             ctx,
             qm_entity::ids::InfraContext::Organization(context),
-            (Resource::institution(), Permission::create()),
+            &qm_role::role!(Resource::institution(), Permission::create()),
         )
         .await?;
         Ctx(&auth_ctx)
@@ -337,7 +337,7 @@ where
     ) -> async_graphql::FieldResult<Arc<Institution>> {
         let auth_ctx = AuthCtx::<'_, Auth, Store, Resource, Permission>::new_with_role(
             ctx,
-            (Resource::institution(), Permission::update()),
+            &qm_role::role!(Resource::institution(), Permission::update()),
         )
         .await?;
         auth_ctx
@@ -353,7 +353,7 @@ where
     ) -> async_graphql::FieldResult<u64> {
         let auth_ctx = AuthCtx::<'_, Auth, Store, Resource, Permission>::new_with_role(
             ctx,
-            (Resource::institution(), Permission::delete()),
+            &qm_role::role!(Resource::institution(), Permission::delete()),
         )
         .await?;
         let cache = auth_ctx.store.cache_db();
