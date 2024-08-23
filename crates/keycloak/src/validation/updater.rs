@@ -302,7 +302,7 @@ async fn update_realm_settings(
                 description: Some("Email 2FA".to_string()),
                 alias: Some("Email_2FA".to_string()),
                 built_in: Some(false),
-                top_level: Some(true),
+                top_level: Some(false),
                 provider_id: Some("basic-flow".to_string()),
                 authentication_executions: Some([email_2fa_authentication_executions].to_vec()),
             };
@@ -388,7 +388,7 @@ async fn update_realm_settings(
                 description: Some("Username, password, otp and other auth forms.".to_string()),
                 alias: Some("browser_email_otp forms".to_string()),
                 built_in: Some(false),
-                top_level: Some(true),
+                top_level: Some(false),
                 provider_id: Some("basic-flow".to_string()),
                 authentication_executions: Some([exec4, exec5].to_vec()),
             };
