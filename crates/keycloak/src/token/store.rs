@@ -93,14 +93,14 @@ impl JwtStore {
             let partial_claims = URL_SAFE_NO_PAD
                 .decode(payload)
                 .map_err(|e| {
-                    log::error!("Base64 Decode error: {e:#?}");
+                    tracing::error!("Base64 Decode error: {e:#?}");
                     e
                 })
                 .ok()
                 .and_then(|v| {
                     serde_json::from_slice::<PartialClaims>(&v)
                         .map_err(|e| {
-                            log::error!("Serde JSON Deserialize Error {e:#?}");
+                            tracing::error!("Serde JSON Deserialize Error {e:#?}");
                             e
                         })
                         .ok()

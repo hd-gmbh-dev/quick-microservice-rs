@@ -8,7 +8,7 @@ use crate::{ClientRepresentation, RealmRepresentation};
 pub async fn validate_realm(ctx: &Ctx<'_>) -> anyhow::Result<Option<Vec<RealmConfigError>>> {
     let mut errors = vec![];
     let realm = ctx.cfg().realm();
-    log::info!("validating realm '{realm}'");
+    tracing::info!("validating realm '{realm}'");
     check_realm_settings(ctx, realm, &mut errors).await?;
     check_client(ctx, realm, &mut errors).await?;
     Ok(Some(errors))
@@ -234,7 +234,7 @@ async fn check_client(
         // base_url must be the configured value
         if let Some(url) = &client.base_url {
             if url.trim_end_matches('/') != ctx.cfg().public_url().trim_end_matches('/') {
-                log::info!(
+                tracing::info!(
                     "[{}]: Expected the 'base_url' value to be '{}' but was '{}'",
                     realm,
                     ctx.cfg().public_url().trim_end_matches('/'),
@@ -306,7 +306,7 @@ async fn check_client(
             if !urls.iter().all(|url| {
                 url == ctx.cfg().public_url() || url.replace('*', "") == ctx.cfg().public_url()
             }) {
-                log::info!(
+                tracing::info!(
                     "[{}]: Expected the 'redirect_uris' values '{:?}' to contain a pattern that matches '{}'",
                     realm,
                     urls,
@@ -328,7 +328,7 @@ async fn check_client(
         // root_url must be the configured value
         if let Some(url) = &client.root_url {
             if url.trim_end_matches('/') != ctx.cfg().public_url().trim_end_matches('/') {
-                log::info!(
+                tracing::info!(
                     "[{}]: Expected the 'root_url' value to be '{}' but was '{}'",
                     realm,
                     ctx.cfg().public_url().trim_end_matches('/'),
@@ -399,7 +399,7 @@ fn check_realm_smtp_settings(
         // reply_to_display_name must be the configured value
         if let Some(reply_to_display_name) = smtp_server.get("replyToDisplayName") {
             if configured_reply_to_display_name != reply_to_display_name {
-                log::info!(
+                tracing::info!(
                     "The configured 'KEYCLOAK_SMTP_REPLY_TO_DISPLAY_NAME' '{}' does not match with the value from keycloak '{}'",
                     configured_reply_to_display_name,
                     reply_to_display_name
@@ -424,7 +424,7 @@ fn check_realm_smtp_settings(
         let starttls = get_bool_from_string_value(starttls_value);
         if let Some(configured_starttls) = ctx.cfg().keycloak().smtp_starttls() {
             if configured_starttls != &starttls {
-                log::info!(
+                tracing::info!(
                     "The configured 'KEYCLOAK_SMTP_STARTTLS' '{}' does not match with the value from keycloak '{}'",
                     configured_starttls,
                     starttls
@@ -455,7 +455,7 @@ fn check_realm_smtp_settings(
         let port = get_u16_from_value(port_value);
         if let Some(configured_port) = ctx.cfg().keycloak().smtp_port() {
             if configured_port != &port {
-                log::info!(
+                tracing::info!(
                     "The configured 'KEYCLOAK_SMTP_PORT' '{}' does not match with the value from keycloak '{}'",
                     configured_port,
                     port
@@ -485,7 +485,7 @@ fn check_realm_smtp_settings(
         // port must be the configured value or `smtp` if not configured
         if let Some(configured_host) = ctx.cfg().keycloak().smtp_host() {
             if configured_host != host {
-                log::info!(
+                tracing::info!(
                     "The configured 'KEYCLOAK_SMTP_HOST' '{}' does not match with the value from keycloak '{}'",
                     configured_host,
                     host
@@ -515,7 +515,7 @@ fn check_realm_smtp_settings(
         // reply_to must be the configured value
         if let Some(reply_to) = smtp_server.get("replyTo") {
             if configured_reply_to != reply_to {
-                log::info!(
+                tracing::info!(
                     "The configured 'KEYCLOAK_SMTP_REPLY_TO' '{}' does not match with the value in keycloak '{}'",
                     configured_reply_to,
                     reply_to
@@ -539,7 +539,7 @@ fn check_realm_smtp_settings(
         // from must be the configured value or `noreply@qm.local` if not configured
         if let Some(configured_from) = ctx.cfg().keycloak().smtp_from() {
             if configured_from != from {
-                log::info!(
+                tracing::info!(
                     "The configured 'KEYCLOAK_SMTP_FROM' '{}' does not match with the value from keycloak '{}'",
                     configured_from,
                     from
@@ -569,7 +569,7 @@ fn check_realm_smtp_settings(
         // reply_to_display_name must be the configured value
         if let Some(from_display_name) = smtp_server.get("fromDisplayName") {
             if configured_from_display_name != from_display_name {
-                log::info!(
+                tracing::info!(
                     "The configured 'KEYCLOAK_SMTP_FROM_DISPLAY_NAME' '{}' does not match with the value in keycloak '{}'",
                     configured_from_display_name,
                     from_display_name
@@ -594,7 +594,7 @@ fn check_realm_smtp_settings(
         let ssl = get_bool_from_string_value(ssl_value);
         if let Some(configured_ssl) = ctx.cfg().keycloak().smtp_ssl() {
             if configured_ssl != &ssl {
-                log::info!(
+                tracing::info!(
                     "The configured 'KEYCLOAK_SMTP_SSL' '{}' does not match with the value from keycloak '{}'",
                     configured_ssl,
                     ssl

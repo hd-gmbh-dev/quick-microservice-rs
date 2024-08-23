@@ -50,7 +50,7 @@ impl Organization {
     async fn customer(&self, ctx: &Context<'_>) -> Option<Arc<Customer>> {
         let cache = ctx.data::<CacheDB>().ok();
         if cache.is_none() {
-            log::warn!("qm::customer::cache::CacheDB is not installed in schema context");
+            tracing::warn!("qm::customer::cache::CacheDB is not installed in schema context");
             return None;
         }
         let cache = cache.unwrap();
@@ -203,7 +203,7 @@ where
                     ty: CleanupTaskType::Organizations(ids),
                 })
                 .await?;
-            log::debug!("emit cleanup task {}", id.to_string());
+            tracing::debug!("emit cleanup task {}", id.to_string());
             return Ok(delete_count);
         }
         Ok(0)

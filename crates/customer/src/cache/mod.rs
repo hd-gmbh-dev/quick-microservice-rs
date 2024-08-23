@@ -576,7 +576,7 @@ pub fn subscribe(keycloak_db: qm_pg::DB, customer_db: qm_pg::DB, listener_instan
                     .to_string()
                     .contains("A Tokio 1.x context was found, but it is being shutdown.")
                 {
-                    log::error!("{err:#?}");
+                    tracing::error!("{err:#?}");
                     std::process::exit(1)
                 }
             }
@@ -597,7 +597,7 @@ pub fn subscribe(keycloak_db: qm_pg::DB, customer_db: qm_pg::DB, listener_instan
                     .to_string()
                     .contains("A Tokio 1.x context was found, but it is being shutdown.")
                 {
-                    log::error!("{err:#?}");
+                    tracing::error!("{err:#?}");
                     std::process::exit(1)
                 }
             }

@@ -4,7 +4,7 @@ use qm_example_ctx::Storage;
 pub async fn ensure(app: &Storage, cleanup: bool) -> anyhow::Result<UserRepresentation> {
     let realm = app.keycloak().config().realm();
     if cleanup {
-        log::info!("remove realm: {realm}");
+        tracing::info!("remove realm: {realm}");
         app.keycloak().remove_realm(realm).await.ok();
     }
     let realms = app.keycloak().realms().await?;
