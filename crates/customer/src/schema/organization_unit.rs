@@ -127,6 +127,7 @@ where
                 } else {
                     let result = crate::mutation::create_organization_unit(
                         self.0.store.customer_db().pool(),
+                        organization_unit.id,
                         &name,
                         ty.as_deref(),
                         cid,
@@ -327,6 +328,7 @@ where
                             name: input.name,
                             ty: input.ty,
                             members: input.members,
+                            id: input.id,
                         },
                     )
                     .await
@@ -350,6 +352,7 @@ where
                             name: input.name,
                             ty: input.ty,
                             members: input.members,
+                            id: input.id,
                         },
                     )
                     .await

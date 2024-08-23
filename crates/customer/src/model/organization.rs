@@ -1,4 +1,3 @@
-use crate::model::CreateUserInput;
 use async_graphql::{InputObject, SimpleObject};
 use qm_entity::ids::{CustomerId, InfraId, OrganizationId};
 use serde::{Deserialize, Serialize};
@@ -8,13 +7,13 @@ use sqlx::FromRow;
 
 use std::sync::Arc;
 
-pub struct OrganizationData(pub InfraId, pub String, pub Option<String>);
+pub struct OrganizationData(pub InfraId, pub String, pub Option<String>, pub Option<i64>);
 
 #[derive(Debug, InputObject)]
 pub struct CreateOrganizationInput {
+    pub id: Option<i64>,
     pub name: String,
     pub ty: Option<String>,
-    pub initial_user: Option<CreateUserInput>,
 }
 
 #[derive(Debug, InputObject)]

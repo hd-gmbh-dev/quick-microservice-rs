@@ -1,4 +1,3 @@
-use crate::model::CreateUserInput;
 use async_graphql::{InputObject, SimpleObject};
 use qm_entity::ids::OrganizationId;
 use qm_entity::ids::{CustomerId, InfraId, InstitutionId};
@@ -9,7 +8,12 @@ use sqlx::FromRow;
 
 use std::sync::Arc;
 
-pub struct InstitutionData(pub OrganizationId, pub String, pub Option<String>);
+pub struct InstitutionData(
+    pub OrganizationId,
+    pub String,
+    pub Option<String>,
+    pub Option<i64>,
+);
 
 #[derive(Debug, Clone, SimpleObject)]
 pub struct InstitutionList {
@@ -80,9 +84,9 @@ impl<'a> From<&'a Institution> for RemoveInstitutionPayload {
 
 #[derive(Debug, InputObject)]
 pub struct CreateInstitutionInput {
+    pub id: Option<i64>,
     pub name: String,
     pub ty: Option<String>,
-    pub initial_user: Option<CreateUserInput>,
 }
 
 #[derive(Debug, InputObject)]

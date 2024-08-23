@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n    INSERT INTO customers ( name, ty, created_by )\n    VALUES ( $1, $2, $3 )\n    RETURNING\n        id,\n        name,\n        ty,\n        created_by,\n        created_at,\n        updated_by,\n        updated_at\n    ",
+  "query": "\nINSERT INTO organization_units ( id, name, ty, customer_id, organization_id, created_by )\nVALUES ( $1, $2, $3, $4, $5, $6 )\nRETURNING\n    id,\n    customer_id,\n    organization_id,\n    name,\n    ty,\n    created_by,\n    created_at,\n    updated_by,\n    updated_at\n",
   "describe": {
     "columns": [
       {
@@ -10,44 +10,59 @@
       },
       {
         "ordinal": 1,
+        "name": "customer_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 2,
+        "name": "organization_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 3,
         "name": "name",
         "type_info": "Varchar"
       },
       {
-        "ordinal": 2,
+        "ordinal": 4,
         "name": "ty",
         "type_info": "Varchar"
       },
       {
-        "ordinal": 3,
+        "ordinal": 5,
         "name": "created_by",
         "type_info": "Uuid"
       },
       {
-        "ordinal": 4,
+        "ordinal": 6,
         "name": "created_at",
         "type_info": "Timestamp"
       },
       {
-        "ordinal": 5,
+        "ordinal": 7,
         "name": "updated_by",
         "type_info": "Uuid"
       },
       {
-        "ordinal": 6,
+        "ordinal": 8,
         "name": "updated_at",
         "type_info": "Timestamp"
       }
     ],
     "parameters": {
       "Left": [
+        "Int8",
         "Varchar",
         "Varchar",
+        "Int8",
+        "Int8",
         "Uuid"
       ]
     },
     "nullable": [
       false,
+      false,
+      true,
       false,
       false,
       false,
@@ -56,5 +71,5 @@
       true
     ]
   },
-  "hash": "f9e73dda1ac39bdf33bc05e7f4bcef8e4215d7cbb969bdfd02c0051623373a4a"
+  "hash": "8ac63f2382c2474508e052d41c8c1b2d433bb1f6cf3197ece6fb87fa66692dc6"
 }
