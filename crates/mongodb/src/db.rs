@@ -49,7 +49,7 @@ pub struct DB {
 
 impl DB {
     pub async fn new(app_name: &str, cfg: &MongoDbConfig) -> mongodb::error::Result<Self> {
-        log::info!("'{app_name}' -> connects to mongodb '{}'", cfg.database());
+        tracing::info!("'{app_name}' -> connects to mongodb '{}'", cfg.database());
         let mut client_options = ClientOptions::parse(cfg.root_address()).await?;
         client_options.app_name = Some(app_name.to_string());
         let admin = Client::with_options(client_options)?;
@@ -82,7 +82,7 @@ impl DB {
             })
             .unwrap_or(false)
         {
-            log::info!("{app_name} -> create db {}", cfg.database());
+            tracing::info!("{app_name} -> create db {}", cfg.database());
             admin
                 .database(cfg.database())
                 .run_command(doc! {
@@ -144,7 +144,7 @@ impl DB {
                 .await?;
         }
         for col in self.inner.collections.read().await.as_ref().iter() {
-            log::debug!("found collection: {}", col);
+            tracing::debug!("found collection: {}", col);
         }
         Ok(())
     }
@@ -244,7 +244,7 @@ where
             v.ok().and_then(|v| {
                 mongodb::bson::from_document::<T>(v)
                     .map_err(|e| {
-                        log::error!("Error while parsing MongoDB document: {e:#?}");
+                        tracing::error!("Error while parsing MongoDB document: {e:#?}");
                         e
                     })
                     .ok()

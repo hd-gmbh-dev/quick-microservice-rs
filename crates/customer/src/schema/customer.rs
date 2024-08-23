@@ -154,7 +154,7 @@ where
                     ty: CleanupTaskType::Customers(ids),
                 })
                 .await?;
-            log::debug!("emit cleanup task {}", id.to_string());
+            tracing::debug!("emit cleanup task {}", id.to_string());
             return Ok(delete_count);
         }
         Ok(0)

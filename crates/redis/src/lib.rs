@@ -166,7 +166,7 @@ where
     Ctx: Clone + Send + Sync + 'static,
     T: DeserializeOwned + Send + Sync,
 {
-    log::info!("start {} worker recovery", worker.prefix);
+    tracing::info!("start {} worker recovery", worker.prefix);
     let mut con = client.get_multiplexed_async_connection().await?;
     loop {
         if !is_running.load(Ordering::SeqCst) {
@@ -189,7 +189,7 @@ where
     Ctx: Clone + Send + Sync + 'static,
     T: DeserializeOwned + Send + Sync,
 {
-    log::info!("start {} worker #{worker_id} queue", worker.prefix);
+    tracing::info!("start {} worker #{worker_id} queue", worker.prefix);
     let request_queue = Arc::new(WorkQueue::new(KeyPrefix::new(worker.prefix.clone())));
     let mut con = client.get_multiplexed_async_connection().await?;
     loop {
@@ -205,12 +205,12 @@ where
             .await?
         {
             if item.data.is_empty() {
-                log::info!("item is empty");
+                tracing::info!("item is empty");
                 request_queue.complete(&mut con, &item).await?;
                 continue;
             }
             if let Ok(request) = serde_json::from_slice::<T>(&item.data).map_err(|err| {
-                log::error!(
+                tracing::error!(
                     "invalid request item on worker {} #{worker_id} Item: {}",
                     worker.prefix,
                     String::from_utf8_lossy(&item.data)
@@ -293,7 +293,7 @@ impl Workers {
                         instances,
                         Box::pin(async move {
                             let worker = fut_worker.clone();
-                            log::info!("stopping {} recovery", worker.prefix);
+                            tracing::info!("stopping {} recovery", worker.prefix);
                             is_fut_running.store(false, Ordering::SeqCst);
                             rx.await.ok();
                             " recovery".to_string()
@@ -301,7 +301,7 @@ impl Workers {
                     )
                     .await;
                     if let Err(err) = run_recovery_worker(client, is_running, worker).await {
-                        log::error!("{err:#?}");
+                        tracing::error!("{err:#?}");
                         std::process::exit(1);
                     }
                     tx.send(()).ok();
@@ -327,7 +327,7 @@ impl Workers {
                         instances,
                         Box::pin(async move {
                             let worker = fut_worker.clone();
-                            log::info!("stopping {} #{worker_id}", worker.prefix);
+                            tracing::info!("stopping {} #{worker_id}", worker.prefix);
                             is_fut_running.store(false, Ordering::SeqCst);
                             rx.await.ok();
                             format!("{} worker #{worker_id}", fut_worker.prefix)
@@ -337,7 +337,7 @@ impl Workers {
                     if let Err(err) =
                         run_worker_queue(ctx.clone(), client, is_running, worker, worker_id).await
                     {
-                        log::error!("{err:#?}");
+                        tracing::error!("{err:#?}");
                         std::process::exit(1);
                     }
                     tx.send(()).ok();
@@ -353,9 +353,9 @@ impl Workers {
             anyhow::bail!("Workers already terminated");
         }
         let mut futs = self.inner.instances.write().await.take().unwrap();
-        log::info!("try stopping {} workers", futs.len());
+        tracing::info!("try stopping {} workers", futs.len());
         while let Some(result) = futs.next().await {
-            log::info!("stopped {}", result);
+            tracing::info!("stopped {}", result);
         }
         Ok(())
     }

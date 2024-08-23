@@ -172,7 +172,7 @@ impl Producer {
     where
         O: serde::ser::Serialize,
     {
-        log::debug!("{event_name} event for type: {ty}");
+        tracing::debug!("{event_name} event for type: {ty}");
         let object = serde_json::to_value(object)?;
         let event = Event {
             event,
@@ -192,7 +192,9 @@ impl Producer {
             .map_err(|e| anyhow::anyhow!("{e:#?}"))?
             .await?
             .map_err(|e| anyhow::anyhow!("{e:#?}"))?;
-        log::debug!("produced {event_name} event for type {ty} with partition {a} and offset {b}");
+        tracing::debug!(
+            "produced {event_name} event for type {ty} with partition {a} and offset {b}"
+        );
         Ok(())
     }
 }

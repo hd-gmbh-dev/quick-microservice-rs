@@ -16,5 +16,5 @@ serde.workspace = true
 envy.workspace = true
 sqlx.workspace = true
 sea-orm.workspace = true
-log.workspace = true
+tracing.workspace = true
 anyhow.workspace = true

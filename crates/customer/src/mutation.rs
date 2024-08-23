@@ -6,6 +6,30 @@ use std::sync::Arc;
 
 pub const DEFAULT_TYPE: &str = "none";
 
+const NAME_MAX_LEN: usize = 1024;
+const TY_MAX_LEN: usize = 16;
+const INPUT_SLICE_MAX_SIZE: usize = 1024 * 1024 * 1024;
+
+fn check_max_size(name: &str, v: Option<&str>, max_len: usize) -> anyhow::Result<()> {
+    if let Some(v) = v {
+        if v.len() > max_len {
+            anyhow::bail!("The value of '{name}' name is bigger than {max_len} characters");
+        }
+    }
+    Ok(())
+}
+
+fn check_max_size_input_slice<T>(name: &str, v: &[T]) -> anyhow::Result<()> {
+    let mem_size = v.len() * std::mem::size_of::<T>();
+    if mem_size > INPUT_SLICE_MAX_SIZE {
+        anyhow::bail!(
+            "The input length of '{name}' is bigger than {} bytes",
+            INPUT_SLICE_MAX_SIZE
+        );
+    }
+    Ok(())
+}
+
 pub async fn create_customer(
     pool: &PgPool,
     id: Option<i64>,
@@ -14,6 +38,8 @@ pub async fn create_customer(
     created_by: &Uuid,
 ) -> anyhow::Result<Customer> {
     if let Some(id) = id {
+        check_max_size("Customer name", Some(name), NAME_MAX_LEN)?;
+        check_max_size("Customer ty", ty, TY_MAX_LEN)?;
         let rec = sqlx::query!(
             r#"
     INSERT INTO customers ( id, name, ty, created_by )
@@ -82,6 +108,7 @@ pub async fn update_customer(
     name: &str,
     updated_by: &Uuid,
 ) -> anyhow::Result<Customer> {
+    check_max_size("Customer name", Some(name), NAME_MAX_LEN)?;
     let rec = sqlx::query!(
         r#"
 UPDATE customers AS v
@@ -124,6 +151,7 @@ pub async fn remove_customer(pool: &PgPool, id: InfraId) -> anyhow::Result<u64> 
 }
 
 pub async fn remove_customers(pool: &PgPool, ids: &[i64]) -> anyhow::Result<u64> {
+    check_max_size_input_slice("Customer ids", ids)?;
     let result = sqlx::query!(
         "DELETE FROM customers WHERE id IN (SELECT UNNEST($1::int8[]))",
         &ids[..] as &[i64]
@@ -141,6 +169,8 @@ pub async fn create_organization(
     customer_id: InfraId,
     created_by: &Uuid,
 ) -> anyhow::Result<Organization> {
+    check_max_size("Organization name", Some(name), NAME_MAX_LEN)?;
+    check_max_size("Organization ty", ty, TY_MAX_LEN)?;
     let rec = sqlx::query!(
         r#"
 INSERT INTO organizations ( name, ty, customer_id, created_by )
@@ -225,6 +255,7 @@ pub async fn remove_organization(pool: &PgPool, id: InfraId) -> anyhow::Result<u
 }
 
 pub async fn remove_organizations(pool: &PgPool, ids: &[i64]) -> anyhow::Result<u64> {
+    check_max_size_input_slice("Organization ids", ids)?;
     let result = sqlx::query!(
         "DELETE FROM organizations WHERE id IN (SELECT UNNEST($1::int8[]))",
         &ids[..] as &[i64]
@@ -243,6 +274,8 @@ pub async fn create_institution(
     organization_id: InfraId,
     created_by: &Uuid,
 ) -> anyhow::Result<Institution> {
+    check_max_size("Institution name", Some(name), NAME_MAX_LEN)?;
+    check_max_size("Institution ty", ty, TY_MAX_LEN)?;
     let rec = sqlx::query!(
         r#"
 INSERT INTO institutions ( name, ty, customer_id, organization_id, created_by )
@@ -286,6 +319,7 @@ pub async fn update_institution(
     name: &str,
     updated_by: &Uuid,
 ) -> anyhow::Result<Institution> {
+    check_max_size("Institution name", Some(name), NAME_MAX_LEN)?;
     let rec = sqlx::query!(
         r#"
 UPDATE institutions AS v
@@ -332,6 +366,7 @@ pub async fn remove_institution(pool: &PgPool, id: InfraId) -> anyhow::Result<u6
 }
 
 pub async fn remove_institutions(pool: &PgPool, ids: &[i64]) -> anyhow::Result<u64> {
+    check_max_size_input_slice("Institution ids", ids)?;
     let result = sqlx::query!(
         "DELETE FROM institutions WHERE id IN (SELECT UNNEST($1::int8[]))",
         &ids[..] as &[i64]
@@ -351,6 +386,8 @@ pub async fn create_organization_unit(
     created_by: &Uuid,
     members: InstitutionIds,
 ) -> anyhow::Result<OrganizationUnit> {
+    check_max_size("Organization Unit name", Some(name), NAME_MAX_LEN)?;
+    check_max_size("Organization Unit ty", ty, TY_MAX_LEN)?;
     let rec = sqlx::query!(
         r#"
 INSERT INTO organization_units ( name, ty, customer_id, organization_id, created_by )
@@ -412,6 +449,7 @@ pub async fn update_organization_unit(
     name: &str,
     updated_by: &Uuid,
 ) -> anyhow::Result<OrganizationUnit> {
+    check_max_size("Organization Unit name", Some(name), NAME_MAX_LEN)?;
     let rec = sqlx::query!(
         r#"
 UPDATE organization_units AS v
@@ -469,6 +507,7 @@ pub async fn remove_organization_unit(pool: &PgPool, id: InfraId) -> anyhow::Res
 }
 
 pub async fn remove_organization_units(pool: &PgPool, ids: &[i64]) -> anyhow::Result<u64> {
+    check_max_size_input_slice("Organization Unit ids", ids)?;
     let result = sqlx::query!(
         "DELETE FROM organization_units WHERE id IN (SELECT UNNEST($1::int8[]))",
         &ids[..] as &[i64]

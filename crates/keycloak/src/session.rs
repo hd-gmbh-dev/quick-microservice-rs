@@ -109,7 +109,7 @@ impl KeycloakSessionToken {
                 STANDARD_NO_PAD
                     .decode(s)
                     .map_err(|e| {
-                        log::error!("{e:#?}");
+                        tracing::error!("{e:#?}");
                         e
                     })
                     .ok()
@@ -117,7 +117,7 @@ impl KeycloakSessionToken {
             .and_then(|b| {
                 serde_json::from_slice::<ParsedAccessToken>(&b)
                     .map_err(|e| {
-                        log::error!("{e:#?}");
+                        tracing::error!("{e:#?}");
                         e
                     })
                     .ok()
@@ -186,7 +186,7 @@ impl KeycloakSessionClient {
         .await?
         .json::<serde_json::Value>()
         .await?;
-        log::debug!(
+        tracing::debug!(
             "Acquire result: {}",
             serde_json::to_string_pretty(&result).unwrap()
         );
@@ -223,7 +223,7 @@ impl KeycloakSessionClient {
         .await?
         .json::<serde_json::Value>()
         .await?;
-        log::debug!(
+        tracing::debug!(
             "Acquire result: {}",
             serde_json::to_string_pretty(&result).unwrap()
         );
@@ -254,7 +254,7 @@ impl KeycloakSessionClient {
         .await?
         .json::<serde_json::Value>()
         .await?;
-        log::debug!(
+        tracing::debug!(
             "Refresh result: {}",
             serde_json::to_string_pretty(&result).unwrap()
         );
@@ -268,14 +268,16 @@ async fn try_refresh(
     username: &str,
     password: &str,
 ) -> Result<KeycloakSessionToken, KeycloakSessionError> {
-    log::debug!("refresh session for user {username}");
+    tracing::debug!("refresh session for user {username}");
     match keycloak.refresh(refresh_token).await {
         Ok(token) => Ok(KeycloakSessionToken::parse_access_token(token)),
         Err(err) => {
             if let KeycloakSessionError::HttpFailure { status, .. } = &err {
                 if *status == 400 {
-                    log::error!("refresh token expired try to acquire new token with credentials");
-                    log::error!("{:#?}", err);
+                    tracing::error!(
+                        "refresh token expired try to acquire new token with credentials"
+                    );
+                    tracing::error!("{:#?}", err);
                     keycloak
                         .acquire(username, password)
                         .await
@@ -295,14 +297,16 @@ async fn try_refresh_with_secret(
     refresh_token: &str,
     secret: &str,
 ) -> Result<KeycloakSessionToken, KeycloakSessionError> {
-    log::debug!("refresh session for api client");
+    tracing::debug!("refresh session for api client");
     match keycloak.refresh(refresh_token).await {
         Ok(token) => Ok(KeycloakSessionToken::parse_access_token(token)),
         Err(err) => {
             if let KeycloakSessionError::HttpFailure { status, .. } = &err {
                 if *status == 400 {
-                    log::error!("refresh token expired try to acquire new token with credentials");
-                    log::error!("{:#?}", err);
+                    tracing::error!(
+                        "refresh token expired try to acquire new token with credentials"
+                    );
+                    tracing::error!("{:#?}", err);
                     keycloak
                         .acquire_with_secret(secret)
                         .await
@@ -391,7 +395,7 @@ impl KeycloakSession {
                                     *session.inner.token.write().await = next_token;
                                 }
                                 Err(err) => {
-                                    log::error!("{err:#?}");
+                                    tracing::error!("{err:#?}");
                                     std::process::exit(1)
                                 }
                             }
@@ -412,7 +416,7 @@ impl KeycloakSession {
                             }
                         }
                     }
-                    log::debug!("session ends for user {username}");
+                    tracing::debug!("session ends for user {username}");
                     anyhow::Ok(())
                 });
                 rt.block_on(local);
@@ -422,7 +426,7 @@ impl KeycloakSession {
     }
 
     pub fn stop(&self) -> anyhow::Result<()> {
-        log::debug!("stop session for {}", self.inner.username);
+        tracing::debug!("stop session for {}", self.inner.username);
         self.inner.stop_tx.send(false)?;
         Ok(())
     }
@@ -518,7 +522,7 @@ impl KeycloakApiClientSession {
                                     *session.inner.token.write().await = next_token;
                                 }
                                 Err(err) => {
-                                    log::error!("{err:#?}");
+                                    tracing::error!("{err:#?}");
                                     std::process::exit(1)
                                 }
                             }
@@ -539,7 +543,7 @@ impl KeycloakApiClientSession {
                             }
                         }
                     }
-                    log::debug!("session ends for api client");
+                    tracing::debug!("session ends for api client");
                     anyhow::Ok(())
                 });
                 rt.block_on(local);
@@ -549,7 +553,7 @@ impl KeycloakApiClientSession {
     }
 
     pub fn stop(&self) -> anyhow::Result<()> {
-        log::debug!("stop session for {}", self.inner.secret);
+        tracing::debug!("stop session for {}", self.inner.secret);
         self.inner.stop_tx.send(false)?;
         Ok(())
     }

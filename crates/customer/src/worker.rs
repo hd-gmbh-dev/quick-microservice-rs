@@ -167,12 +167,12 @@ where
         .session(&mut session)
         .await?
     {
-        log::debug!("remove all organization related resources from db {collection}");
+        tracing::debug!("remove all organization related resources from db {collection}");
         remove_documents(db, &mut session, &collection, &query).await?;
     }
-    log::debug!("cleanup api clients");
+    tracing::debug!("cleanup api clients");
     cleanup_api_clients(store.keycloak(), client_ids).await?;
-    log::debug!("cleanup roles");
+    tracing::debug!("cleanup roles");
     cleanup_roles(store.keycloak(), roles).await?;
     // Emit the Kafka event
     if let Some(producer) = store.mutation_event_producer() {
@@ -181,7 +181,7 @@ where
             .await?;
     }
     worker_ctx.complete().await?;
-    log::debug!("finished cleanup task '{ty}' with id '{id}'");
+    tracing::debug!("finished cleanup task '{ty}' with id '{id}'");
     Ok(())
 }
 
@@ -257,12 +257,12 @@ where
         .session(&mut session)
         .await?
     {
-        log::debug!("remove all organization related resources from db {collection}");
+        tracing::debug!("remove all organization related resources from db {collection}");
         remove_documents(db, &mut session, &collection, &query).await?;
     }
-    log::debug!("cleanup api clients");
+    tracing::debug!("cleanup api clients");
     cleanup_api_clients(store.keycloak(), client_ids).await?;
-    log::debug!("cleanup roles");
+    tracing::debug!("cleanup roles");
     cleanup_roles(store.keycloak(), roles).await?;
     // // Emit the Kafka event
     if let Some(producer) = store.mutation_event_producer() {
@@ -271,7 +271,7 @@ where
             .await?;
     }
     worker_ctx.complete().await?;
-    log::debug!("finished cleanup task '{ty}' with id '{id}'");
+    tracing::debug!("finished cleanup task '{ty}' with id '{id}'");
     Ok(())
 }
 
@@ -319,12 +319,12 @@ where
         .session(&mut session)
         .await?
     {
-        log::debug!("remove all organization related resources from db {collection}");
+        tracing::debug!("remove all organization related resources from db {collection}");
         remove_documents(db, &mut session, &collection, &query).await?;
     }
-    log::debug!("cleanup api clients");
+    tracing::debug!("cleanup api clients");
     cleanup_api_clients(store.keycloak(), client_ids).await?;
-    log::debug!("cleanup roles");
+    tracing::debug!("cleanup roles");
     cleanup_roles(store.keycloak(), roles).await?;
     // // Emit the Kafka event
     if let Some(producer) = store.mutation_event_producer() {
@@ -333,7 +333,7 @@ where
             .await?;
     }
     worker_ctx.complete().await?;
-    log::debug!("finished cleanup task '{ty}' with id '{id}'");
+    tracing::debug!("finished cleanup task '{ty}' with id '{id}'");
     Ok(())
 }
 
@@ -389,12 +389,12 @@ where
         .session(&mut session)
         .await?
     {
-        log::debug!("remove all organization unit related resources from db {collection}");
+        tracing::debug!("remove all organization unit related resources from db {collection}");
         remove_documents(db, &mut session, &collection, &query).await?;
     }
-    log::debug!("cleanup api clients");
+    tracing::debug!("cleanup api clients");
     cleanup_api_clients(store.keycloak(), client_ids).await?;
-    log::debug!("cleanup roles");
+    tracing::debug!("cleanup roles");
     cleanup_roles(store.keycloak(), roles).await?;
     // Emit the Kafka event
     if let Some(producer) = store.mutation_event_producer() {
@@ -403,7 +403,7 @@ where
             .await?;
     }
     worker_ctx.complete().await?;
-    log::debug!("finished cleanup task '{ty}' with id '{id}'");
+    tracing::debug!("finished cleanup task '{ty}' with id '{id}'");
     Ok(())
 }
 
@@ -423,7 +423,7 @@ where
         ctx: WorkerContext<CleanupWorkerCtx<Auth, Store, Resource, Permission>>,
         item: CleanupTask,
     ) -> anyhow::Result<()> {
-        log::debug!(
+        tracing::debug!(
             "start cleanup task '{}' with id '{}'",
             item.ty.as_ref(),
             item.id
