@@ -28,6 +28,7 @@ pub async fn update_for_errors(
             .collect(),
     )
     .await?;
+
     // Removing entries with the prefix
     // Could be simplified with nightly api [`drain_filter`](https://doc.rust-lang.org/std/vec/struct.DrainFilter.html)
     actions.retain(|e| !e.id.starts_with(realm_errors::REALM_PREFIX));
@@ -43,6 +44,53 @@ pub async fn update_for_errors(
     )
     .await?;
     actions.retain(|e| !e.id.starts_with(realm_errors::CLIENTS_CLIENT_PREFIX));
+
+    update_autenticator_config(
+        ctx,
+        realm,
+        actions
+            .iter()
+            .filter(|e| {
+                e.id.starts_with(realm_errors::REALM_AUTHENTICATOR_CONFIG_PREFIX)
+            })
+            .cloned()
+            .collect(),
+    )
+    .await?;
+    actions.retain(|e| {
+        !e.id
+            .starts_with(realm_errors::REALM_AUTHENTICATOR_CONFIG_PREFIX)
+    });
+
+    update_autentication_flows(
+        ctx,
+        realm,
+        actions
+            .iter()
+            .filter(|e| {
+                e.id.starts_with(realm_errors::REALM_AUTHENTICATION_FLOWS_PREFIX)
+            })
+            .cloned()
+            .collect(),
+    )
+    .await?;
+    actions.retain(|e| {
+        !e.id
+            .starts_with(realm_errors::REALM_AUTHENTICATION_FLOWS_PREFIX)
+    });
+
+    update_browser_flow(
+        ctx,
+        realm,
+        actions
+            .iter()
+            .filter(|e| e.id.starts_with(realm_errors::REALM_BROWSER_FLOW_PREFIX))
+            .cloned()
+            .collect(),
+    )
+    .await?;
+    actions.retain(|e| !e.id.starts_with(realm_errors::REALM_BROWSER_FLOW_PREFIX));
+
     if !actions.is_empty() {
         log::error!(
             "Some unknown errors could not be resolved. Remaining: {:?}",
@@ -253,159 +301,6 @@ async fn update_realm_settings(
                 ctx.cfg().keycloak().smtp_ssl().unwrap().to_string(),
             );
         }
-        realm_errors::REALM_BROWSER_FLOW_INVALID_ID
-        | realm_errors::REALM_BROWSER_FLOW_MISSING_ID => {
-            log::trace!("Setting 'browser_flow' for realm '{}'", realm);
-            rep.browser_flow = Some(ctx.cfg().keycloak().browser_flow().to_string());
-        }
-
-        realm_errors::REALM_AUTHENTICATOR_CONFIG_MISSING_ID
-        | realm_errors::REALM_AUTHENTICATOR_CONFIG_MISMATCHED_ID
-        | realm_errors::REALM_AUTHENTICATOR_CONFIG_INVALID_ID => {
-            log::trace!("Setting 'authenticator_config' for realm '{}'", realm);
-
-            let new_config = AuthenticatorConfigRepresentation {
-                alias: Some(
-                    ctx.cfg()
-                        .keycloak()
-                        .authenticator_config_alias()
-                        .unwrap()
-                        .to_string(),
-                ),
-                config: Some(get_email_otp_config_default(ctx).unwrap()),
-                id: Some("".to_string()), /* TODO: How can I create it */
-            };
-
-            rep.authenticator_config
-                .get_or_insert_with(TypeVec::new)
-                .push(new_config)
-        }
-
-        realm_errors::REALM_AUTHENTICATION_FLOWS_MISSING_ID
-        | realm_errors::REALM_AUTHENTICATION_FLOWS_MISSING_ID
-        | realm_errors::REALM_AUTHENTICATION_FLOWS_MISSING_ID => {
-            log::trace!("Setting 'authentication_flows' for realm '{}'", realm);
-
-            let email_2fa_authentication_executions = AuthenticationExecutionExportRepresentation {
-                authenticator: Some("emailotp-authenticator".to_string()),
-                authenticator_config: Some("email_otp_flow".to_string()),
-                authenticator_flow: Some(false),
-                autheticator_flow: Some(false),
-                requirement: Some("REQUIRED".to_string()),
-                priority: Some(0),
-                user_setup_allowed: Some(false),
-                flow_alias: None,
-            };
-
-            let email_2fa = AuthenticationFlowRepresentation {
-                id: Some("".to_string()), /* TODO: How can I create it */
-                description: Some("Email 2FA".to_string()),
-                alias: Some("Email_2FA".to_string()),
-                built_in: Some(false),
-                top_level: Some(false),
-                provider_id: Some("basic-flow".to_string()),
-                authentication_executions: Some([email_2fa_authentication_executions].to_vec()),
-            };
-
-            let exec0 = AuthenticationExecutionExportRepresentation {
-                authenticator: Some("auth-cookie".to_string()),
-                requirement: Some("ALTERNATIVE".to_string()),
-                priority: Some(10),
-                authenticator_flow: Some(false),
-                autheticator_flow: Some(false),
-                user_setup_allowed: Some(false),
-                authenticator_config: None,
-                flow_alias: None,
-            };
-
-            let exec1 = AuthenticationExecutionExportRepresentation {
-                authenticator: Some("auth-spnego".to_string()),
-                requirement: Some("DISABLED".to_string()),
-                priority: Some(20),
-                authenticator_flow: Some(false),
-                autheticator_flow: Some(false),
-                user_setup_allowed: Some(false),
-                authenticator_config: None,
-                flow_alias: None,
-            };
-
-            let exec2 = AuthenticationExecutionExportRepresentation {
-                authenticator: Some("identity-provider-redirector".to_string()),
-                requirement: Some("ALTERNATIVE".to_string()),
-                priority: Some(25),
-                authenticator_flow: Some(false),
-                autheticator_flow: Some(false),
-                user_setup_allowed: Some(false),
-                authenticator_config: None,
-                flow_alias: None,
-            };
-
-            let exec3 = AuthenticationExecutionExportRepresentation {
-                flow_alias: Some("browser_email_otp forms".to_string()),
-                requirement: Some("ALTERNATIVE".to_string()),
-                priority: Some(30),
-                authenticator_flow: Some(true),
-                autheticator_flow: Some(true),
-                user_setup_allowed: Some(false),
-                authenticator: None,
-                authenticator_config: None,
-            };
-
-            let browser_email_otp = AuthenticationFlowRepresentation {
-                id: Some("".to_string()), /* TODO: How can I create it */
-                description: Some("browser based authentication".to_string()),
-                alias: Some("browser_email_otp".to_string()),
-                built_in: Some(false),
-                top_level: Some(true),
-                provider_id: Some("basic-flow".to_string()),
-                authentication_executions: Some([exec0, exec1, exec2, exec3].to_vec()),
-            };
-
-            let exec4 = AuthenticationExecutionExportRepresentation {
-                authenticator: Some("auth-username-password-form".to_string()),
-                requirement: Some("REQUIRED".to_string()),
-                priority: Some(10),
-                authenticator_flow: Some(false),
-                autheticator_flow: Some(false),
-                user_setup_allowed: Some(false),
-                authenticator_config: None,
-                flow_alias: None,
-            };
-
-            let exec5 = AuthenticationExecutionExportRepresentation {
-                flow_alias: Some("Email_2FA".to_string()),
-                requirement: Some("REQUIRED".to_string()),
-                priority: Some(11),
-                authenticator_flow: Some(true),
-                autheticator_flow: Some(true),
-                user_setup_allowed: Some(false),
-                authenticator: None,
-                authenticator_config: None,
-            };
-
-            let browser_email_otp_forms = AuthenticationFlowRepresentation {
-                id: Some("".to_string()), /* TODO: How can I create it */
-                description: Some("Username, password, otp and other auth forms.".to_string()),
-                alias: Some("browser_email_otp forms".to_string()),
-                built_in: Some(false),
-                top_level: Some(false),
-                provider_id: Some("basic-flow".to_string()),
-                authentication_executions: Some([exec4, exec5].to_vec()),
-            };
-
-            rep.authentication_flows
-                .get_or_insert_with(TypeVec::new)
-                .push(email_2fa);
-
-            rep.authentication_flows
-                .get_or_insert_with(TypeVec::new)
-                .push(browser_email_otp);
-
-            rep.authentication_flows
-                .get_or_insert_with(TypeVec::new)
-                .push(browser_email_otp_forms);
-        }
-
         _ => log::warn!("Unknown realm error id '{}'. No action taken.", e.id),
     });
 
@@ -414,6 +309,209 @@ async fn update_realm_settings(
         realm,
         rep
     );
+    ctx.keycloak().update_realm_by_name(realm, rep).await?;
+    Ok(())
+}
+
+async fn update_autenticator_config(
+    ctx: &Ctx<'_>,
+    realm: &str,
+    errors: Vec<RealmConfigErrorInput>,
+) -> anyhow::Result<()> {
+    if errors.is_empty() {
+        log::info!("No autenticator_config errors in realm '{}'", realm);
+        return Ok(());
+    }
+
+    for e in errors {
+        match e.id.as_str() {
+            realm_errors::REALM_AUTHENTICATOR_CONFIG_MISSING_ID
+            | realm_errors::REALM_AUTHENTICATOR_CONFIG_MISSING_KEY => {
+                log::info!("Setting 'authenticator_config' for realm '{}'", realm);
+                let rep = AuthenticatorConfigRepresentation {
+                    alias: Some(
+                        ctx.cfg()
+                            .keycloak()
+                            .authenticator_config_alias()
+                            .unwrap()
+                            .to_string(),
+                    ),
+                    config: Some(get_email_otp_config_default(ctx).unwrap()),
+                    ..AuthenticatorConfigRepresentation::default()
+                };
+
+                ctx.keycloak()
+                    .create_authenticator_config(realm, rep)
+                    .await?;
+            }
+            _ => log::warn!(
+                "Unknown autenticator_config error id '{}'. No action taken.",
+                e.id
+            ),
+        }
+    }
+    Ok(())
+}
+
+async fn update_autentication_flows(
+    ctx: &Ctx<'_>,
+    realm: &str,
+    errors: Vec<RealmConfigErrorInput>,
+) -> anyhow::Result<()> {
+    if errors.is_empty() {
+        log::info!("No autentication_flows errors in realm '{}'", realm);
+        return Ok(());
+    }
+
+    for e in errors {
+        match e.id.as_str() {
+            realm_errors::REALM_AUTHENTICATION_FLOWS_MISSING_ID
+            | realm_errors::REALM_AUTHENTICATION_FLOWS_MISSING_KEY => {
+                log::info!("Setting 'autentication_flows' for realm '{}'", realm);
+
+                let email_2fa_authentication_executions =
+                    AuthenticationExecutionExportRepresentation {
+                        authenticator: Some("emailotp-authenticator".to_string()),
+                        authenticator_config: Some("email_otp_flow".to_string()),
+                        authenticator_flow: Some(false),
+                        autheticator_flow: Some(false),
+                        requirement: Some("REQUIRED".to_string()),
+                        priority: Some(0),
+                        user_setup_allowed: Some(false),
+                        ..AuthenticationExecutionExportRepresentation::default()
+                    };
+
+                let email_2fa = AuthenticationFlowRepresentation {
+                    description: Some("Email 2FA".to_string()),
+                    alias: Some("Email_2FA".to_string()),
+                    built_in: Some(false),
+                    top_level: Some(false),
+                    provider_id: Some("basic-flow".to_string()),
+                    authentication_executions: Some(vec![email_2fa_authentication_executions]),
+                    ..AuthenticationFlowRepresentation::default()
+                };
+
+                let exec0 = AuthenticationExecutionExportRepresentation {
+                    authenticator: Some("auth-cookie".to_string()),
+                    requirement: Some("ALTERNATIVE".to_string()),
+                    priority: Some(10),
+                    authenticator_flow: Some(false),
+                    autheticator_flow: Some(false),
+                    user_setup_allowed: Some(false),
+                    ..AuthenticationExecutionExportRepresentation::default()
+                };
+
+                let exec1 = AuthenticationExecutionExportRepresentation {
+                    authenticator: Some("auth-spnego".to_string()),
+                    requirement: Some("DISABLED".to_string()),
+                    priority: Some(20),
+                    authenticator_flow: Some(false),
+                    autheticator_flow: Some(false),
+                    user_setup_allowed: Some(false),
+                    ..AuthenticationExecutionExportRepresentation::default()
+                };
+
+                let exec2 = AuthenticationExecutionExportRepresentation {
+                    authenticator: Some("identity-provider-redirector".to_string()),
+                    requirement: Some("ALTERNATIVE".to_string()),
+                    priority: Some(25),
+                    authenticator_flow: Some(false),
+                    autheticator_flow: Some(false),
+                    user_setup_allowed: Some(false),
+                    ..AuthenticationExecutionExportRepresentation::default()
+                };
+
+                let exec3 = AuthenticationExecutionExportRepresentation {
+                    flow_alias: Some("browser_email_otp forms".to_string()),
+                    requirement: Some("ALTERNATIVE".to_string()),
+                    priority: Some(30),
+                    authenticator_flow: Some(true),
+                    autheticator_flow: Some(true),
+                    user_setup_allowed: Some(false),
+                    ..AuthenticationExecutionExportRepresentation::default()
+                };
+
+                let browser_email_otp = AuthenticationFlowRepresentation {
+                    description: Some("browser based authentication".to_string()),
+                    alias: Some("browser_email_otp".to_string()),
+                    built_in: Some(false),
+                    top_level: Some(true),
+                    provider_id: Some("basic-flow".to_string()),
+                    authentication_executions: Some(vec![exec0, exec1, exec2, exec3]),
+                    ..AuthenticationFlowRepresentation::default()
+                };
+
+                let exec4 = AuthenticationExecutionExportRepresentation {
+                    authenticator: Some("auth-username-password-form".to_string()),
+                    requirement: Some("REQUIRED".to_string()),
+                    priority: Some(10),
+                    authenticator_flow: Some(false),
+                    autheticator_flow: Some(false),
+                    user_setup_allowed: Some(false),
+                    ..AuthenticationExecutionExportRepresentation::default()
+                };
+
+                let exec5 = AuthenticationExecutionExportRepresentation {
+                    flow_alias: Some("Email_2FA".to_string()),
+                    requirement: Some("REQUIRED".to_string()),
+                    priority: Some(11),
+                    authenticator_flow: Some(true),
+                    autheticator_flow: Some(true),
+                    user_setup_allowed: Some(false),
+                    ..AuthenticationExecutionExportRepresentation::default()
+                };
+
+                let browser_email_otp_forms = AuthenticationFlowRepresentation {
+                    description: Some("Username, password, otp and other auth forms.".to_string()),
+                    alias: Some("browser_email_otp forms".to_string()),
+                    built_in: Some(false),
+                    top_level: Some(false),
+                    provider_id: Some("basic-flow".to_string()),
+                    authentication_executions: Some(vec![exec4, exec5]),
+                    ..AuthenticationFlowRepresentation::default()
+                };
+
+                ctx.keycloak()
+                    .create_authentication_flow(realm, email_2fa)
+                    .await?;
+
+                ctx.keycloak()
+                    .create_authentication_flow(realm, browser_email_otp)
+                    .await?;
+
+                ctx.keycloak()
+                    .create_authentication_flow(realm, browser_email_otp_forms)
+                    .await?;
+            }
+            _ => log::warn!(
+                "Unknown create_authentication_flow error id '{}'. No action taken.",
+                e.id
+            ),
+        }
+    }
+    Ok(())
+}
+
+async fn update_browser_flow(
+    ctx: &Ctx<'_>,
+    realm: &str,
+    errors: Vec<RealmConfigErrorInput>,
+) -> anyhow::Result<()> {
+    if errors.is_empty() {
+        log::info!("No realm errors in realm '{}'", realm);
+        return Ok(());
+    }
+
+    let mut rep: RealmRepresentation = ctx.keycloak().realm_by_name(realm).await?;
+
+    errors.iter().for_each(|e| match e.id.as_str() {
+        realm_errors::REALM_BROWSER_FLOW_INVALID_ID
+        | realm_errors::REALM_BROWSER_FLOW_MISSING_ID => {
+            log::trace!("Setting 'browser_flow' for realm '{}'", realm);
+            rep.browser_flow = Some(ctx.cfg().keycloak().browser_flow().to_string());
+        }
+        _ => log::warn!("Unknown browser_flow error id '{}'. No action taken.", e.id),
+    });
     ctx.keycloak().update_realm_by_name(realm, rep).await?;
     Ok(())
 }

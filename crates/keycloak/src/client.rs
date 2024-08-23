@@ -1,5 +1,6 @@
 use std::{borrow::Cow, sync::Arc};
 
+use keycloak::types::{AuthenticationFlowRepresentation, AuthenticatorConfigRepresentation};
 pub use keycloak::{
     types::{
         ClientRepresentation, CredentialRepresentation, GroupRepresentation, RealmRepresentation,
@@ -682,5 +683,31 @@ impl Keycloak {
                     }
                 }),
         }
+    }
+    pub async fn create_authentication_flow(
+        &self,
+        realm: &str,
+        rep: AuthenticationFlowRepresentation,
+    ) -> Result<(), KeycloakError> {
+        let result = self
+            .inner
+            .admin
+            .realm_authentication_flows_post(realm, rep)
+            .await?;
+        log::info!("Result: {:?}", result);
+        Ok(())
+    }
+    pub async fn create_authenticator_config(
+        &self,
+        realm: &str,
+        rep: AuthenticatorConfigRepresentation,
+    ) -> Result<(), KeycloakError> {
+        let result = self
+            .inner
+            .admin
+            .realm_authentication_config_post(realm, rep)
+            .await?;
+        log::info!("Created authenticator config with id: {:?}", result);
+        Ok(())
     }
 }
