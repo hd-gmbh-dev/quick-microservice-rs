@@ -1,4 +1,3 @@
-use crate::model::CreateUserInput;
 use async_graphql::{InputObject, SimpleObject};
 use qm_entity::ids::{
     CustomerId, InfraId, InstitutionIds, OrganizationId, OrganizationUnitId, PartialEqual,
@@ -12,9 +11,9 @@ use std::sync::Arc;
 
 #[derive(Debug, InputObject)]
 pub struct CreateOrganizationUnitInput {
+    pub id: Option<i64>,
     pub name: String,
     pub ty: Option<String>,
-    pub initial_user: Option<CreateUserInput>,
     pub members: InstitutionIds,
 }
 
@@ -29,6 +28,7 @@ pub struct OrganizationUnitData {
     pub name: String,
     pub ty: Option<String>,
     pub members: InstitutionIds,
+    pub id: Option<i64>,
 }
 
 #[derive(Clone, FromRow)]

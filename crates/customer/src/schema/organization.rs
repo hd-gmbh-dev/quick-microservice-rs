@@ -121,6 +121,7 @@ where
                 } else {
                     let result = crate::mutation::create_organization(
                         self.0.store.customer_db().pool(),
+                        organization.3,
                         &name,
                         ty.as_deref(),
                         cid,
@@ -326,7 +327,12 @@ where
         )
         .await?;
         Ctx(&auth_ctx)
-            .create(OrganizationData(context.into(), input.name, input.ty))
+            .create(OrganizationData(
+                context.into(),
+                input.name,
+                input.ty,
+                input.id,
+            ))
             .await
             .extend()
     }

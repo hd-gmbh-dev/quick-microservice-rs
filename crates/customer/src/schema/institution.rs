@@ -127,6 +127,7 @@ where
                 } else {
                     let result = crate::mutation::create_institution(
                         self.0.store.customer_db().pool(),
+                        institution.3,
                         &name,
                         ty.as_deref(),
                         cid.into(),
@@ -324,7 +325,7 @@ where
         )
         .await?;
         Ctx(&auth_ctx)
-            .create(InstitutionData(context, input.name, input.ty))
+            .create(InstitutionData(context, input.name, input.ty, input.id))
             .await
             .extend()
     }

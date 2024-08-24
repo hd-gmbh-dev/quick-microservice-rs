@@ -371,7 +371,11 @@ impl KeycloakSession {
                     let username = &session.inner.username;
                     let password = &session.inner.password;
                     loop {
-                        let expires_in = session.inner.token.read().await.expires_in;
+                        let (expires_in, refresh_expires_in) = async {
+                            let r = session.inner.token.read().await;
+                            (r.expires_in, r.refresh_expires_in)
+                        }.await;
+                        tracing::debug!("{expires_in} -> {refresh_expires_in:#?}");
                         let refresh_future = async {
                             tokio::time::sleep(Duration::from_secs(
                                 expires_in
@@ -408,7 +412,26 @@ impl KeycloakSession {
                             anyhow::Ok(result)
                         };
                         tokio::select! {
-                            _ = refresh_future => {}
+                            result = refresh_future => {
+                                match result {
+                                    Ok(_) => {},
+                                    Err(_) => {
+                                        tracing::debug!("acquire new session");
+                                        match keycloak
+                                            .acquire(username, password)
+                                            .await
+                                            .map(KeycloakSessionToken::parse_access_token) {
+                                            Ok(next_token) => {
+                                                *session.inner.token.write().await = next_token;
+                                            },
+                                            Err(err) => {
+                                                tracing::error!("{err:#?}");
+                                                std::process::exit(1)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                             is_logged_in = stop_future => {
                                 if !is_logged_in.unwrap_or(false) {
                                     break
@@ -535,7 +558,26 @@ impl KeycloakApiClientSession {
                             anyhow::Ok(result)
                         };
                         tokio::select! {
-                            _ = refresh_future => {}
+                            result = refresh_future => {
+                                match result {
+                                    Ok(_) => {},
+                                    Err(_) => {
+                                        tracing::debug!("acquire new session");
+                                        match keycloak
+                                            .acquire_with_secret(secret)
+                                            .await
+                                            .map(KeycloakSessionToken::parse_access_token) {
+                                            Ok(next_token) => {
+                                                *session.inner.token.write().await = next_token;
+                                            },
+                                            Err(err) => {
+                                                tracing::error!("{err:#?}");
+                                                std::process::exit(1)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                             is_logged_in = stop_future => {
                                 if !is_logged_in.unwrap_or(false) {
                                     break

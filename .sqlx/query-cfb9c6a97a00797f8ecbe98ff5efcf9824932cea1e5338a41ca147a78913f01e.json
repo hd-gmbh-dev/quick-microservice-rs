@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                INSERT INTO organization_unit_members(organization_unit_id, customer_id, organization_id, institution_id)\n                SELECT * FROM UNNEST($1::int8[], $2::int8[], $3::int8[], $4::int8[])\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8Array",
+        "Int8Array",
+        "Int8Array",
+        "Int8Array"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "cfb9c6a97a00797f8ecbe98ff5efcf9824932cea1e5338a41ca147a78913f01e"
+}

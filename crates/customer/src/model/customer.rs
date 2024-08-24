@@ -1,4 +1,3 @@
-use crate::model::CreateUserInput;
 use async_graphql::{InputObject, SimpleObject};
 use qm_entity::ids::{CustomerId, InfraId};
 use serde::{Deserialize, Serialize};
@@ -14,7 +13,6 @@ pub struct CreateCustomerInput {
     pub id: Option<i64>,
     pub name: String,
     pub ty: Option<String>,
-    pub initial_user: Option<CreateUserInput>,
 }
 
 #[derive(Debug, InputObject)]
