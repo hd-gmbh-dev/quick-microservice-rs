@@ -1,7 +1,5 @@
 use std::collections::HashMap;
 
-use keycloak::types::{AuthenticationFlowRepresentation, AuthenticatorConfigRepresentation};
-
 use crate::validation::context::ValidationContext as Ctx;
 use crate::validation::model::RealmConfigError;
 use crate::validation::realm_errors;
@@ -174,25 +172,25 @@ async fn check_realm_settings(
         );
     }
 
-    // authenticatorConfig should be configured
-    if let None = &rep.authenticator_config {
-        add_error(
-            realm_errors::REALM_AUTHENTICATOR_CONFIG_MISSING_ID,
-            realm_errors::REALM_AUTHENTICATOR_CONFIG_MISSING_KEY,
-            errors,
-        );
+    // Configure browser_email_otp if it is necessary and does not exist
+    let authentication_flows = ctx.keycloak().get_authentication_flows(realm).await?;
+    if Some(ctx.keycloak().config().browser_flow().to_string())
+        == Some("browser_email_otp".to_string())
+    {
+        if authentication_flows
+            .iter()
+            .any(|flow| flow.alias.as_deref() == Some("browser_email_otp"))
+        {
+        } else {
+            add_error(
+                realm_errors::REALM_AUTHENTICATION_FLOWS_MISSING_ID,
+                realm_errors::REALM_AUTHENTICATION_FLOWS_MISSING_KEY,
+                errors,
+            );
+        }
     }
 
-    // authenticationFlows should be configured
-    if let None = &rep.authentication_flows {
-        add_error(
-            realm_errors::REALM_AUTHENTICATION_FLOWS_MISSING_ID,
-            realm_errors::REALM_AUTHENTICATION_FLOWS_MISSING_KEY,
-            errors,
-        );
-    }
-
-    // browser flow -> Peta porque no tiene la config bien aplicada
+    // browser flow
     if let Some(browser_flow) = &rep.browser_flow {
         if browser_flow != ctx.keycloak().config().browser_flow() {
             add_error(

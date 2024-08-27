@@ -62,9 +62,7 @@ impl<'a> ConfigBuilder<'a> {
         if cfg.authenticator_email_subject.is_none() {
             cfg.authenticator_email_subject = Some("Temporary Authentication Code".into());
         }
-        if cfg.authenticator_config_alias.is_none() {
-            cfg.authenticator_config_alias = Some("".into());
-        }
+
         Ok(cfg)
     }
 }
@@ -93,7 +91,6 @@ pub struct Config {
     smtp_ssl: Option<bool>,
     browser_flow: Option<Arc<str>>,
     authenticator_email_subject: Option<Arc<str>>,
-    authenticator_config_alias: Option<Arc<str>>,
 }
 
 impl Config {
@@ -183,9 +180,5 @@ impl Config {
 
     pub fn authenticator_email_subject(&self) -> Option<&str> {
         self.authenticator_email_subject.as_deref()
-    }
-
-    pub fn authenticator_config_alias(&self) -> Option<&str> {
-        self.authenticator_config_alias.as_deref()
     }
 }

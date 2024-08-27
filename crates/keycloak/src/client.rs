@@ -1,6 +1,9 @@
 use std::{borrow::Cow, sync::Arc};
 
-use keycloak::types::{AuthenticationFlowRepresentation, AuthenticatorConfigRepresentation};
+use keycloak::types::{
+    AuthenticationExecutionInfoRepresentation, AuthenticationFlowRepresentation,
+    AuthenticatorConfigRepresentation, TypeMap,
+};
 pub use keycloak::{
     types::{
         ClientRepresentation, CredentialRepresentation, GroupRepresentation, RealmRepresentation,
@@ -8,6 +11,7 @@ pub use keycloak::{
     },
     KeycloakAdmin, KeycloakError, KeycloakTokenSupplier,
 };
+use serde_json::Value;
 
 use crate::session::{KeycloakSession, KeycloakSessionClient};
 
@@ -684,30 +688,167 @@ impl Keycloak {
                 }),
         }
     }
-    pub async fn create_authentication_flow(
+
+    pub async fn get_authentication_flows(
         &self,
         realm: &str,
-        rep: AuthenticationFlowRepresentation,
-    ) -> Result<(), KeycloakError> {
+    ) -> Result<Vec<AuthenticationFlowRepresentation>, KeycloakError> {
         let result = self
             .inner
             .admin
-            .realm_authentication_flows_post(realm, rep)
+            .realm_authentication_flows_get(realm)
             .await?;
-        log::info!("Result: {:?}", result);
-        Ok(())
+        Ok(result)
     }
-    pub async fn create_authenticator_config(
+
+    pub async fn copy_authentication_flow(
         &self,
         realm: &str,
-        rep: AuthenticatorConfigRepresentation,
+        flowalias: &str,
+        body: TypeMap<String, String>,
     ) -> Result<(), KeycloakError> {
+        let response = self
+            .inner
+            .admin
+            .realm_authentication_flows_with_flow_alias_copy_post(realm, flowalias, body)
+            .await;
+        match response {
+            Ok(_) => {
+                log::info!("Copied successfully.");
+                return Ok(());
+            }
+            Err(e) => {
+                log::error!("Failed to copy authentication flow: {:?}", e);
+                return Err(e);
+            }
+        }
+    }
+
+    pub async fn get_flow_executions(
+        &self,
+        realm: &str,
+        flowalias: &str,
+    ) -> Result<Vec<AuthenticationExecutionInfoRepresentation>, KeycloakError> {
         let result = self
             .inner
             .admin
-            .realm_authentication_config_post(realm, rep)
+            .realm_authentication_flows_with_flow_alias_executions_get(realm, flowalias)
+            .await;
+        match result {
+            Ok(response) => {
+                log::info!("Getted flow executions successfully.");
+                return Ok(response);
+            }
+            Err(e) => {
+                log::error!("Failed to get flow executions: {:?}", e);
+                return Err(e);
+            }
+        }
+    }
+
+    pub async fn remove_execution(&self, realm: &str, id: &str) -> Result<(), KeycloakError> {
+        let result = self
+            .inner
+            .admin
+            .realm_authentication_executions_with_execution_id_delete(realm, id)
+            .await;
+        match result {
+            Ok(_) => {
+                log::info!("Execution deleted successfully.");
+                return Ok(());
+            }
+            Err(e) => {
+                log::error!("Failed to delete execution: {:?}", e);
+                return Err(e);
+            }
+        }
+    }
+
+    pub async fn create_subflow(
+        &self,
+        realm: &str,
+        flowalias: &str,
+        body: TypeMap<String, Value>,
+    ) -> Result<(), KeycloakError> {
+        let response = self
+            .inner
+            .admin
+            .realm_authentication_flows_with_flow_alias_executions_flow_post(realm, flowalias, body)
+            .await;
+        match response {
+            Ok(_) => {
+                log::info!("Subflow created successfully.");
+                return Ok(());
+            }
+            Err(e) => {
+                log::error!("Failed to crete subflow: {:?}", e);
+                return Err(e);
+            }
+        }
+    }
+
+    pub async fn modify_flow_execution(
+        &self,
+        realm: &str,
+        flowalias: &str,
+        body: AuthenticationExecutionInfoRepresentation,
+    ) -> Result<(), KeycloakError> {
+        let response = self
+            .inner
+            .admin
+            .realm_authentication_flows_with_flow_alias_executions_put(realm, flowalias, body)
+            .await;
+        match response {
+            Ok(_) => {
+                log::info!("PUT flow execution successfully.");
+                return Ok(());
+            }
+            Err(e) => {
+                log::error!("Failed PUT flow execution: {:?}", e);
+                return Err(e);
+            }
+        }
+    }
+
+    pub async fn create_flow_execution(
+        &self,
+        realm: &str,
+        flowalias: &str,
+        body: TypeMap<String, Value>,
+    ) -> Result<(), KeycloakError> {
+        let response = self
+            .inner
+            .admin
+            .realm_authentication_flows_with_flow_alias_executions_execution_post(
+                realm, flowalias, body,
+            )
+            .await;
+        match response {
+            Ok(_) => {
+                log::info!("Execution created successfully.");
+                return Ok(());
+            }
+            Err(e) => {
+                log::error!("Failed to crete execution: {:?}", e);
+                return Err(e);
+            }
+        }
+    }
+
+    pub async fn add_authenticator_config(
+        &self,
+        realm: &str,
+        execution_id: &str,
+        body: AuthenticatorConfigRepresentation,
+    ) -> Result<(), KeycloakError> {
+        self.inner
+            .admin
+            .realm_authentication_executions_with_execution_id_config_post(
+                realm,
+                execution_id,
+                body,
+            )
             .await?;
-        log::info!("Created authenticator config with id: {:?}", result);
         Ok(())
     }
 }

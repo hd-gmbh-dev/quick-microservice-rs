@@ -1,17 +1,14 @@
 use std::collections::HashMap;
 use std::env;
 
-use keycloak::types::{
-    AuthenticationExecutionExportRepresentation, AuthenticationFlowRepresentation,
-    AuthenticatorConfigRepresentation, TypeVec,
-};
+use keycloak::types::{AuthenticatorConfigRepresentation, TypeMap};
+use serde_json::Value;
 
 use crate::{ClientRepresentation, RealmRepresentation};
 
 use crate::validation::context::ValidationContext as Ctx;
 use crate::validation::model::RealmConfigErrorInput;
 use crate::validation::realm_errors;
-
 pub async fn update_for_errors(
     ctx: &Ctx<'_>,
     errors: Vec<RealmConfigErrorInput>,
@@ -45,18 +42,6 @@ pub async fn update_for_errors(
     .await?;
     actions.retain(|e| !e.id.starts_with(realm_errors::CLIENTS_CLIENT_PREFIX));
 
-    update_autenticator_config(
-        ctx,
-        realm,
-        actions
-            .iter()
-            .filter(|e| {
-                e.id.starts_with(realm_errors::REALM_AUTHENTICATOR_CONFIG_PREFIX)
-            })
-            .cloned()
-            .collect(),
-    )
-    .await?;
     actions.retain(|e| {
         !e.id
             .starts_with(realm_errors::REALM_AUTHENTICATOR_CONFIG_PREFIX)
@@ -313,46 +298,6 @@ async fn update_realm_settings(
     Ok(())
 }
 
-async fn update_autenticator_config(
-    ctx: &Ctx<'_>,
-    realm: &str,
-    errors: Vec<RealmConfigErrorInput>,
-) -> anyhow::Result<()> {
-    if errors.is_empty() {
-        log::info!("No autenticator_config errors in realm '{}'", realm);
-        return Ok(());
-    }
-
-    for e in errors {
-        match e.id.as_str() {
-            realm_errors::REALM_AUTHENTICATOR_CONFIG_MISSING_ID
-            | realm_errors::REALM_AUTHENTICATOR_CONFIG_MISSING_KEY => {
-                log::info!("Setting 'authenticator_config' for realm '{}'", realm);
-                let rep = AuthenticatorConfigRepresentation {
-                    alias: Some(
-                        ctx.cfg()
-                            .keycloak()
-                            .authenticator_config_alias()
-                            .unwrap()
-                            .to_string(),
-                    ),
-                    config: Some(get_email_otp_config_default(ctx).unwrap()),
-                    ..AuthenticatorConfigRepresentation::default()
-                };
-
-                ctx.keycloak()
-                    .create_authenticator_config(realm, rep)
-                    .await?;
-            }
-            _ => log::warn!(
-                "Unknown autenticator_config error id '{}'. No action taken.",
-                e.id
-            ),
-        }
-    }
-    Ok(())
-}
-
 async fn update_autentication_flows(
     ctx: &Ctx<'_>,
     realm: &str,
@@ -367,120 +312,158 @@ async fn update_autentication_flows(
         match e.id.as_str() {
             realm_errors::REALM_AUTHENTICATION_FLOWS_MISSING_ID
             | realm_errors::REALM_AUTHENTICATION_FLOWS_MISSING_KEY => {
-                log::info!("Setting 'autentication_flows' for realm '{}'", realm);
+                log::info!(
+                    "Setting autentication_flow 'browser_email_otp' for realm '{}'",
+                    realm
+                );
 
-                let email_2fa_authentication_executions =
-                    AuthenticationExecutionExportRepresentation {
-                        authenticator: Some("emailotp-authenticator".to_string()),
-                        authenticator_config: Some("email_otp_flow".to_string()),
-                        authenticator_flow: Some(false),
-                        autheticator_flow: Some(false),
-                        requirement: Some("REQUIRED".to_string()),
-                        priority: Some(0),
-                        user_setup_allowed: Some(false),
-                        ..AuthenticationExecutionExportRepresentation::default()
-                    };
-
-                let email_2fa = AuthenticationFlowRepresentation {
-                    description: Some("Email 2FA".to_string()),
-                    alias: Some("Email_2FA".to_string()),
-                    built_in: Some(false),
-                    top_level: Some(false),
-                    provider_id: Some("basic-flow".to_string()),
-                    authentication_executions: Some(vec![email_2fa_authentication_executions]),
-                    ..AuthenticationFlowRepresentation::default()
-                };
-
-                let exec0 = AuthenticationExecutionExportRepresentation {
-                    authenticator: Some("auth-cookie".to_string()),
-                    requirement: Some("ALTERNATIVE".to_string()),
-                    priority: Some(10),
-                    authenticator_flow: Some(false),
-                    autheticator_flow: Some(false),
-                    user_setup_allowed: Some(false),
-                    ..AuthenticationExecutionExportRepresentation::default()
-                };
-
-                let exec1 = AuthenticationExecutionExportRepresentation {
-                    authenticator: Some("auth-spnego".to_string()),
-                    requirement: Some("DISABLED".to_string()),
-                    priority: Some(20),
-                    authenticator_flow: Some(false),
-                    autheticator_flow: Some(false),
-                    user_setup_allowed: Some(false),
-                    ..AuthenticationExecutionExportRepresentation::default()
-                };
-
-                let exec2 = AuthenticationExecutionExportRepresentation {
-                    authenticator: Some("identity-provider-redirector".to_string()),
-                    requirement: Some("ALTERNATIVE".to_string()),
-                    priority: Some(25),
-                    authenticator_flow: Some(false),
-                    autheticator_flow: Some(false),
-                    user_setup_allowed: Some(false),
-                    ..AuthenticationExecutionExportRepresentation::default()
-                };
-
-                let exec3 = AuthenticationExecutionExportRepresentation {
-                    flow_alias: Some("browser_email_otp forms".to_string()),
-                    requirement: Some("ALTERNATIVE".to_string()),
-                    priority: Some(30),
-                    authenticator_flow: Some(true),
-                    autheticator_flow: Some(true),
-                    user_setup_allowed: Some(false),
-                    ..AuthenticationExecutionExportRepresentation::default()
-                };
-
-                let browser_email_otp = AuthenticationFlowRepresentation {
-                    description: Some("browser based authentication".to_string()),
-                    alias: Some("browser_email_otp".to_string()),
-                    built_in: Some(false),
-                    top_level: Some(true),
-                    provider_id: Some("basic-flow".to_string()),
-                    authentication_executions: Some(vec![exec0, exec1, exec2, exec3]),
-                    ..AuthenticationFlowRepresentation::default()
-                };
-
-                let exec4 = AuthenticationExecutionExportRepresentation {
-                    authenticator: Some("auth-username-password-form".to_string()),
-                    requirement: Some("REQUIRED".to_string()),
-                    priority: Some(10),
-                    authenticator_flow: Some(false),
-                    autheticator_flow: Some(false),
-                    user_setup_allowed: Some(false),
-                    ..AuthenticationExecutionExportRepresentation::default()
-                };
-
-                let exec5 = AuthenticationExecutionExportRepresentation {
-                    flow_alias: Some("Email_2FA".to_string()),
-                    requirement: Some("REQUIRED".to_string()),
-                    priority: Some(11),
-                    authenticator_flow: Some(true),
-                    autheticator_flow: Some(true),
-                    user_setup_allowed: Some(false),
-                    ..AuthenticationExecutionExportRepresentation::default()
-                };
-
-                let browser_email_otp_forms = AuthenticationFlowRepresentation {
-                    description: Some("Username, password, otp and other auth forms.".to_string()),
-                    alias: Some("browser_email_otp forms".to_string()),
-                    built_in: Some(false),
-                    top_level: Some(false),
-                    provider_id: Some("basic-flow".to_string()),
-                    authentication_executions: Some(vec![exec4, exec5]),
-                    ..AuthenticationFlowRepresentation::default()
-                };
-
+                // 1) Duplicate browser flow
+                let mut body_duplicate = TypeMap::new();
+                body_duplicate.insert("newName".to_string(), "browser_email_otp".to_string());
                 ctx.keycloak()
-                    .create_authentication_flow(realm, email_2fa)
+                    .copy_authentication_flow(realm, "browser", body_duplicate)
                     .await?;
 
-                ctx.keycloak()
-                    .create_authentication_flow(realm, browser_email_otp)
+                // 2) Get executions for flow "browser_email_otp"
+                let executions = ctx
+                    .keycloak()
+                    .get_flow_executions(realm, "browser_email_otp")
                     .await?;
 
+                let browser_conditional_otp_id = executions
+                    .iter()
+                    .find(|&execution| {
+                        execution.display_name
+                            == Some("browser_email_otp Browser - Conditional OTP".to_string())
+                    })
+                    .unwrap()
+                    .id
+                    .as_deref()
+                    .unwrap_or("");
+
+                // 3) Remove Execution "browser_email_otp Browser - Conditional OTP"
+
                 ctx.keycloak()
-                    .create_authentication_flow(realm, browser_email_otp_forms)
+                    .remove_execution(realm, browser_conditional_otp_id)
+                    .await?;
+
+                // 4) Create "Email_2FA" subflow in "browser_email_otp forms"
+                let mut body_subflow: HashMap<String, Value> = HashMap::new();
+                body_subflow.insert(
+                    "alias".to_string(),
+                    serde_json::Value::String("Email_2FA".to_string()),
+                );
+                body_subflow.insert(
+                    "description".to_string(),
+                    serde_json::Value::String("Email_2FA".to_string()),
+                );
+                body_subflow.insert(
+                    "provider".to_string(),
+                    serde_json::Value::String("registration-page-form".to_string()),
+                );
+                body_subflow.insert(
+                    "type".to_string(),
+                    serde_json::Value::String("basic-flow".to_string()),
+                );
+                ctx.keycloak()
+                    .create_subflow(realm, "browser_email_otp%20forms", body_subflow)
+                    .await?;
+
+                // 5) Get executions for flow ""browser_email_otp"
+
+                let executions2 = ctx
+                    .keycloak()
+                    .get_flow_executions(realm, "browser_email_otp")
+                    .await?;
+
+                // 6) Change requirement of "browser_email_otp_forms"
+                let mut browser_email_otp_form_execution = executions2
+                    .iter()
+                    .find(|&execution| {
+                        execution.display_name == Some("browser_email_otp forms".to_string())
+                    })
+                    .unwrap()
+                    .clone();
+                browser_email_otp_form_execution.requirement = Some("REQUIRED".to_string());
+
+                ctx.keycloak()
+                    .modify_flow_execution(
+                        realm,
+                        "browser_email_otp",
+                        browser_email_otp_form_execution,
+                    )
+                    .await?;
+
+                // 7) Change requirement of "Email_2FA" execution
+                let mut email_2fa_execution = executions2
+                    .iter()
+                    .find(|&execution| execution.display_name == Some("Email_2FA".to_string()))
+                    .unwrap()
+                    .clone();
+                email_2fa_execution.requirement = Some("REQUIRED".to_string());
+                ctx.keycloak()
+                    .modify_flow_execution(realm, "browser_email_otp", email_2fa_execution)
+                    .await?;
+
+                // 8) Create execution "emailotp-authenticator" in "Email_2FA"
+                let mut body_execution: HashMap<String, Value> = HashMap::new();
+                body_execution.insert(
+                    "provider".to_string(),
+                    serde_json::Value::String("emailotp-authenticator".to_string()),
+                );
+                ctx.keycloak()
+                    .create_flow_execution(realm, "Email_2FA", body_execution)
+                    .await?;
+
+                // 9) Get executions for flow "browser_email_otp"
+                let executions3 = ctx
+                    .keycloak()
+                    .get_flow_executions(realm, "browser_email_otp")
+                    .await?;
+
+                // 10) Change requirement of "emailotp_autenticator"  execution
+                let mut email_totp_auth_execution = executions3
+                    .iter()
+                    .find(|&execution| {
+                        execution.display_name == Some("Email TOTP Authentication".to_string())
+                    })
+                    .unwrap()
+                    .clone();
+                let email_totp_exec_id = email_totp_auth_execution.id.as_deref().unwrap();
+
+                email_totp_auth_execution.requirement = Some("REQUIRED".to_string());
+                ctx.keycloak()
+                    .modify_flow_execution(
+                        realm,
+                        "browser_email_otp",
+                        email_totp_auth_execution.clone(),
+                    )
+                    .await?;
+
+                // 11) Add configuration to "browser_email_otp" execution
+
+                let mut config: HashMap<String, String> = HashMap::new();
+                config.insert("default.reference.value".to_string(), "".to_string());
+                config.insert("default.reference.maxAge".to_string(), "".to_string());
+                config.insert("simulation".to_string(), "false".to_string());
+                config.insert(
+                    "emailSubject".to_string(),
+                    "Temporary Authentication Code".to_string(),
+                );
+                config.insert("length".to_string(), "6".to_string());
+                config.insert("ttl".to_string(), "300".to_string());
+                config.insert("maxRetries".to_string(), "3".to_string());
+                config.insert("allowUppercase".to_string(), "true".to_string());
+                config.insert("true".to_string(), "true".to_string());
+                config.insert("true".to_string(), "true".to_string());
+
+                let body_config = AuthenticatorConfigRepresentation {
+                    alias: Some("email_otp_flow".to_string()),
+                    config: Some(config),
+                    ..AuthenticatorConfigRepresentation::default()
+                };
+                ctx.keycloak()
+                    .add_authenticator_config(realm, email_totp_exec_id, body_config)
                     .await?;
             }
             _ => log::warn!(
@@ -694,31 +677,6 @@ pub fn get_smtp_server_defaults(ctx: &Ctx<'_>) -> Option<HashMap<String, String>
     } else {
         defaults.insert(String::from("ssl"), "false".to_string());
     }
-
-    Some(defaults)
-}
-
-pub fn get_email_otp_config_default(ctx: &Ctx<'_>) -> Option<HashMap<String, String>> {
-    let mut defaults: HashMap<String, String> = HashMap::new();
-
-    defaults.insert(String::from("maxRetries"), "3".to_string());
-    defaults.insert(String::from("simulation"), "false".to_string());
-    defaults.insert(String::from("length"), "6".to_string());
-    defaults.insert(String::from("allowNumbers"), "true".to_string());
-    defaults.insert(String::from("allowUppercase"), "true".to_string());
-    if let Some(configured_email_subject) = ctx.cfg().keycloak().authenticator_email_subject() {
-        defaults.insert(
-            String::from("emailSubject"),
-            configured_email_subject.to_string(),
-        );
-    } else {
-        defaults.insert(
-            String::from("emailSubject"),
-            "Temporary Authentication Code".to_string(),
-        );
-    }
-    defaults.insert(String::from("ttl"), "300".to_string());
-    defaults.insert(String::from("allowLowercase"), "true".to_string());
 
     Some(defaults)
 }
