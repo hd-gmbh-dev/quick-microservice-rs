@@ -42,11 +42,6 @@ pub async fn update_for_errors(
     .await?;
     actions.retain(|e| !e.id.starts_with(realm_errors::CLIENTS_CLIENT_PREFIX));
 
-    actions.retain(|e| {
-        !e.id
-            .starts_with(realm_errors::REALM_AUTHENTICATOR_CONFIG_PREFIX)
-    });
-
     update_autentication_flows(
         ctx,
         realm,

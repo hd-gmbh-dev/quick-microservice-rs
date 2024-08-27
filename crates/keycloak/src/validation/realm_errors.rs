@@ -1,6 +1,5 @@
 pub const REALM_PREFIX: &str = "realm-";
 pub const CLIENTS_CLIENT_PREFIX: &str = "clients-client-";
-pub const REALM_AUTHENTICATOR_CONFIG_PREFIX: &str = "authenticator_config-";
 pub const REALM_AUTHENTICATION_FLOWS_PREFIX: &str = "authentication_flows-";
 pub const REALM_BROWSER_FLOW_PREFIX: &str = "browser_flow";
 pub const REALM_DEFAULT_LOCALE_INVALID_ID: &str = "realm-default_locale-invalid";
@@ -10,16 +9,7 @@ pub const REALM_LOGIN_THEME_INVALID_ID: &str = "realm-login_theme-invalid";
 pub const REALM_LOGIN_THEME_MISSING_ID: &str = "realm-login_theme-missing";
 pub const REALM_BROWSER_FLOW_INVALID_ID: &str = "browser_flow-invalid";
 pub const REALM_BROWSER_FLOW_MISSING_ID: &str = "browser_flow-missing";
-pub const REALM_AUTHENTICATOR_CONFIG_MISSING_ID: &str = "authenticator_config-missing";
-pub const REALM_AUTHENTICATOR_CONFIG_MISMATCHED_ID: &str = "authenticator_config-mismatched";
-pub const REALM_AUTHENTICATOR_CONFIG_INVALID_ID: &str = "authenticator_config-invalid";
-pub const REALM_AUTHENTICATOR_CONFIG_ALIAS_MISMATCHED_ID: &str =
-    "authenticator_config_alias-mismatched";
-pub const REALM_AUTHENTICATOR_CONFIG_ALIAS_MISSING_ID: &str = "authenticator_config_alias-missing";
-pub const REALM_AUTHENTICATOR_CONFIG_ALIAS_INVALID_ID: &str = "authenticator_config_alias-invalid";
 pub const REALM_AUTHENTICATION_FLOWS_MISSING_ID: &str = "authentication_flows-missing";
-pub const REALM_AUTHENTICATION_FLOWS_MISMATCHED_ID: &str = "authentication_flows-mismatched";
-pub const REALM_AUTHENTICATION_FLOWS_INVALID_ID: &str = "authentication_flows-invalid";
 pub const REALM_EMAIL_THEME_INVALID_ID: &str = "realm-email_theme-invalid";
 pub const REALM_EMAIL_THEME_MISSING_ID: &str = "realm-email_theme-missing";
 pub const REALM_PASSWORD_POLICY_LENGTH_ID: &str = "realm-password_policy-length";
@@ -107,11 +97,6 @@ pub const REALM_LOGIN_THEME_INVALID_KEY: &str = "realm.login_theme.invalid";
 pub const REALM_LOGIN_THEME_MISSING_KEY: &str = "realm.login_theme.missing";
 pub const REALM_BROWSER_FLOW_MISSING_KEY: &str = "realm.browser_flow.missing";
 pub const REALM_BROWSER_FLOW_INVALID_KEY: &str = "realm.browser_flow.invalid";
-pub const REALM_AUTHENTICATOR_CONFIG_MISSING_KEY: &str = "realm.authenticator_config.missing";
-pub const REALM_AUTHENTICATOR_CONFIG_ALIAS_MISMATCHED_KEY: &str =
-    "realm.authenticator_config_alias.mismatched";
-pub const REALM_AUTHENTICATOR_CONFIG_ALIAS_MISSING_KEY: &str =
-    "realm.authenticator_config_alias.missing";
 pub const REALM_AUTHENTICATION_FLOWS_MISSING_KEY: &str = "realm.authentication_flows.missing";
 pub const REALM_EMAIL_THEME_INVALID_KEY: &str = "realm.email_theme.invalid";
 pub const REALM_EMAIL_THEME_MISSING_KEY: &str = "realm.email_theme.missing";
