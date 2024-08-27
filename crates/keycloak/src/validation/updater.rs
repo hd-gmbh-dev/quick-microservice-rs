@@ -448,7 +448,11 @@ async fn update_autentication_flows(
                 config.insert("simulation".to_string(), "false".to_string());
                 config.insert(
                     "emailSubject".to_string(),
-                    "Temporary Authentication Code".to_string(),
+                    ctx.cfg()
+                        .keycloak()
+                        .authenticator_email_subject()
+                        .unwrap_or("Temporary Authentication Code")
+                        .to_string(),
                 );
                 config.insert("length".to_string(), "6".to_string());
                 config.insert("ttl".to_string(), "300".to_string());
