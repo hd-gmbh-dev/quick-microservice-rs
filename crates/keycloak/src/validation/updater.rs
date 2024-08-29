@@ -484,7 +484,7 @@ async fn update_browser_flow(
         return Ok(());
     }
 
-    let mut rep: RealmRepresentation = ctx.keycloak().realm_by_name(realm).await?;
+    let mut rep = ctx.keycloak().realm_by_name(realm).await?;
 
     errors.iter().for_each(|e| match e.id.as_str() {
         realm_errors::REALM_BROWSER_FLOW_INVALID_ID

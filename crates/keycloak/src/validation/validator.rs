@@ -174,9 +174,7 @@ async fn check_realm_settings(
 
     // Configure browser_email_otp if it is necessary and does not exist
     let authentication_flows = ctx.keycloak().get_authentication_flows(realm).await?;
-    if Some(ctx.keycloak().config().browser_flow().to_string())
-        == Some("browser_email_otp".to_string())
-    {
+    if ctx.keycloak().config().browser_flow() == "browser_email_otp" {
         if authentication_flows
             .iter()
             .any(|flow| flow.alias.as_deref() == Some("browser_email_otp"))
