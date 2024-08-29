@@ -20,7 +20,9 @@ jobs:
     - uses: dtolnay/rust-toolchain@1.75.0
     - name: Check
       run: |
+        cat Cargo.toml
         rustup component add clippy
+        cargo build
         cargo clippy --no-deps
     - name: Build
       run: cargo build --release
