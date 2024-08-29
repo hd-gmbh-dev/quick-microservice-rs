@@ -302,7 +302,7 @@ async fn update_authentication_flows(
     errors: Vec<RealmConfigErrorInput>,
 ) -> anyhow::Result<()> {
     if errors.is_empty() {
-        tracing::info!("No authentication_flows errors in realm '{}'", realm);
+        tracing::info!("No authentication_flows errors in realm '{realm}'");
         return Ok(());
     }
 

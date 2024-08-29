@@ -880,7 +880,7 @@ impl Keycloak {
                 Ok(())
             }
             Err(e) => {
-                tracing::error!("Failed to copy authentication flow: {:?}", e);
+                tracing::error!("Failed to copy authentication flow: {e}");
                 Err(e)
             }
         }
