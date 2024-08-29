@@ -42,7 +42,7 @@ impl Institution {
     async fn customer(&self, ctx: &Context<'_>) -> Option<Arc<Customer>> {
         let cache = ctx.data::<CacheDB>().ok();
         if cache.is_none() {
-            log::warn!("qm::customer::cache::CacheDB is not installed in schema context");
+            tracing::warn!("qm::customer::cache::CacheDB is not installed in schema context");
             return None;
         }
         let cache = cache.unwrap();
@@ -52,7 +52,7 @@ impl Institution {
     async fn organization(&self, ctx: &Context<'_>) -> Option<Arc<Organization>> {
         let cache = ctx.data::<CacheDB>().ok();
         if cache.is_none() {
-            log::warn!("qm::customer::cache::CacheDB is not installed in schema context");
+            tracing::warn!("qm::customer::cache::CacheDB is not installed in schema context");
             return None;
         }
         let cache = cache.unwrap();
@@ -127,6 +127,7 @@ where
                 } else {
                     let result = crate::mutation::create_institution(
                         self.0.store.customer_db().pool(),
+                        institution.3,
                         &name,
                         ty.as_deref(),
                         cid.into(),
@@ -200,7 +201,7 @@ where
                     ty: CleanupTaskType::Institutions(ids),
                 })
                 .await?;
-            log::debug!("emit cleanup task {}", id.to_string());
+            tracing::debug!("emit cleanup task {}", id.to_string());
             return Ok(delete_count);
         }
         Ok(0)
@@ -239,7 +240,7 @@ where
         Ok(Ctx(
             &AuthCtx::<'_, Auth, Store, Resource, Permission>::new_with_role(
                 ctx,
-                (Resource::institution(), Permission::view()),
+                &qm_role::role!(Resource::institution(), Permission::view()),
             )
             .await
             .extend()?,
@@ -258,7 +259,7 @@ where
         Ok(Ctx(
             &AuthCtx::<'_, Auth, Store, Resource, Permission>::new_with_role(
                 ctx,
-                (Resource::institution(), Permission::view()),
+                &qm_role::role!(Resource::institution(), Permission::view()),
             )
             .await
             .extend()?,
@@ -277,7 +278,7 @@ where
         Ctx(
             &AuthCtx::<'_, Auth, Store, Resource, Permission>::new_with_role(
                 ctx,
-                (Resource::institution(), Permission::list()),
+                &qm_role::role!(Resource::institution(), Permission::list()),
             )
             .await?,
         )
@@ -320,11 +321,11 @@ where
         let auth_ctx = AuthCtx::<Auth, Store, Resource, Permission>::mutate_with_role(
             ctx,
             qm_entity::ids::InfraContext::Organization(context),
-            (Resource::institution(), Permission::create()),
+            &qm_role::role!(Resource::institution(), Permission::create()),
         )
         .await?;
         Ctx(&auth_ctx)
-            .create(InstitutionData(context, input.name, input.ty))
+            .create(InstitutionData(context, input.name, input.ty, input.id))
             .await
             .extend()
     }
@@ -337,7 +338,7 @@ where
     ) -> async_graphql::FieldResult<Arc<Institution>> {
         let auth_ctx = AuthCtx::<'_, Auth, Store, Resource, Permission>::new_with_role(
             ctx,
-            (Resource::institution(), Permission::update()),
+            &qm_role::role!(Resource::institution(), Permission::update()),
         )
         .await?;
         auth_ctx
@@ -353,7 +354,7 @@ where
     ) -> async_graphql::FieldResult<u64> {
         let auth_ctx = AuthCtx::<'_, Auth, Store, Resource, Permission>::new_with_role(
             ctx,
-            (Resource::institution(), Permission::delete()),
+            &qm_role::role!(Resource::institution(), Permission::delete()),
         )
         .await?;
         let cache = auth_ctx.store.cache_db();

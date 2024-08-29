@@ -40,7 +40,7 @@ impl UserGroup {
     async fn roles(&self, ctx: &Context<'_>) -> Option<Arc<[Arc<Role>]>> {
         let cache = ctx.data::<CacheDB>().ok();
         if cache.is_none() {
-            log::warn!("qm::customer::cache::CacheDB is not installed in schema context");
+            tracing::warn!("qm::customer::cache::CacheDB is not installed in schema context");
             return None;
         }
         let cache = cache.unwrap();
@@ -50,7 +50,7 @@ impl UserGroup {
     async fn customer(&self, ctx: &Context<'_>) -> Option<Arc<Customer>> {
         let cache = ctx.data::<CacheDB>().ok();
         if cache.is_none() {
-            log::warn!("qm::customer::cache::CacheDB is not installed in schema context");
+            tracing::warn!("qm::customer::cache::CacheDB is not installed in schema context");
             return None;
         }
         let cache = cache.unwrap();
@@ -68,7 +68,7 @@ impl UserGroup {
     async fn organization(&self, ctx: &Context<'_>) -> Option<Arc<Organization>> {
         let cache = ctx.data::<CacheDB>().ok();
         if cache.is_none() {
-            log::warn!("qm::customer::cache::CacheDB is not installed in schema context");
+            tracing::warn!("qm::customer::cache::CacheDB is not installed in schema context");
             return None;
         }
         let cache = cache.unwrap();
@@ -86,7 +86,7 @@ impl UserGroup {
     // async fn organization_unit(&self, ctx: &Context<'_>) -> Option<Arc<OrganizationUnit>> {
     //     let cache = ctx.data::<CacheDB>().ok();
     //     if cache.is_none() {
-    //         log::warn!("qm::customer::cache::CacheDB is not installed in schema context");
+    //         tracing::warn!("qm::customer::cache::CacheDB is not installed in schema context");
     //         return None;
     //     }
     //     let cache = cache.unwrap();
@@ -104,7 +104,7 @@ impl UserGroup {
     async fn institution(&self, ctx: &Context<'_>) -> Option<Arc<Institution>> {
         let cache = ctx.data::<CacheDB>().ok();
         if cache.is_none() {
-            log::warn!("qm::customer::cache::CacheDB is not installed in schema context");
+            tracing::warn!("qm::customer::cache::CacheDB is not installed in schema context");
             return None;
         }
         let cache = cache.unwrap();
@@ -292,7 +292,7 @@ where
     BuiltInGroup: RelatedBuiltInGroup,
 {
     #[graphql(
-        guard = "AuthGuard::<Auth, Store, Resource, Permission>::new(Resource::user(), Permission::create())"
+        guard = "AuthGuard::<Auth, Store, Resource, Permission>::new(qm_role::role!(Resource::user(), Permission::create()))"
     )]
     async fn groups(&self) -> Groups {
         Groups
@@ -334,7 +334,7 @@ where
     ) -> async_graphql::FieldResult<Arc<UserGroup>> {
         let auth_ctx = AuthCtx::<'_, Auth, Store, Resource, Permission>::new_with_role(
             ctx,
-            (Resource::user(), Permission::create()),
+            &qm_role::role!(Resource::user(), Permission::create()),
         )
         .await?;
         auth_ctx.can_mutate(Some(&context)).await?;
@@ -373,7 +373,7 @@ where
     ) -> async_graphql::FieldResult<u64> {
         let auth_ctx = AuthCtx::<'_, Auth, Store, Resource, Permission>::new_with_role(
             ctx,
-            (Resource::user(), Permission::create()),
+            &qm_role::role!(Resource::user(), Permission::create()),
         )
         .await?;
         let mut group_ids = vec![];

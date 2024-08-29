@@ -16,12 +16,12 @@ pub struct DB {
 impl DB {
     pub async fn new(app_name: &str, cfg: &Config) -> anyhow::Result<Self> {
         if let Some(database) = cfg.database() {
-            log::info!(
+            tracing::info!(
                 "'{app_name}' -> connects to postgresql '{database}' with {} max_connections",
                 cfg.max_connections(),
             );
         } else {
-            log::info!(
+            tracing::info!(
                 "'{app_name}' -> connects to postgresql with {} max_connections",
                 cfg.max_connections(),
             );
@@ -41,12 +41,12 @@ impl DB {
 
     pub async fn new_root(app_name: &str, cfg: &Config) -> anyhow::Result<Self> {
         if let Some(database) = cfg.root_database() {
-            log::info!(
+            tracing::info!(
                 "'{app_name}' -> connects as root to postgresql '{database}' with {} max_connections",
                 cfg.max_connections(),
             );
         } else {
-            log::info!(
+            tracing::info!(
                 "'{app_name}' -> connects as root to postgresql with {} max_connections",
                 cfg.max_connections(),
             );

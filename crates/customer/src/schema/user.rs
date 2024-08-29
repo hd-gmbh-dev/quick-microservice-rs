@@ -141,7 +141,7 @@ pub async fn create_keycloak_user(
         Ok(_) => Ok(false),
         Err(err) => match err {
             KeycloakError::ReqwestFailure(err) => {
-                log::error!("KeycloakError::ReqwestFailure: unable to get user");
+                tracing::error!("KeycloakError::ReqwestFailure: unable to get user");
                 Err(EntityError::from(err))
             }
             KeycloakError::HttpFailure {
@@ -188,7 +188,7 @@ pub async fn create_keycloak_user(
                 err!(bad_request(err_type, err_msg))
             }
             KeycloakError::HttpFailure { .. } => {
-                log::error!("KeycloakError::HttpFailure: unable to get user");
+                tracing::error!("KeycloakError::HttpFailure: unable to get user");
                 err!(internal())
             }
         },
@@ -212,7 +212,7 @@ impl UserDetails {
     async fn customer(&self, ctx: &Context<'_>) -> Option<Arc<Customer>> {
         let cache = ctx.data::<CacheDB>().ok();
         if cache.is_none() {
-            log::warn!("qm::customer::cache::CacheDB is not installed in schema context");
+            tracing::warn!("qm::customer::cache::CacheDB is not installed in schema context");
             return None;
         }
         let cache = cache.unwrap();
@@ -225,7 +225,7 @@ impl UserDetails {
     async fn organization(&self, ctx: &Context<'_>) -> Option<Arc<Organization>> {
         let cache = ctx.data::<CacheDB>().ok();
         if cache.is_none() {
-            log::warn!("qm::customer::cache::CacheDB is not installed in schema context");
+            tracing::warn!("qm::customer::cache::CacheDB is not installed in schema context");
             return None;
         }
         let cache = cache.unwrap();
@@ -242,7 +242,7 @@ impl UserDetails {
     async fn organization_unit(&self, ctx: &Context<'_>) -> Option<Arc<OrganizationUnit>> {
         let cache = ctx.data::<CacheDB>().ok();
         if cache.is_none() {
-            log::warn!("qm::customer::cache::CacheDB is not installed in schema context");
+            tracing::warn!("qm::customer::cache::CacheDB is not installed in schema context");
             return None;
         }
         let cache = cache.unwrap();
@@ -259,7 +259,7 @@ impl UserDetails {
     async fn institution(&self, ctx: &Context<'_>) -> Option<Arc<Institution>> {
         let cache = ctx.data::<CacheDB>().ok();
         if cache.is_none() {
-            log::warn!("qm::customer::cache::CacheDB is not installed in schema context");
+            tracing::warn!("qm::customer::cache::CacheDB is not installed in schema context");
             return None;
         }
         let cache = cache.unwrap();
@@ -272,7 +272,7 @@ impl UserDetails {
     async fn roles(&self, ctx: &Context<'_>) -> Option<Arc<[Arc<Role>]>> {
         let cache = ctx.data::<CacheDB>().ok();
         if cache.is_none() {
-            log::warn!("qm::customer::cache::CacheDB is not installed in schema context");
+            tracing::warn!("qm::customer::cache::CacheDB is not installed in schema context");
             return None;
         }
         let cache = cache.unwrap();
@@ -282,7 +282,7 @@ impl UserDetails {
     async fn groups(&self, ctx: &Context<'_>) -> Option<Arc<[UserGroup]>> {
         let cache = ctx.data::<CacheDB>().ok();
         if cache.is_none() {
-            log::warn!("qm::customer::cache::CacheDB is not installed in schema context");
+            tracing::warn!("qm::customer::cache::CacheDB is not installed in schema context");
             return None;
         }
         let cache = cache.unwrap();
@@ -370,7 +370,7 @@ where
             .unwrap_or_default()
         {
             if let Err(err) = keycloak.send_verify_email_user(realm, &user_id, None).await {
-                log::warn!(
+                tracing::warn!(
                     "Verification email could not be sent: {}",
                     keycloak.error_message(&err)
                 );
@@ -378,14 +378,14 @@ where
         }
 
         let user_uuid = Uuid::parse_str(&user_id).map_err(|err| {
-            log::error!("Unable to parse user id to Uuid: {err:#?}");
+            tracing::error!("Unable to parse user id to Uuid: {err:#?}");
             EntityError::Internal
         })?;
         let mut user_groups = vec![];
         let cache = self.0.store.cache_db();
         if let Some(group_id) = group_id.as_ref() {
             if let Some(group) = cache.group_by_id(group_id).await {
-                log::info!(
+                tracing::info!(
                     "add user {} to group {group:#?}",
                     user_input.username.as_str()
                 );
@@ -436,7 +436,7 @@ where
             {
                 Ok(_) => user_ids.push(id.as_ref()),
                 Err(err) => {
-                    log::error!("{err:#?}");
+                    tracing::error!("{err:#?}");
                 }
             }
         }
@@ -488,7 +488,7 @@ where
         Ok(Ctx(
             &AuthCtx::<'_, Auth, Store, Resource, Permission>::new_with_role(
                 ctx,
-                (Resource::user(), Permission::view()),
+                &qm_role::role!(Resource::user(), Permission::view()),
             )
             .await
             .extend()?,
@@ -506,7 +506,7 @@ where
         Ctx(
             &AuthCtx::<'_, Auth, Store, Resource, Permission>::new_with_role(
                 ctx,
-                (Resource::user(), Permission::list()),
+                &qm_role::role!(Resource::user(), Permission::list()),
             )
             .await?,
         )
@@ -551,7 +551,7 @@ where
     ) -> async_graphql::FieldResult<Arc<User>> {
         let auth_ctx = AuthCtx::<'_, Auth, Store, Resource, Permission>::new_with_role(
             ctx,
-            (Resource::user(), Permission::create()),
+            &qm_role::role!(Resource::user(), Permission::create()),
         )
         .await?;
         if !SchemaConfig::new(ctx).allow_multiple_admin_users() && access_level.is_admin() {
@@ -654,7 +654,7 @@ where
     ) -> async_graphql::FieldResult<u64> {
         let auth_ctx = AuthCtx::<'_, Auth, Store, Resource, Permission>::new_with_role(
             ctx,
-            (Resource::user(), Permission::delete()),
+            &qm_role::role!(Resource::user(), Permission::delete()),
         )
         .await?;
         let active_user_id = auth_ctx

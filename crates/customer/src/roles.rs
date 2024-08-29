@@ -43,7 +43,7 @@ pub async fn ensure(
                     roles.push(keycloak.realm_role_by_name(realm, &role).await?);
                 }
                 _ => {
-                    log::error!("{err:#?}");
+                    tracing::error!("{err:#?}");
                     Err(err)?
                 }
             },

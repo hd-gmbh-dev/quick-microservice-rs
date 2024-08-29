@@ -127,6 +127,7 @@ where
                 } else {
                     let result = crate::mutation::create_organization_unit(
                         self.0.store.customer_db().pool(),
+                        organization_unit.id,
                         &name,
                         ty.as_deref(),
                         cid,
@@ -211,7 +212,7 @@ where
                     ty: CleanupTaskType::OrganizationUnits(ids),
                 })
                 .await?;
-            log::debug!("emit cleanup task {}", id.to_string());
+            tracing::debug!("emit cleanup task {}", id.to_string());
             return Ok(delete_count);
         }
         Ok(0)
@@ -250,7 +251,7 @@ where
         Ok(Ctx(
             &AuthCtx::<'_, Auth, Store, Resource, Permission>::new_with_role(
                 ctx,
-                (Resource::organization_unit(), Permission::view()),
+                &qm_role::role!(Resource::organization_unit(), Permission::view()),
             )
             .await
             .extend()?,
@@ -269,7 +270,7 @@ where
         Ctx(
             &AuthCtx::<'_, Auth, Store, Resource, Permission>::new_with_role(
                 ctx,
-                (Resource::organization_unit(), Permission::list()),
+                &qm_role::role!(Resource::organization_unit(), Permission::list()),
             )
             .await?,
         )
@@ -314,7 +315,7 @@ where
                 let auth_ctx = AuthCtx::<Auth, Store, Resource, Permission>::mutate_with_role(
                     ctx,
                     qm_entity::ids::InfraContext::Customer(context),
-                    (Resource::organization_unit(), Permission::create()),
+                    &qm_role::role!(Resource::organization_unit(), Permission::create()),
                 )
                 .await?;
                 let access_level = AccessLevel::CustomerUnit;
@@ -327,6 +328,7 @@ where
                             name: input.name,
                             ty: input.ty,
                             members: input.members,
+                            id: input.id,
                         },
                     )
                     .await
@@ -337,7 +339,7 @@ where
                 let auth_ctx = AuthCtx::<Auth, Store, Resource, Permission>::mutate_with_role(
                     ctx,
                     qm_entity::ids::InfraContext::Organization(context),
-                    (Resource::organization_unit(), Permission::create()),
+                    &qm_role::role!(Resource::organization_unit(), Permission::create()),
                 )
                 .await?;
                 let access_level = AccessLevel::InstitutionUnit;
@@ -350,6 +352,7 @@ where
                             name: input.name,
                             ty: input.ty,
                             members: input.members,
+                            id: input.id,
                         },
                     )
                     .await
@@ -366,7 +369,7 @@ where
     ) -> async_graphql::FieldResult<Arc<OrganizationUnit>> {
         let auth_ctx = AuthCtx::<'_, Auth, Store, Resource, Permission>::new_with_role(
             ctx,
-            (Resource::organization_unit(), Permission::update()),
+            &qm_role::role!(Resource::organization_unit(), Permission::update()),
         )
         .await?;
         auth_ctx
@@ -382,7 +385,7 @@ where
     ) -> async_graphql::FieldResult<u64> {
         let auth_ctx = AuthCtx::<'_, Auth, Store, Resource, Permission>::new_with_role(
             ctx,
-            (Resource::organization_unit(), Permission::delete()),
+            &qm_role::role!(Resource::organization_unit(), Permission::delete()),
         )
         .await?;
         let cache = auth_ctx.store.cache_db();

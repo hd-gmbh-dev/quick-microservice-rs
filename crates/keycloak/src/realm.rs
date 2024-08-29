@@ -51,7 +51,7 @@ pub async fn create(keycloak: &Keycloak) -> anyhow::Result<()> {
         keycloak,
     };
     realm_representation.smtp_server = get_smtp_server_defaults(&ctx);
-    log::info!("create keycloak realm '{realm}'");
+    tracing::info!("create keycloak realm '{realm}'");
     keycloak.create_realm(realm_representation).await?;
     Ok(())
 }
@@ -82,10 +82,10 @@ where
             break;
         } else {
             for error in errors.iter() {
-                log::error!("{}", error.id);
+                tracing::error!("{}", error.id);
             }
         }
-        log::info!(
+        tracing::info!(
             "{current_try}. try time to update realm {} for errors {}",
             realm,
             errors.len()
@@ -192,7 +192,7 @@ pub async fn create_keycloak_user(
         Err(err) => match err {
             KeycloakError::HttpFailure { status: 409, .. } => anyhow::Ok(true),
             _ => {
-                log::error!("{err:#?}");
+                tracing::error!("{err:#?}");
                 Err(err)?
             }
         },
@@ -238,7 +238,7 @@ pub async fn ensure_roles(
                     roles.push(keycloak.realm_role_by_name(realm, &role).await?);
                 }
                 _ => {
-                    log::error!("{err:#?}");
+                    tracing::error!("{err:#?}");
                     Err(err)?
                 }
             },
@@ -328,7 +328,7 @@ where
                                 );
                             }
                             _ => {
-                                log::error!("{err:#?}");
+                                tracing::error!("{err:#?}");
                                 Err(err)?
                             }
                         },
@@ -361,7 +361,7 @@ where
                                 );
                             }
                             _ => {
-                                log::error!("{err:#?}");
+                                tracing::error!("{err:#?}");
                                 Err(err)?
                             }
                         },
@@ -400,7 +400,7 @@ where
                 )
                 .await
                 .map_err(|e| {
-                    log::error!("{e:#?}");
+                    tracing::error!("{e:#?}");
                     e
                 })?;
         }
@@ -480,12 +480,12 @@ where
     R: AsRef<str> + std::fmt::Debug,
     P: AsRef<str> + std::fmt::Debug,
 {
-    log::info!("ensure admin user");
+    tracing::info!("ensure admin user");
     let admin_user = keycloak
         .user_by_username(realm, username.to_string())
         .await
         .map_err(|e| {
-            log::error!("{e:#?}");
+            tracing::error!("{e:#?}");
             e
         })?;
     if let Some(user) = admin_user {

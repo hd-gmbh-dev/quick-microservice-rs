@@ -185,7 +185,7 @@ impl UserDB {
                 _ => {}
             }
         }
-        log::error!("postgresql listener disconnected");
+        tracing::error!("postgresql listener disconnected");
         std::process::exit(1);
     }
 }

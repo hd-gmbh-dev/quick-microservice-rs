@@ -115,7 +115,7 @@ impl WorkQueue {
                     let a: bool = db.exists(self.lease_key.of(&item_id)).await?;
                     let b: bool = db.exists(self.item_data_key.of(&item_id)).await?;
                     if !a && b {
-                        log::info!("requeue '{}' -> item '{item_id}'", self.processing_key);
+                        tracing::info!("requeue '{}' -> item '{item_id}'", self.processing_key);
                         pipeline.lpush(&self.main_queue_key, &item_id);
                     }
                 }

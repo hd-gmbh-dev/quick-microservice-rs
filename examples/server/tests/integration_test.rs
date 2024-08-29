@@ -142,7 +142,7 @@ async fn main() -> anyhow::Result<()> {
     let failed = stats.read().await.failed;
     let skipped = stats.read().await.skipped;
     if failed > 0 || skipped > 0 {
-        log::error!("Failed: {}, Skipped: {}", failed, skipped);
+        tracing::error!("Failed: {}, Skipped: {}", failed, skipped);
         std::process::exit(1);
     }
     Ok(())

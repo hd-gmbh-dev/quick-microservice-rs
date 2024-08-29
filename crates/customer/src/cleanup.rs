@@ -1,6 +1,5 @@
 use futures::stream::FuturesUnordered;
 
-use log::error;
 use qm_entity::ids::InfraContext;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
@@ -8,6 +7,7 @@ use std::collections::HashSet;
 use std::sync::Arc;
 use strum::AsRefStr;
 use tokio::sync::Semaphore;
+use tracing::error;
 
 use qm_entity::ids::CustomerIds;
 use qm_entity::ids::InstitutionIds;
@@ -129,7 +129,7 @@ pub async fn cleanup_roles(keycloak: &Keycloak, roles: BTreeSet<String>) -> anyh
 
             role_remove_tasks.push(tokio::spawn(async move {
                 let realm = keycloak.config().realm();
-                log::debug!("remove users with role from keycloak {role}");
+                tracing::debug!("remove users with role from keycloak {role}");
                 if remove_users_by_access(realm, &keycloak, &role)
                     .await
                     .is_err()
@@ -137,7 +137,7 @@ pub async fn cleanup_roles(keycloak: &Keycloak, roles: BTreeSet<String>) -> anyh
                     drop(permit);
                     return anyhow::Ok(role);
                 }
-                log::debug!("remove role from keycloak {role}");
+                tracing::debug!("remove role from keycloak {role}");
                 let result = keycloak.remove_role(realm, &role).await;
                 drop(permit);
                 match result {
@@ -145,7 +145,7 @@ pub async fn cleanup_roles(keycloak: &Keycloak, roles: BTreeSet<String>) -> anyh
                     Err(err) => match err {
                         KeycloakError::HttpFailure { status: 404, .. } => {}
                         _ => {
-                            log::error!("Error: {err:#?}");
+                            tracing::error!("Error: {err:#?}");
                             Err(err)?;
                         }
                     },

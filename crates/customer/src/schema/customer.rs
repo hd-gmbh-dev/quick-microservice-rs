@@ -154,7 +154,7 @@ where
                     ty: CleanupTaskType::Customers(ids),
                 })
                 .await?;
-            log::debug!("emit cleanup task {}", id.to_string());
+            tracing::debug!("emit cleanup task {}", id.to_string());
             return Ok(delete_count);
         }
         Ok(0)
@@ -193,7 +193,7 @@ where
         Ok(Ctx(
             &AuthCtx::<'_, Auth, Store, Resource, Permission>::new_with_role(
                 ctx,
-                (Resource::customer(), Permission::view()),
+                &qm_role::role!(Resource::customer(), Permission::view()),
             )
             .await
             .extend()?,
@@ -211,7 +211,7 @@ where
         Ctx(
             &AuthCtx::<'_, Auth, Store, Resource, Permission>::new_with_role(
                 ctx,
-                (Resource::customer(), Permission::list()),
+                &qm_role::role!(Resource::customer(), Permission::list()),
             )
             .await?,
         )
@@ -252,7 +252,7 @@ where
     ) -> async_graphql::FieldResult<Arc<Customer>> {
         let auth_ctx = AuthCtx::<'_, Auth, Store, Resource, Permission>::new_with_role(
             ctx,
-            (Resource::customer(), Permission::create()),
+            &qm_role::role!(Resource::customer(), Permission::create()),
         )
         .await?;
         Ctx(&auth_ctx)
@@ -270,7 +270,7 @@ where
         Ctx(
             &AuthCtx::<'_, Auth, Store, Resource, Permission>::new_with_role(
                 ctx,
-                (Resource::customer(), Permission::update()),
+                &qm_role::role!(Resource::customer(), Permission::update()),
             )
             .await?,
         )
@@ -287,7 +287,7 @@ where
         Ctx(
             &AuthCtx::<'_, Auth, Store, Resource, Permission>::new_with_role(
                 ctx,
-                (Resource::customer(), Permission::delete()),
+                &qm_role::role!(Resource::customer(), Permission::delete()),
             )
             .await?,
         )

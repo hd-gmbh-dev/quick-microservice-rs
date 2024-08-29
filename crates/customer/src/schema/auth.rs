@@ -14,6 +14,7 @@ use qm_entity::ids::OrganizationOrInstitution;
 use qm_mongodb::bson::Document;
 use qm_role::AccessLevel;
 
+use std::fmt::Debug;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
@@ -100,20 +101,19 @@ where
 
     pub async fn new_with_role(
         graphql_context: &'ctx Context<'_>,
-        (resource, permission): (Resource, Permission),
+        role: &qm_role::Role<Resource, Permission>,
     ) -> FieldResult<Self> {
-        log::debug!("new with role {resource:?} -> {permission:?}");
+        tracing::debug!("new with role {role:?}");
         let result = Self::new(graphql_context).await?;
 
         if result.is_admin {
-            log::debug!("new with role {resource:?} -> {permission:?} resolved to admin");
+            tracing::debug!("new with role {role:?} resolved to admin");
             return Ok(result);
         }
-
-        if !result.auth.has_role(&resource, &permission) {
+        if !result.auth.has_role_object(role) {
             return err!(unauthorized(&result.auth)).extend();
         }
-        log::debug!("new with role {resource:?} -> {permission:?} resolved as non admin");
+        tracing::debug!("new with role {role:?} resolved as non admin");
         Ok(result)
     }
 
@@ -122,15 +122,14 @@ where
         roles: I,
     ) -> FieldResult<Self>
     where
-        I: IntoIterator<Item = (Resource, Permission)>,
+        I: IntoIterator<Item = qm_role::Role<Resource, Permission>>,
     {
         let result = Self::new(graphql_context).await?;
         if result.is_admin {
             return Ok(result);
         }
-
-        for (resource, permission) in roles {
-            if !result.auth.has_role(&resource, &permission) {
+        for role in roles {
+            if !result.auth.has_role_object(&role) {
                 return err!(unauthorized(&result.auth)).extend();
             }
         }
@@ -193,7 +192,7 @@ where
     pub async fn mutate_with_role(
         graphql_context: &'ctx Context<'_>,
         mutation_context: InfraContext,
-        role: (Resource, Permission),
+        role: &qm_role::Role<Resource, Permission>,
     ) -> FieldResult<Self> {
         let result = Self::new_with_role(graphql_context, role).await?;
         match mutation_context {
@@ -296,7 +295,7 @@ where
         &self,
         context: Option<CustomerOrOrganization>,
     ) -> EntityResult<Option<CustomerOrOrganization>> {
-        if self.is_admin {
+        if self.is_admin || self.is_support {
             return Ok(context);
         }
         let lvl = self.lvl();
@@ -515,17 +514,23 @@ where
     }
 }
 
-pub struct AuthGuard<Auth, Store, Resource, Permission> {
-    resource: Resource,
-    permission: Permission,
+pub struct AuthGuard<Auth, Store, Resource, Permission>
+where
+    Resource: Debug,
+    Permission: Debug,
+{
+    role: qm_role::Role<Resource, Permission>,
     _marker: StoreMarker<Auth, Store>,
 }
 
-impl<Auth, Store, Resource, Permission> AuthGuard<Auth, Store, Resource, Permission> {
-    pub fn new(resource: Resource, permission: Permission) -> Self {
+impl<Auth, Store, Resource, Permission> AuthGuard<Auth, Store, Resource, Permission>
+where
+    Resource: Debug,
+    Permission: Debug,
+{
+    pub fn new(role: qm_role::Role<Resource, Permission>) -> Self {
         Self {
-            resource,
-            permission,
+            role,
             _marker: Default::default(),
         }
     }
@@ -539,11 +544,7 @@ where
     Permission: RelatedPermission,
 {
     async fn check(&self, ctx: &Context<'_>) -> FieldResult<()> {
-        AuthCtx::<'_, Auth, Store, Resource, Permission>::new_with_role(
-            ctx,
-            (self.resource.clone(), self.permission.clone()),
-        )
-        .await?;
+        AuthCtx::<'_, Auth, Store, Resource, Permission>::new_with_role(ctx, &self.role).await?;
         Ok(())
     }
 }
