@@ -374,7 +374,8 @@ impl KeycloakSession {
                         let (expires_in, refresh_expires_in) = async {
                             let r = session.inner.token.read().await;
                             (r.expires_in, r.refresh_expires_in)
-                        }.await;
+                        }
+                        .await;
                         tracing::debug!("{expires_in} -> {refresh_expires_in:#?}");
                         let refresh_future = async {
                             tokio::time::sleep(Duration::from_secs(

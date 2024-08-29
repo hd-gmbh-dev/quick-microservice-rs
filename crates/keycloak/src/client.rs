@@ -1,13 +1,10 @@
 use std::{borrow::Cow, sync::Arc};
 
-use keycloak::types::{
-    AuthenticationExecutionInfoRepresentation, AuthenticationFlowRepresentation,
-    AuthenticatorConfigRepresentation, TypeMap,
-};
 pub use keycloak::{
     types::{
-        ClientRepresentation, CredentialRepresentation, GroupRepresentation, RealmRepresentation,
-        RoleRepresentation, UserRepresentation,
+        AuthenticationExecutionInfoRepresentation, AuthenticationFlowRepresentation,
+        AuthenticatorConfigRepresentation, ClientRepresentation, CredentialRepresentation,
+        GroupRepresentation, RealmRepresentation, RoleRepresentation, TypeMap, UserRepresentation,
     },
     KeycloakAdmin, KeycloakError, KeycloakTokenSupplier,
 };
@@ -863,12 +860,7 @@ impl Keycloak {
         &self,
         realm: &str,
     ) -> Result<Vec<AuthenticationFlowRepresentation>, KeycloakError> {
-        let result = self
-            .inner
-            .admin
-            .realm_authentication_flows_get(realm)
-            .await?;
-        Ok(result)
+        self.inner.admin.realm_authentication_flows_get(realm).await
     }
 
     pub async fn copy_authentication_flow(
@@ -885,11 +877,11 @@ impl Keycloak {
         match response {
             Ok(_) => {
                 tracing::info!("Copied successfully.");
-                return Ok(());
+                Ok(())
             }
             Err(e) => {
                 tracing::error!("Failed to copy authentication flow: {:?}", e);
-                return Err(e);
+                Err(e)
             }
         }
     }
