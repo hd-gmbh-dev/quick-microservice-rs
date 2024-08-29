@@ -899,11 +899,11 @@ impl Keycloak {
         match result {
             Ok(response) => {
                 tracing::info!("Getted flow executions successfully.");
-                return Ok(response);
+                Ok(response)
             }
             Err(e) => {
-                tracing::error!("Failed to get flow executions: {:?}", e);
-                return Err(e);
+                tracing::error!("Failed to get flow executions: {e}");
+                Err(e)
             }
         }
     }
@@ -917,11 +917,11 @@ impl Keycloak {
         match result {
             Ok(_) => {
                 tracing::info!("Execution deleted successfully.");
-                return Ok(());
+                Ok(())
             }
             Err(e) => {
-                tracing::error!("Failed to delete execution: {:?}", e);
-                return Err(e);
+                tracing::error!("Failed to delete execution: {e}");
+                Err(e)
             }
         }
     }
@@ -940,11 +940,11 @@ impl Keycloak {
         match response {
             Ok(_) => {
                 tracing::info!("Subflow created successfully.");
-                return Ok(());
+                Ok(())
             }
             Err(e) => {
-                tracing::error!("Failed to crete subflow: {:?}", e);
-                return Err(e);
+                tracing::error!("Failed to crete subflow: {e}");
+                Err(e)
             }
         }
     }
@@ -963,11 +963,11 @@ impl Keycloak {
         match response {
             Ok(_) => {
                 tracing::info!("PUT flow execution successfully.");
-                return Ok(());
+                Ok(())
             }
             Err(e) => {
-                tracing::error!("Failed PUT flow execution: {:?}", e);
-                return Err(e);
+                tracing::error!("Failed PUT flow execution: {e}");
+                Err(e)
             }
         }
     }
@@ -988,11 +988,11 @@ impl Keycloak {
         match response {
             Ok(_) => {
                 tracing::info!("Execution created successfully.");
-                return Ok(());
+                Ok(())
             }
             Err(e) => {
-                tracing::error!("Failed to crete execution: {:?}", e);
-                return Err(e);
+                tracing::error!("Failed to crete execution: {e}");
+                Err(e)
             }
         }
     }

@@ -172,25 +172,22 @@ async fn check_realm_settings(
         );
     }
 
-    // Configure browser_email_otp if it is necessary and does not exist
     let authentication_flows = ctx.keycloak().get_authentication_flows(realm).await?;
-    if ctx.keycloak().config().browser_flow() == "browser_email_otp" {
-        if authentication_flows
+    let browser_flow_config = ctx.keycloak().config().browser_flow();
+    if browser_flow_config == "browser_email_otp"
+        && !authentication_flows
             .iter()
             .any(|flow| flow.alias.as_deref() == Some("browser_email_otp"))
-        {
-        } else {
-            add_error(
-                realm_errors::REALM_AUTHENTICATION_FLOWS_MISSING_ID,
-                realm_errors::REALM_AUTHENTICATION_FLOWS_MISSING_KEY,
-                errors,
-            );
-        }
+    {
+        add_error(
+            realm_errors::REALM_AUTHENTICATION_FLOW_2FAEMAIL_MISSING_ID,
+            realm_errors::REALM_AUTHENTICATION_FLOW_2FAEMAIL_MISSING_KEY,
+            errors,
+        );
     }
 
-    // browser flow
     if let Some(browser_flow) = &rep.browser_flow {
-        if browser_flow != ctx.keycloak().config().browser_flow() {
+        if browser_flow != browser_flow_config {
             add_error(
                 realm_errors::REALM_BROWSER_FLOW_INVALID_ID,
                 realm_errors::REALM_BROWSER_FLOW_INVALID_KEY,
