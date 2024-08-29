@@ -478,8 +478,8 @@ async fn add_configuration_to_browser_email_totp_execution(
     config.insert("ttl".to_string(), "300".to_string());
     config.insert("maxRetries".to_string(), "3".to_string());
     config.insert("allowUppercase".to_string(), "true".to_string());
-    config.insert("true".to_string(), "true".to_string());
-    config.insert("true".to_string(), "true".to_string());
+    config.insert("allowLowercase".to_string(), "true".to_string());
+    config.insert("allowNumbers".to_string(), "true".to_string());
 
     let body_config = AuthenticatorConfigRepresentation {
         alias: Some("email_otp_flow".to_string()),
