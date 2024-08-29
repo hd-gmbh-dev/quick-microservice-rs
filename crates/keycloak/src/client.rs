@@ -884,11 +884,11 @@ impl Keycloak {
             .await;
         match response {
             Ok(_) => {
-                log::info!("Copied successfully.");
+                tracing::info!("Copied successfully.");
                 return Ok(());
             }
             Err(e) => {
-                log::error!("Failed to copy authentication flow: {:?}", e);
+                tracing::error!("Failed to copy authentication flow: {:?}", e);
                 return Err(e);
             }
         }
@@ -906,11 +906,11 @@ impl Keycloak {
             .await;
         match result {
             Ok(response) => {
-                log::info!("Getted flow executions successfully.");
+                tracing::info!("Getted flow executions successfully.");
                 return Ok(response);
             }
             Err(e) => {
-                log::error!("Failed to get flow executions: {:?}", e);
+                tracing::error!("Failed to get flow executions: {:?}", e);
                 return Err(e);
             }
         }
@@ -924,11 +924,11 @@ impl Keycloak {
             .await;
         match result {
             Ok(_) => {
-                log::info!("Execution deleted successfully.");
+                tracing::info!("Execution deleted successfully.");
                 return Ok(());
             }
             Err(e) => {
-                log::error!("Failed to delete execution: {:?}", e);
+                tracing::error!("Failed to delete execution: {:?}", e);
                 return Err(e);
             }
         }
@@ -947,11 +947,11 @@ impl Keycloak {
             .await;
         match response {
             Ok(_) => {
-                log::info!("Subflow created successfully.");
+                tracing::info!("Subflow created successfully.");
                 return Ok(());
             }
             Err(e) => {
-                log::error!("Failed to crete subflow: {:?}", e);
+                tracing::error!("Failed to crete subflow: {:?}", e);
                 return Err(e);
             }
         }
@@ -970,11 +970,11 @@ impl Keycloak {
             .await;
         match response {
             Ok(_) => {
-                log::info!("PUT flow execution successfully.");
+                tracing::info!("PUT flow execution successfully.");
                 return Ok(());
             }
             Err(e) => {
-                log::error!("Failed PUT flow execution: {:?}", e);
+                tracing::error!("Failed PUT flow execution: {:?}", e);
                 return Err(e);
             }
         }
@@ -995,11 +995,11 @@ impl Keycloak {
             .await;
         match response {
             Ok(_) => {
-                log::info!("Execution created successfully.");
+                tracing::info!("Execution created successfully.");
                 return Ok(());
             }
             Err(e) => {
-                log::error!("Failed to crete execution: {:?}", e);
+                tracing::error!("Failed to crete execution: {:?}", e);
                 return Err(e);
             }
         }

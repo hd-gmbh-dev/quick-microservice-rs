@@ -299,7 +299,7 @@ async fn update_autentication_flows(
     errors: Vec<RealmConfigErrorInput>,
 ) -> anyhow::Result<()> {
     if errors.is_empty() {
-        log::info!("No autentication_flows errors in realm '{}'", realm);
+        tracing::info!("No autentication_flows errors in realm '{}'", realm);
         return Ok(());
     }
 
@@ -307,7 +307,7 @@ async fn update_autentication_flows(
         match e.id.as_str() {
             realm_errors::REALM_AUTHENTICATION_FLOWS_MISSING_ID
             | realm_errors::REALM_AUTHENTICATION_FLOWS_MISSING_KEY => {
-                log::info!(
+                tracing::info!(
                     "Setting autentication_flow 'browser_email_otp' for realm '{}'",
                     realm
                 );
@@ -465,7 +465,7 @@ async fn update_autentication_flows(
                     .add_authenticator_config(realm, email_totp_exec_id, body_config)
                     .await?;
             }
-            _ => log::warn!(
+            _ => tracing::warn!(
                 "Unknown create_authentication_flow error id '{}'. No action taken.",
                 e.id
             ),
@@ -480,7 +480,7 @@ async fn update_browser_flow(
     errors: Vec<RealmConfigErrorInput>,
 ) -> anyhow::Result<()> {
     if errors.is_empty() {
-        log::info!("No realm errors in realm '{}'", realm);
+        tracing::info!("No realm errors in realm '{}'", realm);
         return Ok(());
     }
 
@@ -489,10 +489,10 @@ async fn update_browser_flow(
     errors.iter().for_each(|e| match e.id.as_str() {
         realm_errors::REALM_BROWSER_FLOW_INVALID_ID
         | realm_errors::REALM_BROWSER_FLOW_MISSING_ID => {
-            log::trace!("Setting 'browser_flow' for realm '{}'", realm);
+            tracing::trace!("Setting 'browser_flow' for realm '{}'", realm);
             rep.browser_flow = Some(ctx.cfg().keycloak().browser_flow().to_string());
         }
-        _ => log::warn!("Unknown browser_flow error id '{}'. No action taken.", e.id),
+        _ => tracing::warn!("Unknown browser_flow error id '{}'. No action taken.", e.id),
     });
     ctx.keycloak().update_realm_by_name(realm, rep).await?;
     Ok(())
