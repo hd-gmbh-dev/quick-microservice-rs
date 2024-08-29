@@ -56,6 +56,13 @@ impl<'a> ConfigBuilder<'a> {
         if cfg.smtp_ssl.is_none() {
             cfg.smtp_ssl = Some(false);
         }
+        if cfg.browser_flow.is_none() {
+            cfg.browser_flow = Some("browser".into());
+        }
+        if cfg.authenticator_email_subject.is_none() {
+            cfg.authenticator_email_subject = Some("Temporary Authentication Code".into());
+        }
+
         Ok(cfg)
     }
 }
@@ -82,6 +89,8 @@ pub struct Config {
     smtp_from: Option<Arc<str>>,
     smtp_from_display_name: Option<Arc<str>>,
     smtp_ssl: Option<bool>,
+    browser_flow: Option<Arc<str>>,
+    authenticator_email_subject: Option<Arc<str>>,
 }
 
 impl Config {
@@ -163,5 +172,13 @@ impl Config {
 
     pub fn smtp_ssl(&self) -> Option<&bool> {
         self.smtp_ssl.as_ref()
+    }
+
+    pub fn browser_flow(&self) -> &str {
+        self.browser_flow.as_deref().unwrap_or("browser")
+    }
+
+    pub fn authenticator_email_subject(&self) -> Option<&str> {
+        self.authenticator_email_subject.as_deref()
     }
 }

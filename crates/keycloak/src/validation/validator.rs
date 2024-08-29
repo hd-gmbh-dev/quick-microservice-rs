@@ -172,6 +172,35 @@ async fn check_realm_settings(
         );
     }
 
+    let authentication_flows = ctx.keycloak().get_authentication_flows(realm).await?;
+    let browser_flow_config = ctx.keycloak().config().browser_flow();
+    if browser_flow_config == "browser_email_otp"
+        && !authentication_flows
+            .iter()
+            .any(|flow| flow.alias.as_deref() == Some("browser_email_otp"))
+    {
+        add_error(
+            realm_errors::REALM_AUTHENTICATION_FLOW_2FAEMAIL_MISSING_ID,
+            realm_errors::REALM_AUTHENTICATION_FLOW_2FAEMAIL_MISSING_KEY,
+            errors,
+        );
+    }
+
+    if let Some(browser_flow) = &rep.browser_flow {
+        if browser_flow != browser_flow_config {
+            add_error(
+                realm_errors::REALM_BROWSER_FLOW_INVALID_ID,
+                realm_errors::REALM_BROWSER_FLOW_INVALID_KEY,
+                errors,
+            );
+        }
+    } else {
+        add_error(
+            realm_errors::REALM_BROWSER_FLOW_MISSING_ID,
+            realm_errors::REALM_BROWSER_FLOW_MISSING_KEY,
+            errors,
+        );
+    }
     Ok(())
 }
 

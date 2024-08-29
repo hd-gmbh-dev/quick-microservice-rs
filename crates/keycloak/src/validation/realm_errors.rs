@@ -1,10 +1,16 @@
 pub const REALM_PREFIX: &str = "realm-";
 pub const CLIENTS_CLIENT_PREFIX: &str = "clients-client-";
+pub const REALM_AUTHENTICATION_FLOW_2FAEMAIL_PREFIX: &str = "authentication_flow_2faemail-";
+pub const REALM_BROWSER_FLOW_PREFIX: &str = "browser_flow";
 pub const REALM_DEFAULT_LOCALE_INVALID_ID: &str = "realm-default_locale-invalid";
 pub const REALM_DEFAULT_LOCALE_MISSING_ID: &str = "realm-default_locale-missing";
 pub const REALM_INTERNATIONALIZATION_ENABLED_ID: &str = "realm-internationalization_enabled";
 pub const REALM_LOGIN_THEME_INVALID_ID: &str = "realm-login_theme-invalid";
 pub const REALM_LOGIN_THEME_MISSING_ID: &str = "realm-login_theme-missing";
+pub const REALM_BROWSER_FLOW_INVALID_ID: &str = "browser_flow-invalid";
+pub const REALM_BROWSER_FLOW_MISSING_ID: &str = "browser_flow-missing";
+pub const REALM_AUTHENTICATION_FLOW_2FAEMAIL_MISSING_ID: &str =
+    "authentication_flow_2faemail-missing";
 pub const REALM_EMAIL_THEME_INVALID_ID: &str = "realm-email_theme-invalid";
 pub const REALM_EMAIL_THEME_MISSING_ID: &str = "realm-email_theme-missing";
 pub const REALM_PASSWORD_POLICY_LENGTH_ID: &str = "realm-password_policy-length";
@@ -90,6 +96,10 @@ pub const REALM_DEFAULT_LOCALE_INVALID_KEY: &str = "realm.default_locale.invalid
 pub const REALM_DEFAULT_LOCALE_MISSING_KEY: &str = "realm.default_locale.missing";
 pub const REALM_LOGIN_THEME_INVALID_KEY: &str = "realm.login_theme.invalid";
 pub const REALM_LOGIN_THEME_MISSING_KEY: &str = "realm.login_theme.missing";
+pub const REALM_BROWSER_FLOW_MISSING_KEY: &str = "realm.browser_flow.missing";
+pub const REALM_BROWSER_FLOW_INVALID_KEY: &str = "realm.browser_flow.invalid";
+pub const REALM_AUTHENTICATION_FLOW_2FAEMAIL_MISSING_KEY: &str =
+    "realm.authentication_flow_2faemail.missing";
 pub const REALM_EMAIL_THEME_INVALID_KEY: &str = "realm.email_theme.invalid";
 pub const REALM_EMAIL_THEME_MISSING_KEY: &str = "realm.email_theme.missing";
 pub const REALM_PASSWORD_POLICY_LENGTH_KEY: &str = "realm.password_policy.length";
