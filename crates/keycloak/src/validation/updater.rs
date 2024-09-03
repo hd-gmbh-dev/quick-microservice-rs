@@ -410,7 +410,7 @@ async fn make_executions_required(
         .find(|&execution| execution.display_name == Some("browser_email_otp forms".to_string()))
         .unwrap()
         .clone();
-    browser_email_otp_form_execution.requirement = Some("REQUIRED".to_string());
+    browser_email_otp_form_execution.requirement = Some("ALTERNATIVE".to_string());
 
     ctx.keycloak()
         .modify_flow_execution(realm, flow_alias, browser_email_otp_form_execution)
@@ -429,7 +429,7 @@ async fn make_executions_required(
         .unwrap()
         .clone();
 
-    email_totp_auth_execution.requirement = Some("REQUIRED".to_string());
+    email_totp_auth_execution.requirement = Some("ALTERNATIVE".to_string());
 
     ctx.keycloak()
         .modify_flow_execution(realm, flow_alias, email_2fa_execution)
