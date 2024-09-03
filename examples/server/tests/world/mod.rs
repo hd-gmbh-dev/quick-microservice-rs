@@ -116,7 +116,7 @@ impl World {
         self.last_response = response;
     }
 
-    pub fn last_response_data_field<'a, T>(&'a self, idx: T) -> DataSelector<'a>
+    pub fn last_response_data_field<T>(&self, idx: T) -> DataSelector<'_>
     where
         T: serde_json::value::Index,
     {
@@ -124,18 +124,17 @@ impl World {
     }
 
     pub fn last_response_data_query_root(&self) -> DataSelector<'_> {
-        self.last_response_data().get(&self.last_query_name)
+        self.last_response_data().get(self.last_query_name)
     }
 
-    pub fn last_response_data<'a>(&'a self) -> DataSelector<'a> {
+    pub fn last_response_data(&self) -> DataSelector<'_> {
         DataSelector::new(&self.last_response_data)
     }
 
     pub fn last_response_error_extensions(
         &mut self,
     ) -> anyhow::Result<&async_graphql::ErrorExtensionValues> {
-        Ok(self
-            .last_response
+        self.last_response
             .errors
             .first()
             .ok_or(anyhow::anyhow!("last response has no errors"))?
@@ -143,7 +142,7 @@ impl World {
             .as_ref()
             .ok_or(anyhow::anyhow!(
                 "last response does not have error extensions"
-            ))?)
+            ))
     }
 
     pub async fn switch_user(&mut self, username: String, password: String) -> anyhow::Result<()> {

@@ -20,7 +20,7 @@ fn check_max_size(name: &str, v: Option<&str>, max_len: usize) -> anyhow::Result
 }
 
 fn check_max_size_input_slice<T>(name: &str, v: &[T]) -> anyhow::Result<()> {
-    let mem_size = v.len() * std::mem::size_of::<T>();
+    let mem_size = std::mem::size_of_val(v);
     if mem_size > INPUT_SLICE_MAX_SIZE {
         anyhow::bail!(
             "The input length of '{name}' is bigger than {} bytes",

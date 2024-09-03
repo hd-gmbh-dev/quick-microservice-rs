@@ -1195,6 +1195,7 @@ impl FromStr for CustomerUnitResourceId {
 impl_id!(CustomerUnitResourceId, CUSTOMER_UNIT_RESOURCE_ID_PREFIX);
 impl_display_for_resource_id!(CustomerUnitResourceId);
 
+/// Organization Unit Id.
 #[derive(
     Debug,
     Clone,

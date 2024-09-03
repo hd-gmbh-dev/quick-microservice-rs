@@ -23,6 +23,7 @@ use crate::{
 const EMPTY_ID: &str = "000000000000000000000000";
 const DEFAULT_PAGE_LIMIT: i64 = 100;
 
+/// External representation of Object ID type in MongoDB.
 #[derive(Debug, Default, Clone, PartialEq, Deserialize, Serialize, Description)]
 pub struct Id(ObjectId);
 
@@ -59,6 +60,7 @@ impl ScalarType for Id {
 
 type ID = Id;
 
+/// Entity Id.
 #[derive(Debug, Default, Clone, PartialEq, Deserialize, Serialize, Description)]
 #[graphql(name = "EntityId")]
 pub struct GraphQLId {
