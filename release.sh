@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 export SQLX_OFFLINE=true
 
 cargo set-version --workspace $1
