@@ -16,8 +16,10 @@ use crate::groups::RelatedBuiltInGroup;
 use crate::marker::Marker;
 use crate::model::User;
 use crate::model::UserList;
-use crate::model::{CreateUserInput, Customer};
-use crate::model::{CreateUserPayload, Institution, Organization, OrganizationUnit, UserDetails};
+use crate::model::{CreateUserInput, QmCustomer};
+use crate::model::{
+    CreateUserPayload, OrganizationUnit, QmInstitution, QmOrganization, UserDetails,
+};
 use crate::model::{Group, RequiredUserAction, Role, UserGroup};
 use qm_entity::err;
 use qm_entity::error::EntityError;
@@ -209,7 +211,7 @@ pub async fn create_keycloak_user(
 
 #[ComplexObject]
 impl UserDetails {
-    async fn customer(&self, ctx: &Context<'_>) -> Option<Arc<Customer>> {
+    async fn customer(&self, ctx: &Context<'_>) -> Option<Arc<QmCustomer>> {
         let cache = ctx.data::<CacheDB>().ok();
         if cache.is_none() {
             tracing::warn!("qm::customer::cache::CacheDB is not installed in schema context");
@@ -222,7 +224,7 @@ impl UserDetails {
         None
     }
 
-    async fn organization(&self, ctx: &Context<'_>) -> Option<Arc<Organization>> {
+    async fn organization(&self, ctx: &Context<'_>) -> Option<Arc<QmOrganization>> {
         let cache = ctx.data::<CacheDB>().ok();
         if cache.is_none() {
             tracing::warn!("qm::customer::cache::CacheDB is not installed in schema context");
@@ -256,7 +258,7 @@ impl UserDetails {
         None
     }
 
-    async fn institution(&self, ctx: &Context<'_>) -> Option<Arc<Institution>> {
+    async fn institution(&self, ctx: &Context<'_>) -> Option<Arc<QmInstitution>> {
         let cache = ctx.data::<CacheDB>().ok();
         if cache.is_none() {
             tracing::warn!("qm::customer::cache::CacheDB is not installed in schema context");

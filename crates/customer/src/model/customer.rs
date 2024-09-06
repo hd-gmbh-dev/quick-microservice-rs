@@ -24,7 +24,7 @@ pub struct CustomerData(pub String, pub Option<String>, pub Option<i64>);
 
 #[derive(Debug, Clone, SimpleObject, FromRow, Serialize, Deserialize)]
 #[graphql(complex)]
-pub struct Customer {
+pub struct QmCustomer {
     #[graphql(skip)]
     pub id: InfraId,
     pub name: Arc<str>,
@@ -60,8 +60,8 @@ impl From<CustomerUpdate> for RemoveCustomerPayload {
     }
 }
 
-impl<'a> From<&'a Customer> for RemoveCustomerPayload {
-    fn from(value: &'a Customer) -> Self {
+impl<'a> From<&'a QmCustomer> for RemoveCustomerPayload {
+    fn from(value: &'a QmCustomer) -> Self {
         Self {
             id: value.id,
             name: value.name.clone(),
@@ -70,15 +70,15 @@ impl<'a> From<&'a Customer> for RemoveCustomerPayload {
 }
 
 #[derive(Debug, Clone, SimpleObject)]
-pub struct CustomerList {
-    pub items: Arc<[Arc<Customer>]>,
+pub struct QmCustomerList {
+    pub items: Arc<[Arc<QmCustomer>]>,
     pub limit: Option<i64>,
     pub total: Option<i64>,
     pub page: Option<i64>,
 }
 
-impl<'a> From<&'a Customer> for CustomerId {
-    fn from(val: &'a Customer) -> Self {
+impl<'a> From<&'a QmCustomer> for CustomerId {
+    fn from(val: &'a QmCustomer) -> Self {
         (*val.id.as_ref()).into()
     }
 }

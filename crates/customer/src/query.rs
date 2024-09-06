@@ -182,9 +182,9 @@ pub async fn fetch_realm_info(db: &DB, name: &str) -> anyhow::Result<Option<KcRe
     .await?)
 }
 
-pub async fn fetch_customers(db: &DB) -> anyhow::Result<Vec<Customer>> {
+pub async fn fetch_customers(db: &DB) -> anyhow::Result<Vec<QmCustomer>> {
     Ok(query_as!(
-        Customer,
+        QmCustomer,
         r#"
 SELECT
     id,
@@ -200,9 +200,9 @@ FROM customers;"#
     .await?)
 }
 
-pub async fn fetch_organizations(db: &DB) -> anyhow::Result<Vec<Organization>> {
+pub async fn fetch_organizations(db: &DB) -> anyhow::Result<Vec<QmOrganization>> {
     Ok(query_as!(
-        Organization,
+        QmOrganization,
         r#"
 SELECT
     id,
@@ -219,9 +219,9 @@ FROM organizations;"#
     .await?)
 }
 
-pub async fn fetch_institutions(db: &DB) -> anyhow::Result<Vec<Institution>> {
+pub async fn fetch_institutions(db: &DB) -> anyhow::Result<Vec<QmInstitution>> {
     Ok(query_as!(
-        Institution,
+        QmInstitution,
         r#"
 SELECT
     id,

@@ -28,8 +28,8 @@ use crate::context::RelatedResource;
 use crate::context::RelatedStorage;
 use crate::marker::RpMarker;
 use crate::marker::StoreMarker;
-use crate::model::Customer;
-use crate::model::Organization;
+use crate::model::QmCustomer;
+use crate::model::QmOrganization;
 
 // use crate::model::Customer;
 // use crate::model::Organization;
@@ -141,7 +141,7 @@ where
         let _ = cache
             .customer_by_id(&customer_id.into())
             .await
-            .ok_or(EntityError::not_found_by_id::<Customer>(
+            .ok_or(EntityError::not_found_by_id::<QmCustomer>(
                 customer_id.to_string(),
             ))
             .extend()?;
@@ -164,7 +164,7 @@ where
         let _ = cache
             .organization_by_id(&organization_id.into())
             .await
-            .ok_or(EntityError::not_found_by_id::<Organization>(
+            .ok_or(EntityError::not_found_by_id::<QmOrganization>(
                 organization_id.to_string(),
             ))
             .extend()?;

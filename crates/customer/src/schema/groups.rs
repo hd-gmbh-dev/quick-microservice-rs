@@ -20,7 +20,7 @@ use crate::marker::Marker;
 use crate::model::{Group, GroupDetail, Role, UserGroup};
 use qm_role::AccessLevel;
 
-use crate::model::{Customer, Institution, Organization /* OrganizationUnit */};
+use crate::model::{QmCustomer, QmInstitution, QmOrganization /* OrganizationUnit */};
 use crate::schema::auth::AuthCtx;
 use crate::schema::RelatedAuth;
 use crate::schema::RelatedPermission;
@@ -47,7 +47,7 @@ impl UserGroup {
         cache.roles_by_group_id(&self.group_id).await
     }
 
-    async fn customer(&self, ctx: &Context<'_>) -> Option<Arc<Customer>> {
+    async fn customer(&self, ctx: &Context<'_>) -> Option<Arc<QmCustomer>> {
         let cache = ctx.data::<CacheDB>().ok();
         if cache.is_none() {
             tracing::warn!("qm::customer::cache::CacheDB is not installed in schema context");
@@ -65,7 +65,7 @@ impl UserGroup {
         None
     }
 
-    async fn organization(&self, ctx: &Context<'_>) -> Option<Arc<Organization>> {
+    async fn organization(&self, ctx: &Context<'_>) -> Option<Arc<QmOrganization>> {
         let cache = ctx.data::<CacheDB>().ok();
         if cache.is_none() {
             tracing::warn!("qm::customer::cache::CacheDB is not installed in schema context");
@@ -101,7 +101,7 @@ impl UserGroup {
     //     None
     // }
 
-    async fn institution(&self, ctx: &Context<'_>) -> Option<Arc<Institution>> {
+    async fn institution(&self, ctx: &Context<'_>) -> Option<Arc<QmInstitution>> {
         let cache = ctx.data::<CacheDB>().ok();
         if cache.is_none() {
             tracing::warn!("qm::customer::cache::CacheDB is not installed in schema context");

@@ -23,7 +23,7 @@ pub struct UpdateOrganizationInput {
 
 #[derive(Debug, Clone, SimpleObject, FromRow, Serialize, Deserialize)]
 #[graphql(complex)]
-pub struct Organization {
+pub struct QmOrganization {
     #[graphql(skip)]
     pub id: InfraId,
     #[graphql(skip)]
@@ -64,8 +64,8 @@ impl From<OrganizationUpdate> for RemoveOrganizationPayload {
     }
 }
 
-impl<'a> From<&'a Organization> for RemoveOrganizationPayload {
-    fn from(value: &'a Organization) -> Self {
+impl<'a> From<&'a QmOrganization> for RemoveOrganizationPayload {
+    fn from(value: &'a QmOrganization) -> Self {
         Self {
             id: value.id,
             customer_id: value.customer_id,
@@ -75,23 +75,23 @@ impl<'a> From<&'a Organization> for RemoveOrganizationPayload {
 }
 
 #[derive(Debug, Clone, SimpleObject)]
-pub struct OrganizationList {
-    pub items: Arc<[Arc<Organization>]>,
+pub struct QmOrganizationList {
+    pub items: Arc<[Arc<QmOrganization>]>,
     pub limit: Option<i64>,
     pub total: Option<i64>,
     pub page: Option<i64>,
 }
 
-impl<'a> From<&'a Organization> for OrganizationId {
-    fn from(val: &'a Organization) -> Self {
+impl<'a> From<&'a QmOrganization> for OrganizationId {
+    fn from(val: &'a QmOrganization) -> Self {
         let cid: i64 = val.customer_id.into();
         let oid: i64 = val.id.into();
         (cid, oid).into()
     }
 }
 
-impl<'a> From<&'a Organization> for CustomerId {
-    fn from(val: &'a Organization) -> Self {
+impl<'a> From<&'a QmOrganization> for CustomerId {
+    fn from(val: &'a QmOrganization) -> Self {
         let cid: i64 = val.customer_id.into();
         cid.into()
     }

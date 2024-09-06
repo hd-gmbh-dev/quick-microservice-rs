@@ -22,9 +22,9 @@ use crate::context::{RelatedAuth, RelatedPermission, RelatedResource};
 use crate::groups::RelatedBuiltInGroup;
 use crate::marker::Marker;
 use crate::model::CreateCustomerInput;
-use crate::model::Customer;
 use crate::model::CustomerData;
-use crate::model::CustomerList;
+use crate::model::QmCustomer;
+use crate::model::QmCustomerList;
 use crate::model::UpdateCustomerInput;
 use crate::mutation::remove_customers;
 use crate::mutation::update_customer;
@@ -33,7 +33,7 @@ use crate::schema::auth::AuthCtx;
 use async_graphql::ComplexObject;
 
 #[ComplexObject]
-impl Customer {
+impl QmCustomer {
     async fn id(&self) -> async_graphql::FieldResult<CustomerId> {
         Ok(self.into())
     }
@@ -58,15 +58,15 @@ where
         &self,
         filter: Option<ListFilter>,
         ty: Option<String>,
-    ) -> async_graphql::FieldResult<CustomerList> {
+    ) -> async_graphql::FieldResult<QmCustomerList> {
         Ok(self.0.store.cache_db().customer_list(filter, ty).await)
     }
 
-    pub async fn by_id(&self, id: CustomerId) -> Option<Arc<Customer>> {
+    pub async fn by_id(&self, id: CustomerId) -> Option<Arc<QmCustomer>> {
         self.0.store.cache_db().customer_by_id(&id.into()).await
     }
 
-    pub async fn create(&self, customer: CustomerData) -> EntityResult<Arc<Customer>> {
+    pub async fn create(&self, customer: CustomerData) -> EntityResult<Arc<QmCustomer>> {
         let user_id = self.0.auth.user_id().unwrap();
         let name = customer.0.clone();
         let ty = customer.1;
@@ -115,12 +115,12 @@ where
         .await?;
         self.0.store.redis().unlock(&lock_key, &lock.id).await?;
         if exists {
-            return err!(name_conflict::<Customer>(name));
+            return err!(name_conflict::<QmCustomer>(name));
         }
         Ok(result)
     }
 
-    pub async fn update(&self, id: CustomerId, name: String) -> EntityResult<Arc<Customer>> {
+    pub async fn update(&self, id: CustomerId, name: String) -> EntityResult<Arc<QmCustomer>> {
         let user_id = self.0.auth.user_id().unwrap();
         let id: InfraId = id.into();
         let old = self
@@ -129,7 +129,7 @@ where
             .cache_db()
             .customer_by_id(&id)
             .await
-            .ok_or(EntityError::not_found_by_field::<Customer>("name", &name))?;
+            .ok_or(EntityError::not_found_by_field::<QmCustomer>("name", &name))?;
         let result = update_customer(self.0.store.customer_db().pool(), id, &name, user_id).await?;
         let new = Arc::new(result);
         self.0
@@ -189,7 +189,7 @@ where
         &self,
         ctx: &Context<'_>,
         id: CustomerId,
-    ) -> async_graphql::FieldResult<Option<Arc<Customer>>> {
+    ) -> async_graphql::FieldResult<Option<Arc<QmCustomer>>> {
         Ok(Ctx(
             &AuthCtx::<'_, Auth, Store, Resource, Permission>::new_with_role(
                 ctx,
@@ -202,12 +202,12 @@ where
         .await)
     }
 
-    async fn customers(
+    async fn qm_customers(
         &self,
         ctx: &Context<'_>,
         filter: Option<ListFilter>,
         ty: Option<String>,
-    ) -> async_graphql::FieldResult<CustomerList> {
+    ) -> async_graphql::FieldResult<QmCustomerList> {
         Ctx(
             &AuthCtx::<'_, Auth, Store, Resource, Permission>::new_with_role(
                 ctx,
@@ -249,7 +249,7 @@ where
         &self,
         ctx: &Context<'_>,
         input: CreateCustomerInput,
-    ) -> async_graphql::FieldResult<Arc<Customer>> {
+    ) -> async_graphql::FieldResult<Arc<QmCustomer>> {
         let auth_ctx = AuthCtx::<'_, Auth, Store, Resource, Permission>::new_with_role(
             ctx,
             &qm_role::role!(Resource::customer(), Permission::create()),
@@ -266,7 +266,7 @@ where
         ctx: &Context<'_>,
         context: CustomerId,
         input: UpdateCustomerInput,
-    ) -> async_graphql::FieldResult<Arc<Customer>> {
+    ) -> async_graphql::FieldResult<Arc<QmCustomer>> {
         Ctx(
             &AuthCtx::<'_, Auth, Store, Resource, Permission>::new_with_role(
                 ctx,

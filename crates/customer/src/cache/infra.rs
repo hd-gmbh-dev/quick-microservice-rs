@@ -17,14 +17,14 @@ use tokio::sync::RwLock;
 use super::update::Op;
 use super::update::Payload;
 
-pub type CustomerMap = HashMap<Arc<str>, Arc<Customer>>;
-pub type CustomerIdMap = HashMap<InfraId, Arc<Customer>>;
-pub type OrganizationMap = HashMap<(Arc<str>, InfraId), Arc<Organization>>;
-pub type OrganizationIdMap = HashMap<InfraId, Arc<Organization>>;
+pub type CustomerMap = HashMap<Arc<str>, Arc<QmCustomer>>;
+pub type CustomerIdMap = HashMap<InfraId, Arc<QmCustomer>>;
+pub type OrganizationMap = HashMap<(Arc<str>, InfraId), Arc<QmOrganization>>;
+pub type OrganizationIdMap = HashMap<InfraId, Arc<QmOrganization>>;
 pub type OrganizationUnitMap = HashMap<(Arc<str>, InfraId, Option<InfraId>), Arc<OrganizationUnit>>;
 pub type OrganizationUnitIdMap = HashMap<InfraId, Arc<OrganizationUnit>>;
-pub type InstitutionMap = HashMap<(Arc<str>, InfraId, InfraId), Arc<Institution>>;
-pub type InstitutionIdMap = HashMap<InfraId, Arc<Institution>>;
+pub type InstitutionMap = HashMap<(Arc<str>, InfraId, InfraId), Arc<QmInstitution>>;
+pub type InstitutionIdMap = HashMap<InfraId, Arc<QmInstitution>>;
 
 fn parse_date_time(s: &str) -> Option<PrimitiveDateTime> {
     let format = format_description!("[year]-[month]-[day]T[hour]:[minute]:[second].[subsecond]");
@@ -115,7 +115,7 @@ impl InfraDB {
         Ok(())
     }
 
-    pub async fn new_customer(&self, customer: Arc<Customer>) {
+    pub async fn new_customer(&self, customer: Arc<QmCustomer>) {
         let customers_total = {
             let mut customers = self.customers.write().await;
             customers.insert(customer.name.clone(), customer.clone());
@@ -128,7 +128,7 @@ impl InfraDB {
         self.customers_total.set(customers_total as i64);
     }
 
-    pub async fn new_organization(&self, organization: Arc<Organization>) {
+    pub async fn new_organization(&self, organization: Arc<QmOrganization>) {
         let organizations_total = {
             let mut organizations = self.organizations.write().await;
             organizations.insert(
@@ -165,7 +165,7 @@ impl InfraDB {
             .set(organization_units_total as i64);
     }
 
-    pub async fn new_institution(&self, institution: Arc<Institution>) {
+    pub async fn new_institution(&self, institution: Arc<QmInstitution>) {
         let institutions_total = {
             let mut institutions = self.institutions.write().await;
             institutions.insert(
@@ -195,7 +195,7 @@ impl InfraDB {
         self.customers_total.set(customers_total as i64);
     }
 
-    pub async fn update_customer(&self, new: Arc<Customer>, old: RemoveCustomerPayload) {
+    pub async fn update_customer(&self, new: Arc<QmCustomer>, old: RemoveCustomerPayload) {
         let customers_total = {
             let mut customers = self.customers.write().await;
             let mut customer_id_map = self.customer_id_map.write().await;
@@ -210,7 +210,7 @@ impl InfraDB {
 
     pub async fn update_organization(
         &self,
-        new: Arc<Organization>,
+        new: Arc<QmOrganization>,
         old: RemoveOrganizationPayload,
     ) {
         let organizations_total = {
@@ -225,7 +225,7 @@ impl InfraDB {
         self.organizations_total.set(organizations_total as i64);
     }
 
-    pub async fn update_institution(&self, new: Arc<Institution>, old: RemoveInstitutionPayload) {
+    pub async fn update_institution(&self, new: Arc<QmInstitution>, old: RemoveInstitutionPayload) {
         let institutions_total = {
             let mut institutions = self.institutions.write().await;
             let mut institution_id_map = self.institution_id_map.write().await;
@@ -331,7 +331,7 @@ impl InfraDB {
         match (payload.op, payload.new, payload.old) {
             (Op::Insert, Some(new), None) => {
                 if let Some(created_at) = parse_date_time(&new.created_at) {
-                    let customer = Arc::new(Customer {
+                    let customer = Arc::new(QmCustomer {
                         id: new.id,
                         name: new.name,
                         ty: new.ty,
@@ -356,7 +356,7 @@ impl InfraDB {
         match (payload.op, payload.new, payload.old) {
             (Op::Insert, Some(new), None) => {
                 if let Some(created_at) = parse_date_time(&new.created_at) {
-                    let organization = Arc::new(Organization {
+                    let organization = Arc::new(QmOrganization {
                         id: new.id,
                         customer_id: new.customer_id,
                         name: new.name,
@@ -410,7 +410,7 @@ impl InfraDB {
         match (payload.op, payload.new, payload.old) {
             (Op::Insert, Some(new), None) => {
                 if let Some(created_at) = parse_date_time(&new.created_at) {
-                    let organization = Arc::new(Institution {
+                    let organization = Arc::new(QmInstitution {
                         id: new.id,
                         customer_id: new.customer_id,
                         organization_id: new.organization_id,

@@ -36,7 +36,7 @@ pub async fn create_customer(
     name: &str,
     ty: Option<&str>,
     created_by: &Uuid,
-) -> anyhow::Result<Customer> {
+) -> anyhow::Result<QmCustomer> {
     check_max_size("Customer name", Some(name), NAME_MAX_LEN)?;
     check_max_size("Customer ty", ty, TY_MAX_LEN)?;
     if let Some(id) = id {
@@ -60,7 +60,7 @@ RETURNING
         )
         .fetch_one(pool)
         .await?;
-        Ok(Customer {
+        Ok(QmCustomer {
             id: rec.id.into(),
             name: Arc::from(rec.name),
             ty: Arc::from(rec.ty),
@@ -90,7 +90,7 @@ RETURNING
         .fetch_one(pool)
         .await?;
 
-        Ok(Customer {
+        Ok(QmCustomer {
             id: rec.id.into(),
             name: Arc::from(rec.name),
             ty: Arc::from(rec.ty),
@@ -107,7 +107,7 @@ pub async fn update_customer(
     id: InfraId,
     name: &str,
     updated_by: &Uuid,
-) -> anyhow::Result<Customer> {
+) -> anyhow::Result<QmCustomer> {
     check_max_size("Customer name", Some(name), NAME_MAX_LEN)?;
     let rec = sqlx::query!(
         r#"
@@ -130,7 +130,7 @@ RETURNING
     .fetch_one(pool)
     .await?;
 
-    Ok(Customer {
+    Ok(QmCustomer {
         id: rec.id.into(),
         name: Arc::from(rec.name),
         ty: Arc::from(rec.ty),
@@ -169,7 +169,7 @@ pub async fn create_organization(
     ty: Option<&str>,
     customer_id: InfraId,
     created_by: &Uuid,
-) -> anyhow::Result<Organization> {
+) -> anyhow::Result<QmOrganization> {
     check_max_size("Organization name", Some(name), NAME_MAX_LEN)?;
     check_max_size("Organization ty", ty, TY_MAX_LEN)?;
     if let Some(id) = id {
@@ -196,7 +196,7 @@ pub async fn create_organization(
         .fetch_one(pool)
         .await?;
 
-        Ok(Organization {
+        Ok(QmOrganization {
             id: rec.id.into(),
             customer_id: rec.customer_id.into(),
             name: Arc::from(rec.name),
@@ -229,7 +229,7 @@ pub async fn create_organization(
         .fetch_one(pool)
         .await?;
 
-        Ok(Organization {
+        Ok(QmOrganization {
             id: rec.id.into(),
             customer_id: rec.customer_id.into(),
             name: Arc::from(rec.name),
@@ -247,7 +247,7 @@ pub async fn update_organization(
     id: InfraId,
     name: &str,
     updated_by: &Uuid,
-) -> anyhow::Result<Organization> {
+) -> anyhow::Result<QmOrganization> {
     let rec = sqlx::query!(
         r#"
 UPDATE organizations AS v
@@ -270,7 +270,7 @@ RETURNING
     .fetch_one(pool)
     .await?;
 
-    Ok(Organization {
+    Ok(QmOrganization {
         id: rec.id.into(),
         customer_id: rec.customer_id.into(),
         name: Arc::from(rec.name),
@@ -311,7 +311,7 @@ pub async fn create_institution(
     customer_id: InfraId,
     organization_id: InfraId,
     created_by: &Uuid,
-) -> anyhow::Result<Institution> {
+) -> anyhow::Result<QmInstitution> {
     check_max_size("Institution name", Some(name), NAME_MAX_LEN)?;
     check_max_size("Institution ty", ty, TY_MAX_LEN)?;
     if let Some(id) = id {
@@ -340,7 +340,7 @@ RETURNING
         .fetch_one(pool)
         .await?;
 
-        Ok(Institution {
+        Ok(QmInstitution {
             id: rec.id.into(),
             customer_id: rec.customer_id.into(),
             organization_id: rec.organization_id.into(),
@@ -376,7 +376,7 @@ RETURNING
         .fetch_one(pool)
         .await?;
 
-        Ok(Institution {
+        Ok(QmInstitution {
             id: rec.id.into(),
             customer_id: rec.customer_id.into(),
             organization_id: rec.organization_id.into(),
@@ -395,7 +395,7 @@ pub async fn update_institution(
     id: InfraId,
     name: &str,
     updated_by: &Uuid,
-) -> anyhow::Result<Institution> {
+) -> anyhow::Result<QmInstitution> {
     check_max_size("Institution name", Some(name), NAME_MAX_LEN)?;
     let rec = sqlx::query!(
         r#"
@@ -420,7 +420,7 @@ RETURNING
     .fetch_one(pool)
     .await?;
 
-    Ok(Institution {
+    Ok(QmInstitution {
         id: rec.id.into(),
         customer_id: rec.customer_id.into(),
         organization_id: rec.organization_id.into(),
@@ -454,6 +454,7 @@ pub async fn remove_institutions(pool: &PgPool, ids: &[i64]) -> anyhow::Result<u
     Ok(result)
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn create_organization_unit(
     pool: &PgPool,
     id: Option<i64>,

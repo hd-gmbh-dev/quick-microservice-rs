@@ -31,10 +31,10 @@ use crate::context::RelatedStorage;
 use crate::groups::RelatedBuiltInGroup;
 use crate::marker::Marker;
 use crate::model::CreateOrganizationInput;
-use crate::model::Customer;
-use crate::model::Organization;
 use crate::model::OrganizationData;
-use crate::model::OrganizationList;
+use crate::model::QmCustomer;
+use crate::model::QmOrganization;
+use crate::model::QmOrganizationList;
 use crate::model::UpdateOrganizationInput;
 use crate::mutation::remove_organizations;
 use crate::mutation::update_organization;
@@ -42,12 +42,12 @@ use crate::roles;
 use crate::schema::auth::AuthCtx;
 
 #[ComplexObject]
-impl Organization {
+impl QmOrganization {
     async fn id(&self) -> async_graphql::FieldResult<OrganizationId> {
         Ok(self.into())
     }
 
-    async fn customer(&self, ctx: &Context<'_>) -> Option<Arc<Customer>> {
+    async fn customer(&self, ctx: &Context<'_>) -> Option<Arc<QmCustomer>> {
         let cache = ctx.data::<CacheDB>().ok();
         if cache.is_none() {
             tracing::warn!("qm::customer::cache::CacheDB is not installed in schema context");
@@ -78,7 +78,7 @@ where
         mut context: Option<CustomerId>,
         filter: Option<ListFilter>,
         ty: Option<String>,
-    ) -> async_graphql::FieldResult<OrganizationList> {
+    ) -> async_graphql::FieldResult<QmOrganizationList> {
         context = self.0.enforce_customer_context(context).await.extend()?;
         Ok(self
             .0
@@ -88,7 +88,7 @@ where
             .await)
     }
 
-    pub async fn by_id(&self, id: OrganizationId) -> Option<Arc<Organization>> {
+    pub async fn by_id(&self, id: OrganizationId) -> Option<Arc<QmOrganization>> {
         self.0.store.cache_db().organization_by_id(&id.into()).await
     }
 
@@ -101,7 +101,10 @@ where
             .is_some()
     }
 
-    pub async fn create(&self, organization: OrganizationData) -> EntityResult<Arc<Organization>> {
+    pub async fn create(
+        &self,
+        organization: OrganizationData,
+    ) -> EntityResult<Arc<QmOrganization>> {
         let user_id = self.0.auth.user_id().unwrap();
         let cid = organization.0;
         let name: Arc<str> = Arc::from(organization.1.clone());
@@ -158,7 +161,7 @@ where
         .await?;
         self.0.store.redis().unlock(&lock_key, &lock.id).await?;
         if exists {
-            return err!(name_conflict::<Organization>(name.to_string()));
+            return err!(name_conflict::<QmOrganization>(name.to_string()));
         }
         Ok(result)
     }
@@ -167,7 +170,7 @@ where
         &self,
         id: OrganizationId,
         name: String,
-    ) -> EntityResult<Arc<Organization>> {
+    ) -> EntityResult<Arc<QmOrganization>> {
         let user_id = self.0.auth.user_id().unwrap();
         let id: InfraId = id.into();
         let old = self
@@ -176,7 +179,7 @@ where
             .cache_db()
             .organization_by_id(&id)
             .await
-            .ok_or(EntityError::not_found_by_field::<Organization>(
+            .ok_or(EntityError::not_found_by_field::<QmOrganization>(
                 "name", &name,
             ))?;
         let result =
@@ -239,7 +242,7 @@ where
         &self,
         ctx: &Context<'_>,
         id: OrganizationId,
-    ) -> async_graphql::FieldResult<Option<Arc<Organization>>> {
+    ) -> async_graphql::FieldResult<Option<Arc<QmOrganization>>> {
         Ok(Ctx(
             &AuthCtx::<'_, Auth, Store, Resource, Permission>::new_with_role(
                 ctx,
@@ -270,13 +273,13 @@ where
         .await)
     }
 
-    async fn organizations(
+    async fn qm_organizations(
         &self,
         ctx: &Context<'_>,
         context: Option<CustomerId>,
         filter: Option<ListFilter>,
         ty: Option<String>,
-    ) -> async_graphql::FieldResult<OrganizationList> {
+    ) -> async_graphql::FieldResult<QmOrganizationList> {
         Ctx(
             &AuthCtx::<'_, Auth, Store, Resource, Permission>::new_with_role(
                 ctx,
@@ -319,7 +322,7 @@ where
         ctx: &Context<'_>,
         context: CustomerId,
         input: CreateOrganizationInput,
-    ) -> async_graphql::FieldResult<Arc<Organization>> {
+    ) -> async_graphql::FieldResult<Arc<QmOrganization>> {
         let auth_ctx = AuthCtx::<Auth, Store, Resource, Permission>::mutate_with_role(
             ctx,
             qm_entity::ids::InfraContext::Customer(context),
@@ -342,7 +345,7 @@ where
         ctx: &Context<'_>,
         context: OrganizationId,
         input: UpdateOrganizationInput,
-    ) -> async_graphql::FieldResult<Arc<Organization>> {
+    ) -> async_graphql::FieldResult<Arc<QmOrganization>> {
         let auth_ctx = AuthCtx::<'_, Auth, Store, Resource, Permission>::new_with_role(
             ctx,
             &qm_role::role!(Resource::organization(), Permission::update()),
@@ -371,7 +374,7 @@ where
                 let object_owner = InfraContext::Customer(id.parent());
                 auth_ctx.can_mutate(Some(&object_owner)).await.extend()?;
             } else {
-                return exerr!(not_found_by_id::<Organization>(id.to_string()));
+                return exerr!(not_found_by_id::<QmOrganization>(id.to_string()));
             }
         }
         Ctx(&auth_ctx).remove(ids).await.extend()

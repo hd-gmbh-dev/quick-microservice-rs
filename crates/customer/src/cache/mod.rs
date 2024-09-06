@@ -69,7 +69,7 @@ impl CacheDB {
         &self,
         filter: Option<ListFilter>,
         ty: Option<String>,
-    ) -> CustomerList {
+    ) -> QmCustomerList {
         let customers = self.inner.infra.customers.read().await;
         let iter = if let Some(ty) = ty.as_ref() {
             itertools::Either::Right(customers.values().filter(|c| c.ty.as_ref() == ty.as_str()))
@@ -80,16 +80,16 @@ impl CacheDB {
             let page = filter.page.unwrap_or(0);
             let limit = filter.limit.unwrap_or(100);
             let offset = page * limit;
-            let items: Arc<[Arc<Customer>]> = iter.skip(offset).take(limit).cloned().collect();
-            CustomerList {
+            let items: Arc<[Arc<QmCustomer>]> = iter.skip(offset).take(limit).cloned().collect();
+            QmCustomerList {
                 items,
                 limit: Some(limit as i64),
                 total: Some(self.inner.infra.customers_total.get()),
                 page: Some(page as i64),
             }
         } else {
-            let items: Arc<[Arc<Customer>]> = iter.cloned().collect();
-            CustomerList {
+            let items: Arc<[Arc<QmCustomer>]> = iter.cloned().collect();
+            QmCustomerList {
                 items,
                 limit: None,
                 total: Some(self.inner.infra.customers_total.get()),
@@ -103,7 +103,7 @@ impl CacheDB {
         customer_id: Option<CustomerId>,
         filter: Option<ListFilter>,
         ty: Option<String>,
-    ) -> OrganizationList {
+    ) -> QmOrganizationList {
         let organizations = self.inner.infra.organizations.read().await;
         let iter = if let Some(ty) = ty.as_ref() {
             itertools::Either::Right(
@@ -124,16 +124,17 @@ impl CacheDB {
             let page = filter.page.unwrap_or(0);
             let limit = filter.limit.unwrap_or(100);
             let offset = page * limit;
-            let items: Arc<[Arc<Organization>]> = iter.skip(offset).take(limit).cloned().collect();
-            OrganizationList {
+            let items: Arc<[Arc<QmOrganization>]> =
+                iter.skip(offset).take(limit).cloned().collect();
+            QmOrganizationList {
                 items,
                 limit: Some(limit as i64),
                 total: Some(total as i64),
                 page: Some(page as i64),
             }
         } else {
-            let items: Arc<[Arc<Organization>]> = iter.cloned().collect();
-            OrganizationList {
+            let items: Arc<[Arc<QmOrganization>]> = iter.cloned().collect();
+            QmOrganizationList {
                 items,
                 limit: None,
                 total: Some(total as i64),
@@ -198,7 +199,7 @@ impl CacheDB {
         customer_or_organization: Option<CustomerOrOrganization>,
         filter: Option<ListFilter>,
         ty: Option<String>,
-    ) -> InstitutionList {
+    ) -> QmInstitutionList {
         let institutions = self.inner.infra.institutions.read().await;
         let iter = if let Some(ty) = ty.as_ref() {
             itertools::Either::Right(
@@ -224,16 +225,16 @@ impl CacheDB {
             let page = filter.page.unwrap_or(0);
             let limit = filter.limit.unwrap_or(100);
             let offset = page * limit;
-            let items: Arc<[Arc<Institution>]> = iter.skip(offset).take(limit).cloned().collect();
-            InstitutionList {
+            let items: Arc<[Arc<QmInstitution>]> = iter.skip(offset).take(limit).cloned().collect();
+            QmInstitutionList {
                 items,
                 limit: Some(limit as i64),
                 total: Some(self.inner.infra.institutions_total.get()),
                 page: Some(page as i64),
             }
         } else {
-            let items: Arc<[Arc<Institution>]> = iter.cloned().collect();
-            InstitutionList {
+            let items: Arc<[Arc<QmInstitution>]> = iter.cloned().collect();
+            QmInstitutionList {
                 items,
                 limit: None,
                 total: Some(self.inner.infra.institutions_total.get()),
@@ -325,7 +326,7 @@ impl CacheDB {
         }
     }
 
-    pub async fn customer_by_id(&self, id: &InfraId) -> Option<Arc<Customer>> {
+    pub async fn customer_by_id(&self, id: &InfraId) -> Option<Arc<QmCustomer>> {
         self.inner
             .infra
             .customer_id_map
@@ -335,11 +336,11 @@ impl CacheDB {
             .cloned()
     }
 
-    pub async fn customer_by_name(&self, name: &str) -> Option<Arc<Customer>> {
+    pub async fn customer_by_name(&self, name: &str) -> Option<Arc<QmCustomer>> {
         self.inner.infra.customers.read().await.get(name).cloned()
     }
 
-    pub async fn organization_by_id(&self, id: &InfraId) -> Option<Arc<Organization>> {
+    pub async fn organization_by_id(&self, id: &InfraId) -> Option<Arc<QmOrganization>> {
         self.inner
             .infra
             .organization_id_map
@@ -368,7 +369,7 @@ impl CacheDB {
         &self,
         cid: InfraId,
         name: Arc<str>,
-    ) -> Option<Arc<Organization>> {
+    ) -> Option<Arc<QmOrganization>> {
         self.inner
             .infra
             .organizations
@@ -383,7 +384,7 @@ impl CacheDB {
         cid: InfraId,
         oid: InfraId,
         name: Arc<str>,
-    ) -> Option<Arc<Institution>> {
+    ) -> Option<Arc<QmInstitution>> {
         self.inner
             .infra
             .institutions
@@ -393,7 +394,7 @@ impl CacheDB {
             .cloned()
     }
 
-    pub async fn institution_by_id(&self, id: &InfraId) -> Option<Arc<Institution>> {
+    pub async fn institution_by_id(&self, id: &InfraId) -> Option<Arc<QmInstitution>> {
         self.inner
             .infra
             .institution_id_map

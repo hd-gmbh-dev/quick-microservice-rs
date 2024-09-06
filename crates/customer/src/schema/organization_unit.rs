@@ -30,10 +30,10 @@ use crate::context::RelatedStorage;
 use crate::groups::RelatedBuiltInGroup;
 use crate::marker::Marker;
 use crate::model::CreateOrganizationUnitInput;
-use crate::model::Institution;
 use crate::model::OrganizationUnit;
 use crate::model::OrganizationUnitData;
 use crate::model::OrganizationUnitList;
+use crate::model::QmInstitution;
 use crate::model::UpdateOrganizationUnitInput;
 use crate::mutation::remove_organization_units;
 use crate::mutation::update_organization_unit;
@@ -48,7 +48,7 @@ impl OrganizationUnit {
     async fn institutions(
         &self,
         ctx: &Context<'_>,
-    ) -> async_graphql::FieldResult<Vec<Arc<Institution>>> {
+    ) -> async_graphql::FieldResult<Vec<Arc<QmInstitution>>> {
         let cache = ctx.data_unchecked::<CacheDB>();
         let organization_unit = cache.organization_unit_by_id(&self.id).await;
         if let Some(organization_unit) = organization_unit {
