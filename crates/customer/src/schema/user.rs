@@ -582,7 +582,7 @@ where
         }
         let access = if let Some(context) = context.as_ref() {
             let access = Access::new(access_level).with_fmt_id(Some(&context));
-            if (!auth_ctx.auth.has_access(&access)) {
+            if !auth_ctx.auth.has_access(&access) {
                 return err!(unauthorized(&auth_ctx.auth).extend());
             }
             access
