@@ -55,7 +55,6 @@ impl From<InstitutionId> for OwnerId {
             cid: Some(cid),
             oid: Some(oid),
             iid: Some(iid),
-            ..Default::default()
         }
     }
 }
