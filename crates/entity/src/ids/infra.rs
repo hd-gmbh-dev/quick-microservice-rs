@@ -10,11 +10,6 @@
 //! |  S   | CustomerId + OrganizationId + ID (24 Characters)                      | OrganizationResourceId    |     29     |     59     |     28     |
 //! |  R   | CustomerId + OrganizationId + InstitutionId                           | InstitutionId             |     7      |     52     |     24     |
 //! |  Q   | CustomerId + OrganizationId + InstitutionId + ID (24 Characters)      | InstitutionResourceId     |     31     |     76     |     36     |
-//! |  P   | CustomerId + OrganizationId + OrganizationUnitId                      | InstitutionUnitId         |     7      |     52     |     24     |
-//! |  O   | CustomerId + OrganizationId + OrganizationUnitId + ID (24 Characters) | InstitutionUnitResourceId |     31     |     76     |     36     |
-//! |  N   | CustomerId + OrganizationUnitId                                       | CustomerUnitId            |     5      |     35     |     16     |
-//! |  M   | CustomerId + OrganizationUnitId + ID (24 Characters)                  | CustomerUnitResourceId    |     29     |     59     |     28     |
-//!
 
 use async_graphql::OneofObject;
 
@@ -32,10 +27,6 @@ pub const ORGANIZATION_ID_PREFIX: char = 'T';
 pub const ORGANIZATION_RESOURCE_ID_PREFIX: char = 'S';
 pub const INSTITUTION_ID_PREFIX: char = 'R';
 pub const INSTITUTION_RESOURCE_ID_PREFIX: char = 'Q';
-pub const INSTITUTION_UNIT_ID_PREFIX: char = 'P';
-pub const INSTITUTION_UNIT_RESOURCE_ID_PREFIX: char = 'O';
-pub const CUSTOMER_UNIT_ID_PREFIX: char = 'N';
-pub const CUSTOMER_UNIT_RESOURCE_ID_PREFIX: char = 'M';
 pub const ID_LENGTH: usize = 24;
 
 #[derive(
@@ -177,42 +168,6 @@ macro_rules! impl_institution_id_from_ty_tuple {
     };
 }
 
-macro_rules! impl_institution_unit_id_from_ty_tuple {
-    ($n:ty) => {
-        impl From<($n, $n, $n)> for InstitutionUnitId {
-            fn from(value: ($n, $n, $n)) -> Self {
-                InstitutionUnitId {
-                    cid: value.0 as i64,
-                    oid: value.1 as i64,
-                    uid: value.2 as i64,
-                }
-            }
-        }
-        impl From<(($n, $n), $n)> for InstitutionUnitId {
-            fn from(value: (($n, $n), $n)) -> Self {
-                InstitutionUnitId {
-                    cid: value.0 .0 as i64,
-                    oid: value.0 .1 as i64,
-                    uid: value.1 as i64,
-                }
-            }
-        }
-    };
-}
-
-macro_rules! impl_customer_unit_id_from_ty_tuple {
-    ($n:ty) => {
-        impl From<($n, $n)> for CustomerUnitId {
-            fn from(value: ($n, $n)) -> Self {
-                CustomerUnitId {
-                    cid: value.0 as i64,
-                    uid: value.1 as i64,
-                }
-            }
-        }
-    };
-}
-
 macro_rules! impl_customer_resource_id_from_ty_tuple {
     ($n:ty) => {
         impl From<($n, ID)> for CustomerResourceId {
@@ -314,6 +269,12 @@ impl FromStr for CustomerId {
             .next()
             .map(From::from)
             .ok_or(anyhow::anyhow!("unable to parse '{s}' into CustomerId"))
+    }
+}
+
+impl From<CustomerId> for i64 {
+    fn from(value: CustomerId) -> Self {
+        value.unzip()
     }
 }
 
@@ -505,6 +466,12 @@ impl FromStr for OrganizationId {
             .zip(parser.next())
             .map(From::from)
             .ok_or(anyhow::anyhow!("unable to get OrganizationId from '{s}'"))
+    }
+}
+
+impl From<OrganizationId> for i64 {
+    fn from(value: OrganizationId) -> Self {
+        value.id()
     }
 }
 
@@ -713,6 +680,12 @@ impl FromStr for InstitutionId {
     }
 }
 
+impl From<InstitutionId> for i64 {
+    fn from(value: InstitutionId) -> Self {
+        value.id()
+    }
+}
+
 impl<'a> From<&'a InstitutionId> for InfraId {
     fn from(value: &'a InstitutionId) -> Self {
         InfraId(value.iid)
@@ -829,483 +802,11 @@ impl_institution_resource_id_from_ty_tuple!(i16);
 impl_institution_resource_id_from_ty_tuple!(u8);
 impl_institution_resource_id_from_ty_tuple!(i8);
 
-/// Institution Unit Id
-///
-/// - Prefix: P
-/// - Min Length: 7
-/// - Max Length: 52
-/// - Real size: 24
-///
-/// # Examples
-///
-/// ```rust
-/// use std::str::FromStr;
-/// use qm_entity::ids::InstitutionUnitId;
-///
-/// let id1 = InstitutionUnitId::parse("P010203").expect("Institution Unit Id");
-/// let id2 = InstitutionUnitId::parse("P120121122").expect("Institution Unit Id");
-/// let id3 = InstitutionUnitId::parse("P250025012502").expect("Institution Unit Id");
-///
-/// assert_eq!((1, 2, 3), id1.unzip());
-/// assert_eq!((0x20, 0x21, 0x22), id2.unzip());
-/// assert_eq!((0x500, 0x501, 0x502), id3.unzip());
-/// ```
-#[derive(
-    Debug,
-    Default,
-    Clone,
-    Copy,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    serde::Serialize,
-    serde::Deserialize,
-    async_graphql::Description,
-)]
-pub struct InstitutionUnitId {
-    cid: i64,
-    oid: i64,
-    uid: i64,
-}
-
-impl InstitutionUnitId {
-    pub fn root(&self) -> CustomerId {
-        CustomerId::from(self.cid)
-    }
-
-    pub fn parent(&self) -> OrganizationId {
-        OrganizationId::from((self.cid, self.oid))
-    }
-
-    fn to_hex(self) -> String {
-        StringWriter::from((self.cid, self.oid, self.uid)).into_inner()
-    }
-
-    pub fn unzip(&self) -> (i64, i64, i64) {
-        (self.cid, self.oid, self.uid)
-    }
-}
-
-impl FromStr for InstitutionUnitId {
-    type Err = anyhow::Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if !s.starts_with(Self::PREFIX) {
-            anyhow::bail!("Invalid InstitutionUnitId")
-        }
-        let mut parser = StringParser::<3>::new(&s[1..]);
-        parser
-            .next()
-            .zip(parser.next())
-            .zip(parser.next())
-            .map(From::from)
-            .ok_or(anyhow::anyhow!(
-                "unable to get InstitutionUnitId from '{s}'"
-            ))
-    }
-}
-
-impl<'a> From<&'a InstitutionUnitId> for InfraId {
-    fn from(value: &'a InstitutionUnitId) -> Self {
-        InfraId(value.uid)
-    }
-}
-
-impl From<InstitutionUnitId> for InfraId {
-    fn from(value: InstitutionUnitId) -> Self {
-        InfraId(value.uid)
-    }
-}
-
-impl_id!(InstitutionUnitId, INSTITUTION_UNIT_ID_PREFIX);
-impl_display_for_id!(InstitutionUnitId);
-impl_institution_unit_id_from_ty_tuple!(i64);
-impl_institution_unit_id_from_ty_tuple!(u64);
-impl_institution_unit_id_from_ty_tuple!(i32);
-impl_institution_unit_id_from_ty_tuple!(u32);
-impl_institution_unit_id_from_ty_tuple!(u16);
-impl_institution_unit_id_from_ty_tuple!(i16);
-impl_institution_unit_id_from_ty_tuple!(u8);
-impl_institution_unit_id_from_ty_tuple!(i8);
-
-/// Institution Unit Resource Id
-///
-/// - Prefix: O
-/// - Min Length: 31
-/// - Max Length: 76
-/// - Real size: 36
-///
-/// # Examples
-///
-/// ```rust
-/// use std::str::FromStr;
-/// use qm_entity::ids::{InstitutionUnitResourceId, ID};
-///
-/// let id1 = InstitutionUnitResourceId::parse("O0102036603f7b32b1753f84a719e01").expect("Institution Unit Resource Id");
-/// let id2 = InstitutionUnitResourceId::parse("O1201211226603f7b32b1753f84a719e02").expect("Institution Unit Resource Id");
-/// let id3 = InstitutionUnitResourceId::parse("O2500250125026603f7b32b1753f84a719e03").expect("Institution Unit Resource Id");
-///
-/// assert_eq!((1, 2, 3, ID::from_str("6603f7b32b1753f84a719e01").expect("Object ID")), id1.unzip());
-/// assert_eq!((0x20, 0x21, 0x22, ID::from_str("6603f7b32b1753f84a719e02").expect("Object ID")), id2.unzip());
-/// assert_eq!((0x500, 0x501, 0x502, ID::from_str("6603f7b32b1753f84a719e03").expect("Object ID")), id3.unzip());
-/// ```
-#[derive(
-    Debug,
-    Default,
-    Clone,
-    Copy,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    serde::Serialize,
-    serde::Deserialize,
-    async_graphql::Description,
-)]
-pub struct InstitutionUnitResourceId {
-    cid: i64,
-    oid: i64,
-    uid: i64,
-    id: ID,
-}
-
-impl InstitutionUnitResourceId {
-    pub fn root(&self) -> CustomerId {
-        CustomerId::from(self.cid)
-    }
-
-    pub fn parent(&self) -> InstitutionUnitId {
-        InstitutionUnitId::from((self.cid, self.oid, self.uid))
-    }
-
-    pub fn unzip(&self) -> (i64, i64, i64, ID) {
-        (self.cid, self.oid, self.uid, self.id)
-    }
-}
-
-impl FromStr for InstitutionUnitResourceId {
-    type Err = anyhow::Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if !s.starts_with(Self::PREFIX) {
-            anyhow::bail!("Invalid InstitutionUnitResourceId")
-        }
-        let mut parser = StringParser::<3>::new(&s[1..]).with_object_id();
-        let InstitutionUnitId { cid, oid, uid }: InstitutionUnitId = parser
-            .next()
-            .zip(parser.next())
-            .zip(parser.next())
-            .map(From::from)
-            .ok_or(anyhow::anyhow!(
-                "unable to parse '{s}' into InstitutionUnitResourceId"
-            ))?;
-        let start = parser.end();
-        let end = start + ID_LENGTH;
-        if end > s.len() {
-            anyhow::bail!("Invalid length for InstitutionUnitResourceId");
-        }
-        let id = ID::from_str(&s[start..end])?;
-        Ok(Self { cid, oid, uid, id })
-    }
-}
-
-impl_id!(
-    InstitutionUnitResourceId,
-    INSTITUTION_UNIT_RESOURCE_ID_PREFIX
-);
-impl_display_for_resource_id!(InstitutionUnitResourceId);
-
-/// Customer Unit Id
-///
-/// - Prefix: N
-/// - Min Length: 5
-/// - Max Length: 35
-/// - Real size: 16
-///
-/// # Examples
-///
-/// ```rust
-/// use std::str::FromStr;
-/// use qm_entity::ids::CustomerUnitId;
-///
-/// let id1 = CustomerUnitId::parse("N0102").expect("Customer Unit Id");
-/// let id2 = CustomerUnitId::parse("N120121").expect("Customer Unit Id");
-/// let id3 = CustomerUnitId::parse("N25002501").expect("Customer Unit Id");
-///
-/// assert_eq!((1, 2), id1.unzip());
-/// assert_eq!((0x20, 0x21), id2.unzip());
-/// assert_eq!((0x500, 0x501), id3.unzip());
-/// ```
-#[derive(
-    Debug,
-    Default,
-    Clone,
-    Copy,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    serde::Serialize,
-    serde::Deserialize,
-    async_graphql::Description,
-)]
-pub struct CustomerUnitId {
-    cid: i64,
-    uid: i64,
-}
-
-impl CustomerUnitId {
-    pub fn root(&self) -> CustomerId {
-        CustomerId::from(self.cid)
-    }
-
-    pub fn parent(&self) -> CustomerId {
-        self.root()
-    }
-
-    fn to_hex(self) -> String {
-        StringWriterResult::<2>::from_iter([self.cid, self.uid])
-            .into_inner()
-            .unwrap()
-            .into_inner()
-    }
-
-    pub fn unzip(&self) -> (i64, i64) {
-        (self.cid, self.uid)
-    }
-}
-
-impl FromStr for CustomerUnitId {
-    type Err = anyhow::Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if !s.starts_with(Self::PREFIX) {
-            anyhow::bail!("Invalid CustomerUnitId")
-        }
-        let mut parser = StringParser::<2>::new(&s[1..]);
-        parser
-            .next()
-            .zip(parser.next())
-            .map(From::from)
-            .ok_or(anyhow::anyhow!("unable to get CustomerUnitId from '{s}'"))
-    }
-}
-
-impl<'a> From<&'a CustomerUnitId> for InfraId {
-    fn from(value: &'a CustomerUnitId) -> Self {
-        InfraId(value.uid)
-    }
-}
-
-impl From<CustomerUnitId> for InfraId {
-    fn from(value: CustomerUnitId) -> Self {
-        InfraId(value.uid)
-    }
-}
-
-impl_id!(CustomerUnitId, CUSTOMER_UNIT_ID_PREFIX);
-impl_display_for_id!(CustomerUnitId);
-impl_customer_unit_id_from_ty_tuple!(i64);
-impl_customer_unit_id_from_ty_tuple!(u64);
-impl_customer_unit_id_from_ty_tuple!(i32);
-impl_customer_unit_id_from_ty_tuple!(u32);
-impl_customer_unit_id_from_ty_tuple!(u16);
-impl_customer_unit_id_from_ty_tuple!(i16);
-impl_customer_unit_id_from_ty_tuple!(u8);
-impl_customer_unit_id_from_ty_tuple!(i8);
-
-/// Customer Unit Resource Id
-///
-/// - Prefix: M
-/// - Min Length: 29
-/// - Max Length: 59
-/// - Real size: 28
-///
-/// # Examples
-///
-/// ```rust
-/// use std::str::FromStr;
-/// use qm_entity::ids::{CustomerUnitResourceId, ID};
-///
-/// let id1 = CustomerUnitResourceId::parse("M01026603f7b32b1753f84a719e01").expect("Customer Unit Resource Id");
-/// let id2 = CustomerUnitResourceId::parse("M1201216603f7b32b1753f84a719e02").expect("Customer Unit Resource Id");
-/// let id3 = CustomerUnitResourceId::parse("M250025016603f7b32b1753f84a719e03").expect("Customer Unit Resource Id");
-///
-/// assert_eq!((1, 2, ID::from_str("6603f7b32b1753f84a719e01").expect("Object ID")), id1.unzip());
-/// assert_eq!((0x20, 0x21, ID::from_str("6603f7b32b1753f84a719e02").expect("Object ID")), id2.unzip());
-/// assert_eq!((0x500, 0x501, ID::from_str("6603f7b32b1753f84a719e03").expect("Object ID")), id3.unzip());
-/// ```
-#[derive(
-    Debug,
-    Default,
-    Clone,
-    Copy,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    serde::Serialize,
-    serde::Deserialize,
-    async_graphql::Description,
-)]
-pub struct CustomerUnitResourceId {
-    cid: i64,
-    uid: i64,
-    id: ID,
-}
-
-impl CustomerUnitResourceId {
-    pub fn root(&self) -> CustomerId {
-        CustomerId::from(self.cid)
-    }
-
-    pub fn parent(&self) -> CustomerUnitId {
-        CustomerUnitId::from((self.cid, self.uid))
-    }
-
-    pub fn unzip(&self) -> (i64, i64, ID) {
-        (self.cid, self.uid, self.id)
-    }
-}
-
-impl FromStr for CustomerUnitResourceId {
-    type Err = anyhow::Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if !s.starts_with(Self::PREFIX) {
-            anyhow::bail!("Invalid CustomerUnitResourceId")
-        }
-        let mut parser = StringParser::<2>::new(&s[1..]).with_object_id();
-        let CustomerUnitId { cid, uid }: CustomerUnitId = parser
-            .next()
-            .zip(parser.next())
-            .map(From::from)
-            .ok_or(anyhow::anyhow!(
-                "unable to parse '{s}' into CustomerUnitResourceId"
-            ))?;
-        let start = parser.end();
-        let end = start + ID_LENGTH;
-        if end > s.len() {
-            anyhow::bail!("Invalid length for CustomerUnitResourceId");
-        }
-        let id = ID::from_str(&s[start..end])?;
-        Ok(Self { cid, uid, id })
-    }
-}
-
-impl_id!(CustomerUnitResourceId, CUSTOMER_UNIT_RESOURCE_ID_PREFIX);
-impl_display_for_resource_id!(CustomerUnitResourceId);
-
-/// Organization Unit Id.
-#[derive(
-    Debug,
-    Clone,
-    Copy,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    serde::Serialize,
-    serde::Deserialize,
-    async_graphql::Description,
-)]
-pub enum OrganizationUnitId {
-    Customer(CustomerUnitId),
-    Organization(InstitutionUnitId),
-}
-
-impl From<(i64, i64)> for OrganizationUnitId {
-    fn from(value: (i64, i64)) -> Self {
-        Self::Customer(value.into())
-    }
-}
-
-impl From<(i64, i64, i64)> for OrganizationUnitId {
-    fn from(value: (i64, i64, i64)) -> Self {
-        Self::Organization(value.into())
-    }
-}
-
-impl OrganizationUnitId {
-    pub fn id(&self) -> i64 {
-        match self {
-            Self::Customer(v) => v.uid,
-            Self::Organization(v) => v.uid,
-        }
-    }
-
-    pub fn parent(&self) -> InfraContext {
-        match self {
-            Self::Customer(v) => InfraContext::Customer(v.parent()),
-            Self::Organization(v) => InfraContext::Organization(v.parent()),
-        }
-    }
-
-    pub fn untuple(&self) -> (i64, i64) {
-        match self {
-            Self::Customer(v) => (v.cid, v.uid),
-            Self::Organization(v) => (v.cid, v.uid),
-        }
-    }
-
-    pub fn parse(value: &str) -> anyhow::Result<Self> {
-        Self::from_str(value)
-    }
-}
-
-impl std::fmt::Display for OrganizationUnitId {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Customer(v) => v.fmt(f),
-            Self::Organization(v) => v.fmt(f),
-        }
-    }
-}
-
-impl std::str::FromStr for OrganizationUnitId {
-    type Err = anyhow::Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if s.starts_with(CustomerUnitId::PREFIX) {
-            return Ok(Self::Customer(CustomerUnitId::from_str(s)?));
-        }
-        if s.starts_with(InstitutionUnitId::PREFIX) {
-            return Ok(Self::Organization(InstitutionUnitId::from_str(s)?));
-        }
-        anyhow::bail!("Invalid OrganizationUnitId")
-    }
-}
-
-impl<'a> From<&'a OrganizationUnitId> for InfraId {
-    fn from(value: &'a OrganizationUnitId) -> Self {
-        match value {
-            OrganizationUnitId::Customer(v) => v.into(),
-            OrganizationUnitId::Organization(v) => v.into(),
-        }
-    }
-}
-
-impl From<OrganizationUnitId> for InfraId {
-    fn from(value: OrganizationUnitId) -> Self {
-        match value {
-            OrganizationUnitId::Customer(v) => v.into(),
-            OrganizationUnitId::Organization(v) => v.into(),
-        }
-    }
-}
-
 #[derive(Debug, Clone, Copy, OneofObject, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum InfraContext {
     Customer(CustomerId),
     Organization(OrganizationId),
     Institution(InstitutionId),
-    OrganizationUnit(OrganizationUnitId),
 }
 
 impl InfraContext {
@@ -1314,10 +815,6 @@ impl InfraContext {
             InfraContext::Customer(b) => b.cid.into(),
             InfraContext::Organization(b) => b.cid.into(),
             InfraContext::Institution(b) => b.cid.into(),
-            InfraContext::OrganizationUnit(v) => match v {
-                OrganizationUnitId::Customer(b) => b.cid.into(),
-                OrganizationUnitId::Organization(b) => b.cid.into(),
-            },
         }
     }
 
@@ -1326,22 +823,6 @@ impl InfraContext {
             InfraContext::Customer(_) => None,
             InfraContext::Organization(b) => Some(b.oid.into()),
             InfraContext::Institution(b) => Some(b.oid.into()),
-            InfraContext::OrganizationUnit(v) => match v {
-                OrganizationUnitId::Customer(_) => None,
-                OrganizationUnitId::Organization(b) => Some(b.oid.into()),
-            },
-        }
-    }
-
-    pub fn organization_unit_id(&self) -> Option<InfraId> {
-        match self {
-            InfraContext::Customer(_) => None,
-            InfraContext::Organization(_) => None,
-            InfraContext::Institution(_) => None,
-            InfraContext::OrganizationUnit(v) => match v {
-                OrganizationUnitId::Customer(b) => Some(b.uid.into()),
-                OrganizationUnitId::Organization(b) => Some(b.uid.into()),
-            },
         }
     }
 
@@ -1350,10 +831,30 @@ impl InfraContext {
             InfraContext::Customer(_) => None,
             InfraContext::Organization(_) => None,
             InfraContext::Institution(b) => Some(b.iid.into()),
-            InfraContext::OrganizationUnit(v) => match v {
-                OrganizationUnitId::Customer(_) => None,
-                OrganizationUnitId::Organization(_) => None,
-            },
+        }
+    }
+
+    pub fn is_customer(&self) -> bool {
+        match self {
+            InfraContext::Customer(_) => true,
+            InfraContext::Organization(_) => false,
+            InfraContext::Institution(_) => false,
+        }
+    }
+
+    pub fn is_organization(&self) -> bool {
+        match self {
+            InfraContext::Customer(_) => false,
+            InfraContext::Organization(_) => true,
+            InfraContext::Institution(_) => false,
+        }
+    }
+
+    pub fn is_institution(&self) -> bool {
+        match self {
+            InfraContext::Customer(_) => false,
+            InfraContext::Organization(_) => false,
+            InfraContext::Institution(_) => true,
         }
     }
 
@@ -1362,10 +863,6 @@ impl InfraContext {
             InfraContext::Customer(b) => a.cid == b.cid,
             InfraContext::Organization(b) => a.cid == b.cid,
             InfraContext::Institution(b) => a.cid == b.cid,
-            InfraContext::OrganizationUnit(v) => match v {
-                OrganizationUnitId::Customer(b) => a.cid == b.cid,
-                OrganizationUnitId::Organization(b) => a.cid == b.cid,
-            },
         }
     }
     pub fn has_organization(&self, a: &OrganizationId) -> bool {
@@ -1373,18 +870,6 @@ impl InfraContext {
             InfraContext::Customer(_) => false,
             InfraContext::Organization(b) => a == b,
             InfraContext::Institution(b) => a.cid == b.cid && a.oid == b.oid,
-            InfraContext::OrganizationUnit(v) => match v {
-                OrganizationUnitId::Customer(_) => false,
-                OrganizationUnitId::Organization(b) => a.cid == b.cid && a.oid == b.oid,
-            },
-        }
-    }
-    pub fn has_organization_unit(&self, a: &OrganizationUnitId) -> bool {
-        match self {
-            InfraContext::Customer(_) => false,
-            InfraContext::Organization(_) => false,
-            InfraContext::Institution(_) => false,
-            InfraContext::OrganizationUnit(b) => a == b,
         }
     }
     pub fn has_institution(&self, a: &InstitutionId) -> bool {
@@ -1392,7 +877,14 @@ impl InfraContext {
             InfraContext::Customer(_) => false,
             InfraContext::Organization(_) => false,
             InfraContext::Institution(b) => a == b,
-            InfraContext::OrganizationUnit(_) => false,
+        }
+    }
+
+    pub fn ns(&self) -> &'static str {
+        match self {
+            InfraContext::Customer(_) => "customer",
+            InfraContext::Organization(_) => "organization",
+            InfraContext::Institution(_) => "institution",
         }
     }
 
@@ -1420,13 +912,6 @@ impl InfraContext {
                     self
                 }
             }
-            InfraContext::OrganizationUnit(v) => {
-                if query_context.has_organization_unit(v) {
-                    query_context
-                } else {
-                    self
-                }
-            }
         }
     }
 }
@@ -1437,7 +922,6 @@ impl std::fmt::Display for InfraContext {
             Self::Customer(v) => v.fmt(f),
             Self::Organization(v) => v.fmt(f),
             Self::Institution(v) => v.fmt(f),
-            Self::OrganizationUnit(v) => v.fmt(f),
         }
     }
 }
@@ -1445,6 +929,38 @@ impl std::fmt::Display for InfraContext {
 impl InfraContext {
     pub fn parse(s: &str) -> anyhow::Result<Self> {
         Self::from_str(s)
+    }
+}
+
+impl From<CustomerId> for InfraContext {
+    fn from(value: CustomerId) -> Self {
+        InfraContext::Customer(value)
+    }
+}
+impl From<OrganizationId> for InfraContext {
+    fn from(value: OrganizationId) -> Self {
+        InfraContext::Organization(value)
+    }
+}
+impl From<InstitutionId> for InfraContext {
+    fn from(value: InstitutionId) -> Self {
+        InfraContext::Institution(value)
+    }
+}
+
+impl<'a> From<&'a CustomerId> for InfraContext {
+    fn from(value: &'a CustomerId) -> Self {
+        InfraContext::Customer(*value)
+    }
+}
+impl<'a> From<&'a OrganizationId> for InfraContext {
+    fn from(value: &'a OrganizationId) -> Self {
+        InfraContext::Organization(*value)
+    }
+}
+impl<'a> From<&'a InstitutionId> for InfraContext {
+    fn from(value: &'a InstitutionId) -> Self {
+        InfraContext::Institution(*value)
     }
 }
 
@@ -1457,10 +973,6 @@ impl std::str::FromStr for InfraContext {
                 CustomerId::PREFIX => CustomerId::parse(s).map(InfraContext::Customer),
                 OrganizationId::PREFIX => OrganizationId::parse(s).map(InfraContext::Organization),
                 InstitutionId::PREFIX => InstitutionId::parse(s).map(InfraContext::Institution),
-                CustomerUnitId::PREFIX => CustomerUnitId::parse(s)
-                    .map(|v| InfraContext::OrganizationUnit(OrganizationUnitId::Customer(v))),
-                InstitutionUnitId::PREFIX => InstitutionUnitId::parse(s)
-                    .map(|v| InfraContext::OrganizationUnit(OrganizationUnitId::Organization(v))),
                 _ => anyhow::bail!("invalid prefix '{first_char}'"),
             };
         }
@@ -1640,10 +1152,6 @@ mod tests {
         assert_eq!('S', OrganizationResourceId::PREFIX);
         assert_eq!('R', InstitutionId::PREFIX);
         assert_eq!('Q', InstitutionResourceId::PREFIX);
-        assert_eq!('P', InstitutionUnitId::PREFIX);
-        assert_eq!('O', InstitutionUnitResourceId::PREFIX);
-        assert_eq!('N', CustomerUnitId::PREFIX);
-        assert_eq!('M', CustomerUnitResourceId::PREFIX);
     }
 
     #[test]
@@ -1654,10 +1162,6 @@ mod tests {
         assert_eq!(None, OrganizationResourceId::parse("T01").ok());
         assert_eq!(None, InstitutionId::parse("Q01").ok());
         assert_eq!(None, InstitutionResourceId::parse("R01").ok());
-        assert_eq!(None, InstitutionUnitId::parse("O01").ok());
-        assert_eq!(None, InstitutionUnitResourceId::parse("P01").ok());
-        assert_eq!(None, CustomerUnitId::parse("M01").ok());
-        assert_eq!(None, CustomerUnitResourceId::parse("N01").ok());
     }
 
     #[test]
@@ -1915,177 +1419,5 @@ mod tests {
         assert_eq!(id1.root(), CustomerId { cid: 1 });
         assert_eq!(id1.parent(), InstitutionId { cid: 1, oid: 1, iid: 1 });
         assert_eq!(id1.unzip(), (1, 1, 1, oid1));
-    }
-
-    #[test]
-    fn test_institution_unit_id() {
-        let id1 = InstitutionUnitId::parse("P010101").unwrap();
-        let id2 = InstitutionUnitId::parse("P120120120").unwrap();
-        let id3 = InstitutionUnitId::parse("P250025002500").unwrap();
-        let id4 = InstitutionUnitId::parse("P360003600036000").unwrap();
-        let id5 = InstitutionUnitId::parse("P48000F48000F48000F").unwrap();
-        let id6 = InstitutionUnitId::parse("P5AF000F5AF000F5AF000F").unwrap();
-        let id7 = InstitutionUnitId::parse("P6B5F000F6B5F000F6B5F000F").unwrap();
-        let id8 = InstitutionUnitId::parse("PF7FFFFFFFFFFFFFFFF7FFFFFFFFFFFFFFFF7FFFFFFFFFFFFFFF").unwrap();
-        assert_eq!(InstitutionUnitId { cid: 1, oid: 1, uid: 1, }, id1);
-        assert_eq!(InstitutionUnitId { cid: 0x20, oid: 0x20, uid: 0x20, }, id2);
-        assert_eq!(InstitutionUnitId { cid: 0x500, oid: 0x500, uid: 0x500, }, id3);
-        assert_eq!(InstitutionUnitId { cid: 0x6000, oid: 0x6000, uid: 0x6000, }, id4);
-        assert_eq!(InstitutionUnitId { cid: 0x8000F, oid: 0x8000F, uid: 0x8000F, }, id5);
-        assert_eq!(InstitutionUnitId { cid: 0xAF000F, oid: 0xAF000F, uid: 0xAF000F, }, id6);
-        assert_eq!(InstitutionUnitId { cid: 0xB5F000F, oid: 0xB5F000F, uid: 0xB5F000F, }, id7);
-        assert_eq!(InstitutionUnitId { cid: i64::MAX, oid: i64::MAX, uid: i64::MAX }, id8);
-        assert_eq!(id1.to_string(), "P010101");
-        assert_eq!(id2.to_string(), "P120120120");
-        assert_eq!(id3.to_string(), "P250025002500");
-        assert_eq!(id4.to_string(), "P360003600036000");
-        assert_eq!(id5.to_string(), "P48000F48000F48000F");
-        assert_eq!(id6.to_string(), "P5AF000F5AF000F5AF000F");
-        assert_eq!(id7.to_string(), "P6B5F000F6B5F000F6B5F000F");
-        assert_eq!(id8.to_string(), "PF7FFFFFFFFFFFFFFFF7FFFFFFFFFFFFFFFF7FFFFFFFFFFFFFFF");
-        assert_eq!(None, InstitutionUnitId::parse("PF8FFFFFFFFFFFFFFF8FFFFFFFFFFFFFFF8FFFFFFFFFFFFFFF").ok());
-        assert_eq!(None, InstitutionUnitId::parse("PF9FFFFFFFFFFFFFFF9FFFFFFFFFFFFFFF9FFFFFFFFFFFFFFF").ok());
-        assert_eq!(None, InstitutionUnitId::parse("PFAFFFFFFFFFFFFFFFAFFFFFFFFFFFFFFFAFFFFFFFFFFFFFFF").ok());
-        assert_eq!(None, InstitutionUnitId::parse("PFBFFFFFFFFFFFFFFFBFFFFFFFFFFFFFFFBFFFFFFFFFFFFFFF").ok());
-        assert_eq!(None, InstitutionUnitId::parse("PFCFFFFFFFFFFFFFFFCFFFFFFFFFFFFFFFCFFFFFFFFFFFFFFF").ok());
-        assert_eq!(None, InstitutionUnitId::parse("PFDFFFFFFFFFFFFFFFDFFFFFFFFFFFFFFFDFFFFFFFFFFFFFFF").ok());
-        assert_eq!(None, InstitutionUnitId::parse("PFEFFFFFFFFFFFFFFFEFFFFFFFFFFFFFFFEFFFFFFFFFFFFFFF").ok());
-        assert_eq!(None, InstitutionUnitId::parse("PFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF").ok());
-        assert_eq!(None, InstitutionUnitId::parse("P0FF").ok());
-        assert_eq!(None, InstitutionUnitId::parse("PF0").ok());
-        assert_eq!(id1.root(), CustomerId { cid: 1 });
-        assert_eq!(id1.parent(), OrganizationId { cid: 1, oid: 1 });
-        assert_eq!(id1.unzip(), (1, 1, 1));
-    }
-
-    #[test]
-    fn test_institution_unit_resource_id() {
-        let oid1 = ID::from_str("6603f7b32b1753f84a719e01").unwrap();
-        let oid2 = ID::from_str("6603f7b32b1753f84a719e02").unwrap();
-        let oid3 = ID::from_str("6603f7b32b1753f84a719e03").unwrap();
-        let oid4 = ID::from_str("6603f7b32b1753f84a719e04").unwrap();
-        let id1 = InstitutionUnitResourceId::parse("O0101016603f7b32b1753f84a719e01").unwrap();
-        let id2 = InstitutionUnitResourceId::parse("O1201201206603f7b32b1753f84a719e02").unwrap();
-        let id3 = InstitutionUnitResourceId::parse("O2500250025006603f7b32b1753f84a719e03").unwrap();
-        let id4 = InstitutionUnitResourceId::parse("O3600036000360006603f7b32b1753f84a719e04").unwrap();
-        let id5 = InstitutionUnitResourceId::parse("O48000F48000F48000F6603f7b32b1753f84a719e01").unwrap();
-        let id6 = InstitutionUnitResourceId::parse("O5AF000F5AF000F5AF000F6603f7b32b1753f84a719e02").unwrap();
-        let id7 = InstitutionUnitResourceId::parse("O6B5F000F6B5F000F6B5F000F6603f7b32b1753f84a719e03").unwrap();
-        let id8 = InstitutionUnitResourceId::parse("OF7FFFFFFFFFFFFFFFF7FFFFFFFFFFFFFFFF7FFFFFFFFFFFFFFF6603f7b32b1753f84a719e04").unwrap();
-        assert_eq!(InstitutionUnitResourceId { cid: 1, oid: 1, uid: 1, id: oid1, }, id1);
-        assert_eq!(InstitutionUnitResourceId { cid: 0x20, oid: 0x20, uid: 0x20, id: oid2, }, id2);
-        assert_eq!(InstitutionUnitResourceId { cid: 0x500, oid: 0x500, uid: 0x500, id: oid3, }, id3);
-        assert_eq!(InstitutionUnitResourceId { cid: 0x6000, oid: 0x6000, uid: 0x6000, id: oid4, }, id4);
-        assert_eq!(InstitutionUnitResourceId { cid: 0x8000F, oid: 0x8000F, uid: 0x8000F, id: oid1, }, id5);
-        assert_eq!(InstitutionUnitResourceId { cid: 0xAF000F, oid: 0xAF000F, uid: 0xAF000F, id: oid2, }, id6);
-        assert_eq!(InstitutionUnitResourceId { cid: 0xB5F000F, oid: 0xB5F000F, uid: 0xB5F000F, id: oid3, }, id7);
-        assert_eq!(InstitutionUnitResourceId { cid: i64::MAX, oid: i64::MAX, uid: i64::MAX, id: oid4, }, id8);
-        assert_eq!(id1.to_string(), "O0101016603f7b32b1753f84a719e01");
-        assert_eq!(id2.to_string(), "O1201201206603f7b32b1753f84a719e02");
-        assert_eq!(id3.to_string(), "O2500250025006603f7b32b1753f84a719e03");
-        assert_eq!(id4.to_string(), "O3600036000360006603f7b32b1753f84a719e04");
-        assert_eq!(id5.to_string(), "O48000F48000F48000F6603f7b32b1753f84a719e01");
-        assert_eq!(id6.to_string(), "O5AF000F5AF000F5AF000F6603f7b32b1753f84a719e02");
-        assert_eq!(id7.to_string(), "O6B5F000F6B5F000F6B5F000F6603f7b32b1753f84a719e03");
-        assert_eq!(id8.to_string(), "OF7FFFFFFFFFFFFFFFF7FFFFFFFFFFFFFFFF7FFFFFFFFFFFFFFF6603f7b32b1753f84a719e04");
-        assert_eq!(None, InstitutionUnitResourceId::parse("OF8FFFFFFFFFFFFFFFF8FFFFFFFFFFFFFFF8FFFFFFFFFFFFFFF6603f7b32b1753f84a719e01").ok());
-        assert_eq!(None, InstitutionUnitResourceId::parse("OF9FFFFFFFFFFFFFFFF9FFFFFFFFFFFFFFF9FFFFFFFFFFFFFFF6603f7b32b1753f84a719e02").ok());
-        assert_eq!(None, InstitutionUnitResourceId::parse("OFAFFFFFFFFFFFFFFFFAFFFFFFFFFFFFFFFAFFFFFFFFFFFFFFF6603f7b32b1753f84a719e03").ok());
-        assert_eq!(None, InstitutionUnitResourceId::parse("OFBFFFFFFFFFFFFFFFFBFFFFFFFFFFFFFFFBFFFFFFFFFFFFFFF6603f7b32b1753f84a719e04").ok());
-        assert_eq!(None, InstitutionUnitResourceId::parse("OFCFFFFFFFFFFFFFFFFCFFFFFFFFFFFFFFFCFFFFFFFFFFFFFFF6603f7b32b1753f84a719e01").ok());
-        assert_eq!(None, InstitutionUnitResourceId::parse("OFDFFFFFFFFFFFFFFFFDFFFFFFFFFFFFFFFDFFFFFFFFFFFFFFF6603f7b32b1753f84a719e02").ok());
-        assert_eq!(None, InstitutionUnitResourceId::parse("OFEFFFFFFFFFFFFFFFFEFFFFFFFFFFFFFFFEFFFFFFFFFFFFFFF6603f7b32b1753f84a719e03").ok());
-        assert_eq!(None, InstitutionUnitResourceId::parse("OFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF6603f7b32b1753f84a719e04").ok());
-        assert_eq!(None, InstitutionUnitResourceId::parse("OVV6603f7b32b1753f84a719e04").ok());
-        assert_eq!(None, InstitutionUnitResourceId::parse("O0A0A0A0A0A0ABC6603f7b32b1753f84a719e04").ok());
-        assert_eq!(id1.root(), CustomerId { cid: 1 });
-        assert_eq!(id1.parent(), InstitutionUnitId { cid: 1, oid: 1, uid: 1 });
-        assert_eq!(id1.unzip(), (1, 1, 1, oid1));
-    }
-
-    #[test]
-    fn test_customer_unit_id() {
-        let id1 = CustomerUnitId::parse("N0101").unwrap();
-        let id2 = CustomerUnitId::parse("N120120").unwrap();
-        let id3 = CustomerUnitId::parse("N25002500").unwrap();
-        let id4 = CustomerUnitId::parse("N3600036000").unwrap();
-        let id5 = CustomerUnitId::parse("N48000F48000F").unwrap();
-        let id6 = CustomerUnitId::parse("N5AF000F5AF000F").unwrap();
-        let id7 = CustomerUnitId::parse("N6B5F000F6B5F000F").unwrap();
-        let id8 = CustomerUnitId::parse("NF7FFFFFFFFFFFFFFFF7FFFFFFFFFFFFFFF").unwrap();
-        assert_eq!(CustomerUnitId { cid: 1, uid: 1 }, id1);
-        assert_eq!(CustomerUnitId { cid: 0x20, uid: 0x20 }, id2);
-        assert_eq!(CustomerUnitId { cid: 0x500, uid: 0x500 }, id3);
-        assert_eq!(CustomerUnitId { cid: 0x6000, uid: 0x6000 }, id4);
-        assert_eq!(CustomerUnitId { cid: 0x8000F, uid: 0x8000F }, id5);
-        assert_eq!(CustomerUnitId { cid: 0xAF000F, uid: 0xAF000F }, id6);
-        assert_eq!(CustomerUnitId { cid: 0xB5F000F, uid: 0xB5F000F }, id7);
-        assert_eq!(CustomerUnitId { cid: i64::MAX, uid: i64::MAX }, id8);
-        assert_eq!(id1.to_string(), "N0101");
-        assert_eq!(id2.to_string(), "N120120");
-        assert_eq!(id3.to_string(), "N25002500");
-        assert_eq!(id4.to_string(), "N3600036000");
-        assert_eq!(id5.to_string(), "N48000F48000F");
-        assert_eq!(id6.to_string(), "N5AF000F5AF000F");
-        assert_eq!(id7.to_string(), "N6B5F000F6B5F000F");
-        assert_eq!(id8.to_string(), "NF7FFFFFFFFFFFFFFFF7FFFFFFFFFFFFFFF");
-        assert_eq!(None, CustomerUnitId::parse("NF8FFFFFFFFFFFFFFF8FFFFFFFFFFFFFFF").ok());
-        assert_eq!(None, CustomerUnitId::parse("NF9FFFFFFFFFFFFFFF9FFFFFFFFFFFFFFF").ok());
-        assert_eq!(None, CustomerUnitId::parse("NFAFFFFFFFFFFFFFFFAFFFFFFFFFFFFFFF").ok());
-        assert_eq!(None, CustomerUnitId::parse("NFBFFFFFFFFFFFFFFFBFFFFFFFFFFFFFFF").ok());
-        assert_eq!(None, CustomerUnitId::parse("NFCFFFFFFFFFFFFFFFCFFFFFFFFFFFFFFF").ok());
-        assert_eq!(None, CustomerUnitId::parse("NFDFFFFFFFFFFFFFFFDFFFFFFFFFFFFFFF").ok());
-        assert_eq!(None, CustomerUnitId::parse("NFEFFFFFFFFFFFFFFFEFFFFFFFFFFFFFFF").ok());
-        assert_eq!(None, CustomerUnitId::parse("NFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF").ok());
-        assert_eq!(None, CustomerUnitId::parse("NVVVU").ok());
-        assert_eq!(None, CustomerUnitId::parse("NFABC1C").ok());
-        assert_eq!(id1.root(), CustomerId { cid: 1 });
-        assert_eq!(id1.parent(), CustomerId { cid: 1 });
-        assert_eq!(id1.unzip(), (1, 1));
-    }
-
-    #[test]
-    fn test_customer_unit_resource_id() {
-        let oid1 = ID::from_str("6603f7b32b1753f84a719e01").unwrap();
-        let oid2 = ID::from_str("6603f7b32b1753f84a719e02").unwrap();
-        let oid3 = ID::from_str("6603f7b32b1753f84a719e03").unwrap();
-        let oid4 = ID::from_str("6603f7b32b1753f84a719e04").unwrap();
-        let id1 = CustomerUnitResourceId::parse("M01016603f7b32b1753f84a719e01").unwrap();
-        let id2 = CustomerUnitResourceId::parse("M1201206603f7b32b1753f84a719e02").unwrap();
-        let id3 = CustomerUnitResourceId::parse("M250025006603f7b32b1753f84a719e03").unwrap();
-        let id4 = CustomerUnitResourceId::parse("M36000360006603f7b32b1753f84a719e04").unwrap();
-        let id5 = CustomerUnitResourceId::parse("M48000F48000F6603f7b32b1753f84a719e01").unwrap();
-        let id6 = CustomerUnitResourceId::parse("M5AF000F5AF000F6603f7b32b1753f84a719e02").unwrap();
-        let id7 = CustomerUnitResourceId::parse("M6B5F000F6B5F000F6603f7b32b1753f84a719e03").unwrap();
-        let id8 = CustomerUnitResourceId::parse("MF7FFFFFFFFFFFFFFFF7FFFFFFFFFFFFFFF6603f7b32b1753f84a719e04").unwrap();
-        assert_eq!(CustomerUnitResourceId { cid: 1, uid: 1, id: oid1, }, id1);
-        assert_eq!(CustomerUnitResourceId { cid: 0x20, uid: 0x20, id: oid2, }, id2);
-        assert_eq!(CustomerUnitResourceId { cid: 0x500, uid: 0x500, id: oid3, }, id3);
-        assert_eq!(CustomerUnitResourceId { cid: 0x6000, uid: 0x6000, id: oid4, }, id4);
-        assert_eq!(CustomerUnitResourceId { cid: 0x8000F, uid: 0x8000F, id: oid1, }, id5);
-        assert_eq!(CustomerUnitResourceId { cid: 0xAF000F, uid: 0xAF000F, id: oid2, }, id6);
-        assert_eq!(CustomerUnitResourceId { cid: 0xB5F000F, uid: 0xB5F000F, id: oid3, }, id7);
-        assert_eq!(CustomerUnitResourceId { cid: i64::MAX, uid: i64::MAX, id: oid4, }, id8);
-        assert_eq!(id1.to_string(), "M01016603f7b32b1753f84a719e01");
-        assert_eq!(id2.to_string(), "M1201206603f7b32b1753f84a719e02");
-        assert_eq!(id3.to_string(), "M250025006603f7b32b1753f84a719e03");
-        assert_eq!(id4.to_string(), "M36000360006603f7b32b1753f84a719e04");
-        assert_eq!(id5.to_string(), "M48000F48000F6603f7b32b1753f84a719e01");
-        assert_eq!(id6.to_string(), "M5AF000F5AF000F6603f7b32b1753f84a719e02");
-        assert_eq!(id7.to_string(), "M6B5F000F6B5F000F6603f7b32b1753f84a719e03");
-        assert_eq!(id8.to_string(), "MF7FFFFFFFFFFFFFFFF7FFFFFFFFFFFFFFF6603f7b32b1753f84a719e04");
-        assert_eq!(None, CustomerUnitResourceId::parse("MF8FFFFFFFFFFFFFFFF8FFFFFFFFFFFFFFF6603f7b32b1753f84a719e01").ok());
-        assert_eq!(None, CustomerUnitResourceId::parse("MF9FFFFFFFFFFFFFFFF9FFFFFFFFFFFFFFF6603f7b32b1753f84a719e02").ok());
-        assert_eq!(None, CustomerUnitResourceId::parse("MFAFFFFFFFFFFFFFFFFAFFFFFFFFFFFFFFF6603f7b32b1753f84a719e03").ok());
-        assert_eq!(None, CustomerUnitResourceId::parse("MFBFFFFFFFFFFFFFFFFBFFFFFFFFFFFFFFF6603f7b32b1753f84a719e04").ok());
-        assert_eq!(None, CustomerUnitResourceId::parse("MFCFFFFFFFFFFFFFFFFCFFFFFFFFFFFFFFF6603f7b32b1753f84a719e01").ok());
-        assert_eq!(None, CustomerUnitResourceId::parse("MFDFFFFFFFFFFFFFFFFDFFFFFFFFFFFFFFF6603f7b32b1753f84a719e02").ok());
-        assert_eq!(None, CustomerUnitResourceId::parse("MFEFFFFFFFFFFFFFFFFEFFFFFFFFFFFFFFF6603f7b32b1753f84a719e03").ok());
-        assert_eq!(None, CustomerUnitResourceId::parse("MFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF6603f7b32b1753f84a719e04").ok());
-        assert_eq!(None, CustomerUnitResourceId::parse("MVV6603f7b32b1753f84a719e04").ok());
-        assert_eq!(None, CustomerUnitResourceId::parse("M0A0A0A0A0A0ABC6603f7b32b1753f84a719e04").ok());
-        assert_eq!(id1.root(), CustomerId { cid: 1 });
-        assert_eq!(id1.parent(), CustomerUnitId { cid: 1, uid: 1 });
-        assert_eq!(id1.unzip(), (1, 1, oid1));
     }
 }

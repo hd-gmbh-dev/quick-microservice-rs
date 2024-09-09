@@ -20,12 +20,7 @@ use qm_entity::ids::InstitutionIds;
 use qm_entity::ids::OrganizationId;
 use qm_entity::ids::OrganizationIds;
 
-use qm_entity::ids::OrganizationUnitId;
-use qm_entity::ids::OrganizationUnitIds;
-
-use qm_entity::ids::CUSTOMER_UNIT_ID_PREFIX;
 use qm_entity::ids::INSTITUTION_ID_PREFIX;
-use qm_entity::ids::INSTITUTION_UNIT_ID_PREFIX;
 use qm_entity::ids::ORGANIZATION_ID_PREFIX;
 use qm_kafka::producer::EventNs;
 use qm_mongodb::bson::doc;
@@ -145,12 +140,7 @@ where
         );
         extend_roles_with_children(
             cid,
-            &[
-                INSTITUTION_ID_PREFIX,
-                INSTITUTION_UNIT_ID_PREFIX,
-                ORGANIZATION_ID_PREFIX,
-                CUSTOMER_UNIT_ID_PREFIX,
-            ],
+            &[INSTITUTION_ID_PREFIX, ORGANIZATION_ID_PREFIX],
             &access_roles,
             &mut roles,
         );
@@ -235,12 +225,7 @@ where
                 .with_fmt_id(Some(&v))
                 .to_string(),
         );
-        extend_roles_with_children(
-            v,
-            &[INSTITUTION_ID_PREFIX, INSTITUTION_UNIT_ID_PREFIX],
-            &access_roles,
-            &mut roles,
-        );
+        extend_roles_with_children(v, &[INSTITUTION_ID_PREFIX], &access_roles, &mut roles);
     }
     let (cids, oids): (Vec<i64>, Vec<i64>) = strict_oids.iter().map(OrganizationId::unzip).unzip();
     let query = doc! {
@@ -337,76 +322,6 @@ where
     Ok(())
 }
 
-async fn cleanup_organization_units<Auth, Store, Resource, Permission>(
-    worker_ctx: WorkerContext<CleanupWorkerCtx<Auth, Store, Resource, Permission>>,
-    ty: &str,
-    id: Uuid,
-    strict_uids: &OrganizationUnitIds,
-) -> anyhow::Result<()>
-where
-    Auth: RelatedAuth<Resource, Permission>,
-    Store: RelatedStorage,
-    Resource: RelatedResource,
-    Permission: RelatedPermission,
-{
-    let store: &Store = &worker_ctx.ctx().store;
-    let db: &DB = store.as_ref();
-    let mut session = db.session().await?;
-    let mut roles = BTreeSet::new();
-    let mut client_ids = Vec::with_capacity(strict_uids.len());
-    for id in strict_uids.iter() {
-        client_ids.push(id.to_string());
-        match id {
-            OrganizationUnitId::Customer(_) => {
-                roles.insert(
-                    qm_role::Access::new(AccessLevel::CustomerUnit)
-                        .with_fmt_id(Some(id))
-                        .to_string(),
-                );
-            }
-            OrganizationUnitId::Organization(_) => {
-                roles.insert(
-                    qm_role::Access::new(AccessLevel::InstitutionUnit)
-                        .with_fmt_id(Some(id))
-                        .to_string(),
-                );
-            }
-        }
-    }
-    let (cids, uids): (Vec<i64>, Vec<i64>) =
-        strict_uids.iter().map(OrganizationUnitId::untuple).unzip();
-    let query = doc! {
-        "owner.cid": {
-            "$in": &cids
-        },
-        "owner.uid": {
-            "$in": &uids
-        }
-    };
-    for collection in db
-        .get()
-        .list_collection_names()
-        .session(&mut session)
-        .await?
-    {
-        tracing::debug!("remove all organization unit related resources from db {collection}");
-        remove_documents(db, &mut session, &collection, &query).await?;
-    }
-    tracing::debug!("cleanup api clients");
-    cleanup_api_clients(store.keycloak(), client_ids).await?;
-    tracing::debug!("cleanup roles");
-    cleanup_roles(store.keycloak(), roles).await?;
-    // Emit the Kafka event
-    if let Some(producer) = store.mutation_event_producer() {
-        producer
-            .delete_event(&EventNs::OrganizationUnit, "organization_unit", strict_uids)
-            .await?;
-    }
-    worker_ctx.complete().await?;
-    tracing::debug!("finished cleanup task '{ty}' with id '{id}'");
-    Ok(())
-}
-
 pub struct CleanupWorker;
 
 #[async_trait::async_trait]
@@ -437,9 +352,6 @@ where
             }
             CleanupTaskType::Institutions(ids) => {
                 cleanup_institutions(ctx, item.ty.as_ref(), item.id, ids).await?;
-            }
-            CleanupTaskType::OrganizationUnits(ids) => {
-                cleanup_organization_units(ctx, item.ty.as_ref(), item.id, ids).await?;
             }
             CleanupTaskType::None => {
                 ctx.complete().await?;

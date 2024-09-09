@@ -9,14 +9,14 @@ use std::sync::Arc;
 use time::PrimitiveDateTime;
 
 #[derive(Debug, InputObject)]
-pub struct CreateCustomerInput {
+pub struct QmCreateCustomerInput {
     pub id: Option<i64>,
     pub name: String,
     pub ty: Option<String>,
 }
 
 #[derive(Debug, InputObject)]
-pub struct UpdateCustomerInput {
+pub struct QmUpdateCustomerInput {
     pub name: String,
 }
 

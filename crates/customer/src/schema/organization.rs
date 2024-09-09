@@ -238,7 +238,7 @@ where
     Permission: RelatedPermission,
     BuiltInGroup: RelatedBuiltInGroup,
 {
-    async fn organization_by_id(
+    async fn qm_organization_by_id(
         &self,
         ctx: &Context<'_>,
         id: OrganizationId,
@@ -255,7 +255,7 @@ where
         .await)
     }
 
-    async fn organization_exists(
+    async fn qm_organization_exists(
         &self,
         ctx: &Context<'_>,
         id: CustomerId,
@@ -317,7 +317,7 @@ where
     Permission: RelatedPermission,
     BuiltInGroup: RelatedBuiltInGroup,
 {
-    async fn create_organization(
+    async fn qm_create_organization(
         &self,
         ctx: &Context<'_>,
         context: CustomerId,
@@ -340,7 +340,7 @@ where
             .extend()
     }
 
-    async fn update_organization(
+    async fn qm_update_organization(
         &self,
         ctx: &Context<'_>,
         context: OrganizationId,
@@ -357,7 +357,7 @@ where
         Ctx(&auth_ctx).update(context, input.name).await.extend()
     }
 
-    async fn remove_organizations(
+    async fn qm_remove_organizations(
         &self,
         ctx: &Context<'_>,
         ids: OrganizationIds,

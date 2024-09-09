@@ -1,8 +1,5 @@
-use async_graphql::{Enum, InputObject};
-
-#[derive(serde::Deserialize, serde::Serialize, Debug, Clone, Enum, Copy, Eq, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum RequiredUserAction {
-    #[graphql(name = "UPDATE_PASSWORD")]
     UpdatePassword,
 }
 
@@ -18,8 +15,7 @@ impl std::fmt::Display for RequiredUserAction {
     }
 }
 
-#[derive(Default, serde::Deserialize, serde::Serialize, Debug, Clone, InputObject)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug)]
 pub struct UserInput {
     pub username: String,
     pub firstname: String,

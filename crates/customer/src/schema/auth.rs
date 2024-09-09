@@ -20,7 +20,6 @@ use tokio::sync::RwLock;
 
 use qm_entity::err;
 use qm_entity::error::EntityError;
-use qm_entity::ids::OrganizationUnitId;
 
 use crate::context::RelatedAuth;
 use crate::context::RelatedPermission;
@@ -37,7 +36,6 @@ use crate::model::QmOrganization;
 
 enum Lvl {
     Customer,
-    OrganizationUnit,
     Organization,
     Institution,
     None,
@@ -211,10 +209,6 @@ where
                 return Lvl::Customer;
             } else if session.ty() == &AccessLevel::Organization {
                 return Lvl::Organization;
-            } else if session.ty() == &AccessLevel::CustomerUnit
-                || session.ty() == &AccessLevel::InstitutionUnit
-            {
-                return Lvl::OrganizationUnit;
             } else if session.ty() == &AccessLevel::Institution {
                 return Lvl::Institution;
             }
@@ -387,12 +381,6 @@ where
                             .ok()
                             .ok_or(EntityError::unauthorized(&self.auth))?,
                     )),
-                    Lvl::OrganizationUnit => Ok(Some(
-                        OrganizationUnitId::parse(id)
-                            .map(InfraContext::OrganizationUnit)
-                            .ok()
-                            .ok_or(EntityError::unauthorized(&self.auth))?,
-                    )),
                     Lvl::Organization => Ok(Some(
                         OrganizationId::parse(id)
                             .map(InfraContext::Organization)
@@ -413,12 +401,6 @@ where
                     Lvl::Customer => Ok(Some(
                         CustomerId::parse(id)
                             .map(InfraContext::Customer)
-                            .ok()
-                            .ok_or(EntityError::unauthorized(&self.auth))?,
-                    )),
-                    Lvl::OrganizationUnit => Ok(Some(
-                        OrganizationUnitId::parse(id)
-                            .map(InfraContext::OrganizationUnit)
                             .ok()
                             .ok_or(EntityError::unauthorized(&self.auth))?,
                     )),
@@ -493,31 +475,14 @@ where
                 }
                 err!(unauthorized(&self.auth))
             }
-            InfraContext::OrganizationUnit(v) => {
-                let organization_unit = self
-                    .store
-                    .cache_db()
-                    .organization_unit_by_id(&v.into())
-                    .await
-                    .ok_or(EntityError::internal())?;
-                if object_context.has_organization_unit(v)
-                    || organization_unit
-                        .members
-                        .iter()
-                        .any(|i| object_context.has_institution(i))
-                {
-                    return Ok(());
-                }
-                err!(unauthorized(&self.auth))
-            }
         }
     }
 }
 
 pub struct AuthGuard<Auth, Store, Resource, Permission>
 where
-    Resource: Debug,
-    Permission: Debug,
+    Resource: Debug + std::marker::Copy + Clone,
+    Permission: Debug + std::marker::Copy + Clone,
 {
     role: qm_role::Role<Resource, Permission>,
     _marker: StoreMarker<Auth, Store>,
@@ -525,8 +490,8 @@ where
 
 impl<Auth, Store, Resource, Permission> AuthGuard<Auth, Store, Resource, Permission>
 where
-    Resource: Debug,
-    Permission: Debug,
+    Resource: Debug + std::marker::Copy + Clone,
+    Permission: Debug + std::marker::Copy + Clone,
 {
     pub fn new(role: qm_role::Role<Resource, Permission>) -> Self {
         Self {

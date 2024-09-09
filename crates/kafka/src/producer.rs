@@ -54,9 +54,14 @@ impl FromStr for EventNs {
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub enum EventType {
+    Upload,
+    Send,
+    Receive,
     Create,
     Update,
     Delete,
+    Assign,
+    Unassign,
     Link,
 }
 
@@ -161,15 +166,16 @@ impl Producer {
             .await
     }
 
-    async fn produce_event<O>(
+    async fn produce_event<N, O>(
         &self,
         event_name: &'static str,
         event: EventType,
-        event_ns: &EventNs,
+        event_ns: &N,
         ty: &str,
         object: O,
     ) -> anyhow::Result<()>
     where
+        N: AsRef<str>,
         O: serde::ser::Serialize,
     {
         tracing::debug!("{event_name} event for type: {ty}");
@@ -195,6 +201,41 @@ impl Producer {
         tracing::debug!(
             "produced {event_name} event for type {ty} with partition {a} and offset {b}"
         );
+        Ok(())
+    }
+
+    pub async fn event<N, O>(
+        &self,
+        event: EventType,
+        event_ns: &N,
+        ty: &str,
+        object: O,
+    ) -> anyhow::Result<()>
+    where
+        N: AsRef<str> + ?Sized,
+        O: serde::ser::Serialize,
+    {
+        tracing::debug!("{event:?} event for type: {ty}");
+        let object = serde_json::to_value(object)?;
+        let event = Event {
+            event,
+            ty: ty.to_string(),
+            object,
+        };
+        let event = serde_json::to_string(&event)?;
+        let (a, b) = self
+            .inner
+            .producer
+            .send_result(
+                FutureRecord::to(self.inner.config.topic_mutation_events())
+                    .key(event_ns.as_ref())
+                    .payload(&event)
+                    .timestamp(now()),
+            )
+            .map_err(|e| anyhow::anyhow!("{e:#?}"))?
+            .await?
+            .map_err(|e| anyhow::anyhow!("{e:#?}"))?;
+        tracing::debug!("produced {event:?} event for type {ty} with partition {a} and offset {b}");
         Ok(())
     }
 }

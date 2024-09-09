@@ -25,6 +25,7 @@ reqwest.workspace = true
 tracing.workspace = true
 sqlx.workspace = true
 hex.workspace = true
+sea-orm.workspace = true
 qm-redis.workspace = true
 qm-keycloak.workspace = true
 qm-role.workspace = true

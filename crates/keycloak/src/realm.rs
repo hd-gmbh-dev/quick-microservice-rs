@@ -61,8 +61,8 @@ pub async fn configure_realm<R, P>(
     groups: Vec<Group<R, P>>,
 ) -> anyhow::Result<()>
 where
-    R: AsRef<str> + std::fmt::Debug,
-    P: AsRef<str> + std::fmt::Debug,
+    R: AsRef<str> + std::fmt::Debug + std::marker::Copy + Clone,
+    P: AsRef<str> + std::fmt::Debug + std::marker::Copy + Clone,
 {
     let realm = keycloak.config().realm();
     let url = APP_URL.as_str();
@@ -254,8 +254,8 @@ pub async fn ensure_groups<R, P>(
     built_in: bool,
 ) -> anyhow::Result<BTreeMap<String, GroupRepresentation>>
 where
-    R: std::fmt::Debug,
-    P: std::fmt::Debug,
+    R: std::fmt::Debug + std::marker::Copy + Clone,
+    P: std::fmt::Debug + std::marker::Copy + Clone,
 {
     let mut groups: BTreeMap<String, GroupRepresentation> = BTreeMap::new();
     for (_, group) in group_map.iter() {
@@ -382,8 +382,8 @@ pub async fn ensure_group_role_mappings<R, P>(
     existing_roles: &[RoleRepresentation],
 ) -> anyhow::Result<()>
 where
-    R: AsRef<str> + std::fmt::Debug,
-    P: AsRef<str> + std::fmt::Debug,
+    R: AsRef<str> + std::fmt::Debug + std::marker::Copy + Clone,
+    P: AsRef<str> + std::fmt::Debug + std::marker::Copy + Clone,
 {
     for group in group_map.values() {
         if let Some(group_rep) = groups.get(&group.path) {
@@ -415,8 +415,8 @@ pub async fn ensure_groups_with_roles<R, P>(
     built_in: bool,
 ) -> anyhow::Result<BTreeMap<String, GroupRepresentation>>
 where
-    R: AsRef<str> + std::fmt::Debug,
-    P: AsRef<str> + std::fmt::Debug,
+    R: AsRef<str> + std::fmt::Debug + std::marker::Copy + Clone,
+    P: AsRef<str> + std::fmt::Debug + std::marker::Copy + Clone,
 {
     let mut group_map = BTreeMap::new();
     let mut role_set = BTreeSet::new();
@@ -477,8 +477,8 @@ pub async fn ensure_admin_user<R, P>(
     role_set: BTreeSet<String>,
 ) -> anyhow::Result<UserRepresentation>
 where
-    R: AsRef<str> + std::fmt::Debug,
-    P: AsRef<str> + std::fmt::Debug,
+    R: AsRef<str> + std::fmt::Debug + std::marker::Copy + Clone,
+    P: AsRef<str> + std::fmt::Debug + std::marker::Copy + Clone,
 {
     tracing::info!("ensure admin user");
     let admin_user = keycloak

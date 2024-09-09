@@ -21,11 +21,11 @@ use crate::context::RelatedStorage;
 use crate::context::{RelatedAuth, RelatedPermission, RelatedResource};
 use crate::groups::RelatedBuiltInGroup;
 use crate::marker::Marker;
-use crate::model::CreateCustomerInput;
 use crate::model::CustomerData;
+use crate::model::QmCreateCustomerInput;
 use crate::model::QmCustomer;
 use crate::model::QmCustomerList;
-use crate::model::UpdateCustomerInput;
+use crate::model::QmUpdateCustomerInput;
 use crate::mutation::remove_customers;
 use crate::mutation::update_customer;
 use crate::roles;
@@ -185,7 +185,7 @@ where
     Permission: RelatedPermission,
     BuiltInGroup: RelatedBuiltInGroup,
 {
-    async fn customer_by_id(
+    async fn qm_customer_by_id(
         &self,
         ctx: &Context<'_>,
         id: CustomerId,
@@ -245,10 +245,10 @@ where
     Permission: RelatedPermission,
     BuiltInGroup: RelatedBuiltInGroup,
 {
-    async fn create_customer(
+    async fn qm_create_customer(
         &self,
         ctx: &Context<'_>,
-        input: CreateCustomerInput,
+        input: QmCreateCustomerInput,
     ) -> async_graphql::FieldResult<Arc<QmCustomer>> {
         let auth_ctx = AuthCtx::<'_, Auth, Store, Resource, Permission>::new_with_role(
             ctx,
@@ -261,11 +261,11 @@ where
             .extend()
     }
 
-    async fn update_customer(
+    async fn qm_update_customer(
         &self,
         ctx: &Context<'_>,
         context: CustomerId,
-        input: UpdateCustomerInput,
+        input: QmUpdateCustomerInput,
     ) -> async_graphql::FieldResult<Arc<QmCustomer>> {
         Ctx(
             &AuthCtx::<'_, Auth, Store, Resource, Permission>::new_with_role(
@@ -279,7 +279,7 @@ where
         .extend()
     }
 
-    async fn remove_customers(
+    async fn qm_remove_customers(
         &self,
         ctx: &Context<'_>,
         ids: CustomerIds,

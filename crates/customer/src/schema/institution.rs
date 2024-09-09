@@ -236,7 +236,7 @@ where
     Permission: RelatedPermission,
     BuiltInGroup: RelatedBuiltInGroup,
 {
-    async fn institution_by_id(
+    async fn qm_institution_by_id(
         &self,
         ctx: &Context<'_>,
         id: InstitutionId,
@@ -253,7 +253,7 @@ where
         .await)
     }
 
-    async fn institution_exists(
+    async fn qm_institution_exists(
         &self,
         ctx: &Context<'_>,
         id: OrganizationId,
@@ -316,7 +316,7 @@ where
     Permission: RelatedPermission,
     BuiltInGroup: RelatedBuiltInGroup,
 {
-    async fn create_institution(
+    async fn qm_create_institution(
         &self,
         ctx: &Context<'_>,
         context: OrganizationId,
@@ -334,7 +334,7 @@ where
             .extend()
     }
 
-    async fn update_institution(
+    async fn qm_update_institution(
         &self,
         ctx: &Context<'_>,
         context: InstitutionId,
@@ -351,7 +351,7 @@ where
         Ctx(&auth_ctx).update(context, input.name).await.extend()
     }
 
-    async fn remove_institutions(
+    async fn qm_remove_institutions(
         &self,
         ctx: &Context<'_>,
         ids: InstitutionIds,

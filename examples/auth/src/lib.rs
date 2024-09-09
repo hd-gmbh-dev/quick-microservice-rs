@@ -1,4 +1,4 @@
-use std::{collections::BTreeSet, sync::Arc};
+use std::{collections::HashSet, sync::Arc};
 
 use async_graphql::ResultExt;
 use qm::{
@@ -35,7 +35,7 @@ pub type Group = qm::role::Group<Resource, Permission>;
 struct Inner {
     _claims: Option<Claims>,
     access: Option<Access>,
-    roles: BTreeSet<Role>,
+    roles: HashSet<Role>,
     is_admin: bool,
     is_support: bool,
     user_id: Option<Uuid>,
@@ -136,7 +136,14 @@ impl AsNumber for Authorization {
         self.inner
             .access
             .as_ref()
-            .map(|v| v.ty().as_number())
+            .map(|v| match v.ty() {
+                AccessLevel::None => 0,
+                AccessLevel::Admin => u32::MAX,
+                AccessLevel::Support => u32::MAX - 1,
+                AccessLevel::Customer => u32::MAX - 2,
+                AccessLevel::Organization => u32::MAX - 3,
+                AccessLevel::Institution => u32::MAX - 4,
+            })
             .unwrap_or(0)
     }
 }

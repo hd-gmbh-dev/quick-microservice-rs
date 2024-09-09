@@ -57,10 +57,6 @@ impl CacheDB {
         &self.inner.infra.organizations_total
     }
 
-    pub fn organization_units_total(&self) -> &Gauge<i64, AtomicI64> {
-        &self.inner.infra.organization_units_total
-    }
-
     pub fn institutions_total(&self) -> &Gauge<i64, AtomicI64> {
         &self.inner.infra.institutions_total
     }
@@ -143,57 +139,6 @@ impl CacheDB {
         }
     }
 
-    pub async fn organization_unit_list(
-        &self,
-        customer_or_organization: Option<CustomerOrOrganization>,
-        filter: Option<ListFilter>,
-        ty: Option<String>,
-    ) -> OrganizationUnitList {
-        let organization_units = self.inner.infra.organization_units.read().await;
-        let iter = if let Some(ty) = ty.as_ref() {
-            itertools::Either::Right(
-                organization_units
-                    .values()
-                    .filter(|c| c.ty.as_ref() == ty.as_str()),
-            )
-        } else {
-            itertools::Either::Left(organization_units.values())
-        };
-
-        let iter = match &customer_or_organization {
-            Some(CustomerOrOrganization::Customer(customer_id)) => itertools::Either::Left(
-                itertools::Either::Left(iter.filter(|v| v.as_ref().partial_equal(customer_id))),
-            ),
-            Some(CustomerOrOrganization::Organization(organization_id)) => {
-                itertools::Either::Left(itertools::Either::Right(
-                    iter.filter(|v| v.as_ref().partial_equal(organization_id)),
-                ))
-            }
-            _ => itertools::Either::Right(iter),
-        };
-        if let Some(filter) = filter {
-            let page = filter.page.unwrap_or(0);
-            let limit = filter.limit.unwrap_or(100);
-            let offset = page * limit;
-            let items: Arc<[Arc<OrganizationUnit>]> =
-                iter.skip(offset).take(limit).cloned().collect();
-            OrganizationUnitList {
-                items,
-                limit: Some(limit as i64),
-                total: Some(self.inner.infra.organization_units_total.get()),
-                page: Some(page as i64),
-            }
-        } else {
-            let items: Arc<[Arc<OrganizationUnit>]> = iter.cloned().collect();
-            OrganizationUnitList {
-                items,
-                limit: None,
-                total: Some(self.inner.infra.organization_units_total.get()),
-                page: Some(0),
-            }
-        }
-    }
-
     pub async fn institution_list(
         &self,
         customer_or_organization: Option<CustomerOrOrganization>,
@@ -247,21 +192,13 @@ impl CacheDB {
         &self,
         context: Option<InfraContext>,
         filter: Option<ListFilter>,
-    ) -> UserList {
+    ) -> QmUserList {
         let users = self.inner.user.users.read().await;
         let user_roles = self.inner.user.user_roles.read().await;
         let roles = self.inner.user.roles.read().await;
         let user_groups = self.inner.user.user_groups.read().await;
         let groups = self.inner.user.groups.read().await;
         let group_attributes = self.inner.user.group_attributes.read().await;
-        let o = self.inner.infra.organization_unit_id_map.read().await;
-        let institutions = match context {
-            Some(InfraContext::OrganizationUnit(v)) => {
-                let unit = o.get(&v.into());
-                unit.map(|u| u.members.as_ref()).unwrap_or(&[])
-            }
-            _ => &[],
-        };
         let user_list = users.list();
         let iter = user_list.iter().map(|u| {
             let context = user_roles
@@ -281,7 +218,7 @@ impl CacheDB {
                         .and_then(|r| group_attributes.get(&r.id).cloned())
                 })
             });
-            UserDetails {
+            QmUserDetails {
                 user: u.clone(),
                 context,
                 access,
@@ -292,32 +229,30 @@ impl CacheDB {
             let page = filter.page.unwrap_or(0);
             let limit = filter.limit.unwrap_or(100);
             let offset = page * limit;
-            let items: Vec<UserDetails> = if let Some(context) = context {
-                iter.filter(|v| {
-                    v.partial_equal(&context) || institutions.iter().any(|i| v.partial_equal(i))
-                })
-                .skip(offset)
-                .take(limit)
-                .collect::<Vec<UserDetails>>()
+            let items: Vec<QmUserDetails> = if let Some(context) = context {
+                iter.filter(|v| v.partial_equal(&context))
+                    .skip(offset)
+                    .take(limit)
+                    .collect::<Vec<QmUserDetails>>()
             } else {
-                iter.skip(offset).take(limit).collect::<Vec<UserDetails>>()
+                iter.skip(offset)
+                    .take(limit)
+                    .collect::<Vec<QmUserDetails>>()
             };
-            UserList {
+            QmUserList {
                 items: Arc::from(items),
                 limit: Some(limit as i64),
                 total: Some(self.inner.user.users_total.get()),
                 page: Some(page as i64),
             }
         } else {
-            let items: Vec<UserDetails> = if let Some(context) = context {
-                iter.filter(|v| {
-                    v.partial_equal(&context) || institutions.iter().any(|i| v.partial_equal(i))
-                })
-                .collect::<Vec<UserDetails>>()
+            let items: Vec<QmUserDetails> = if let Some(context) = context {
+                iter.filter(|v| v.partial_equal(&context))
+                    .collect::<Vec<QmUserDetails>>()
             } else {
-                iter.collect::<Vec<UserDetails>>()
+                iter.collect::<Vec<QmUserDetails>>()
             };
-            UserList {
+            QmUserList {
                 items: Arc::from(items),
                 limit: None,
                 total: Some(self.inner.user.users_total.get()),
@@ -347,21 +282,6 @@ impl CacheDB {
             .read()
             .await
             .get(id)
-            .cloned()
-    }
-
-    pub async fn organization_unit_by_name(
-        &self,
-        cid: InfraId,
-        oid: Option<InfraId>,
-        name: Arc<str>,
-    ) -> Option<Arc<OrganizationUnit>> {
-        self.inner
-            .infra
-            .organization_units
-            .read()
-            .await
-            .get(&(name, cid, oid))
             .cloned()
     }
 
@@ -404,16 +324,6 @@ impl CacheDB {
             .cloned()
     }
 
-    pub async fn organization_unit_by_id(&self, id: &InfraId) -> Option<Arc<OrganizationUnit>> {
-        self.inner
-            .infra
-            .organization_unit_id_map
-            .read()
-            .await
-            .get(id)
-            .cloned()
-    }
-
     pub fn users_total(&self) -> &Gauge<i64, AtomicI64> {
         &self.inner.user.users_total
     }
@@ -436,11 +346,11 @@ impl CacheDB {
             .cloned()
     }
 
-    pub async fn user_by_id(&self, id: &str) -> Option<Arc<User>> {
+    pub async fn user_by_id(&self, id: &str) -> Option<Arc<QmUser>> {
         self.inner.user.users.read().await.get(id).cloned()
     }
 
-    pub async fn user_details_by_id(&self, id: &str) -> Option<UserDetails> {
+    pub async fn user_details_by_id(&self, id: &str) -> Option<QmUserDetails> {
         let users = self.inner.user.users.read().await;
         let user_roles = self.inner.user.user_roles.read().await;
         let roles = self.inner.user.roles.read().await;
@@ -465,7 +375,7 @@ impl CacheDB {
                         .and_then(|r| group_attributes.get(&r.id).cloned())
                 })
             });
-            UserDetails {
+            QmUserDetails {
                 user: u.clone(),
                 context,
                 access,
@@ -474,7 +384,7 @@ impl CacheDB {
         })
     }
 
-    pub async fn user_by_username(&self, username: &str) -> Option<Arc<User>> {
+    pub async fn user_by_username(&self, username: &str) -> Option<Arc<QmUser>> {
         self.inner
             .user
             .users
@@ -484,11 +394,11 @@ impl CacheDB {
             .cloned()
     }
 
-    pub async fn user_by_email(&self, email: &str) -> Option<Arc<User>> {
+    pub async fn user_by_email(&self, email: &str) -> Option<Arc<QmUser>> {
         self.inner.user.users.read().await.by_email(email).cloned()
     }
 
-    pub async fn users(&self) -> Arc<[Arc<User>]> {
+    pub async fn users(&self) -> Arc<[Arc<QmUser>]> {
         self.inner.user.users.read().await.list()
     }
 

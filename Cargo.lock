@@ -2563,6 +2563,7 @@ dependencies = [
  "qm-redis",
  "qm-role",
  "reqwest",
+ "sea-orm",
  "serde",
  "serde_json",
  "serde_with",
