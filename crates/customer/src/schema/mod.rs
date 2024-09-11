@@ -5,7 +5,6 @@ pub mod customer;
 pub mod groups;
 pub mod institution;
 pub mod organization;
-pub mod organization_unit;
 pub mod user;
 
 use crate::context::RelatedAuth;
@@ -18,7 +17,6 @@ use crate::groups::RelatedBuiltInGroup;
 pub struct QmCustomerQueryRoot<Auth, Store, Resource, Permission, BuiltInGroup>(
     customer::CustomerQueryRoot<Auth, Store, Resource, Permission, BuiltInGroup>,
     organization::OrganizationQueryRoot<Auth, Store, Resource, Permission, BuiltInGroup>,
-    organization_unit::OrganizationUnitQueryRoot<Auth, Store, Resource, Permission, BuiltInGroup>,
     institution::InstitutionQueryRoot<Auth, Store, Resource, Permission, BuiltInGroup>,
     user::UserQueryRoot<Auth, Store, Resource, Permission, BuiltInGroup>,
     groups::GroupQueryRoot<Auth, Store, Resource, Permission, BuiltInGroup>,
@@ -43,7 +41,6 @@ where
         Self(
             customer::CustomerQueryRoot::<Auth, Store, Resource, Permission, BuiltInGroup>::default(),
             organization::OrganizationQueryRoot::<Auth, Store, Resource, Permission, BuiltInGroup>::default(),
-            organization_unit::OrganizationUnitQueryRoot::<Auth, Store, Resource, Permission, BuiltInGroup>::default(),
             institution::InstitutionQueryRoot::<Auth, Store, Resource, Permission, BuiltInGroup>::default(),
             user::UserQueryRoot::<Auth, Store, Resource, Permission, BuiltInGroup>::default(),
             groups::GroupQueryRoot::<Auth, Store, Resource, Permission, BuiltInGroup>::default(),
@@ -55,13 +52,6 @@ where
 pub struct QmCustomerMutationRoot<Auth, Store, Resource, Permission, BuiltInGroup>(
     customer::CustomerMutationRoot<Auth, Store, Resource, Permission, BuiltInGroup>,
     organization::OrganizationMutationRoot<Auth, Store, Resource, Permission, BuiltInGroup>,
-    organization_unit::OrganizationUnitMutationRoot<
-        Auth,
-        Store,
-        Resource,
-        Permission,
-        BuiltInGroup,
-    >,
     institution::InstitutionMutationRoot<Auth, Store, Resource, Permission, BuiltInGroup>,
     user::UserMutationRoot<Auth, Store, Resource, Permission, BuiltInGroup>,
     groups::GroupMutationRoot<Auth, Store, Resource, Permission, BuiltInGroup>,
@@ -86,7 +76,6 @@ where
         Self(
             customer::CustomerMutationRoot::<Auth, Store, Resource, Permission, BuiltInGroup>::default(),
             organization::OrganizationMutationRoot::<Auth, Store, Resource, Permission, BuiltInGroup>::default(),
-            organization_unit::OrganizationUnitMutationRoot::<Auth, Store, Resource, Permission, BuiltInGroup>::default(),
             institution::InstitutionMutationRoot::<Auth, Store, Resource, Permission, BuiltInGroup>::default(),
             user::UserMutationRoot::<Auth, Store, Resource, Permission, BuiltInGroup>::default(),
             groups::GroupMutationRoot::<Auth, Store, Resource, Permission, BuiltInGroup>::default(),

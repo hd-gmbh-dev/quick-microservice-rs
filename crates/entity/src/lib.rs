@@ -81,8 +81,8 @@ pub trait HasAccess {
 
 pub trait HasRole<R, P>
 where
-    R: std::fmt::Debug,
-    P: std::fmt::Debug,
+    R: std::fmt::Debug + std::marker::Copy + Clone,
+    P: std::fmt::Debug + std::marker::Copy + Clone,
 {
     fn has_role(&self, r: &R, p: &P) -> bool;
     fn has_role_object(&self, role: &qm_role::Role<R, P>) -> bool;

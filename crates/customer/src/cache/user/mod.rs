@@ -12,7 +12,7 @@ use self::{
     roles::Roles, user_groups::UserGroups, user_roles::UserRoles, users::Users,
 };
 
-use super::{Group, GroupDetail, User};
+use super::{Group, GroupDetail, QmUser};
 
 pub mod group_attributes;
 pub mod group_roles;
@@ -94,7 +94,7 @@ impl UserDB {
         self.groups_total.set(self.groups.read().await.total());
     }
 
-    pub async fn new_user(&self, user: Arc<User>) {
+    pub async fn new_user(&self, user: Arc<QmUser>) {
         self.users.write().await.new_user(user);
         self.users_total.set(self.users.read().await.total());
     }

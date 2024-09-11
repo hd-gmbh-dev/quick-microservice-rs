@@ -182,9 +182,9 @@ pub async fn fetch_realm_info(db: &DB, name: &str) -> anyhow::Result<Option<KcRe
     .await?)
 }
 
-pub async fn fetch_customers(db: &DB) -> anyhow::Result<Vec<Customer>> {
+pub async fn fetch_customers(db: &DB) -> anyhow::Result<Vec<QmCustomer>> {
     Ok(query_as!(
-        Customer,
+        QmCustomer,
         r#"
 SELECT
     id,
@@ -200,9 +200,9 @@ FROM customers;"#
     .await?)
 }
 
-pub async fn fetch_organizations(db: &DB) -> anyhow::Result<Vec<Organization>> {
+pub async fn fetch_organizations(db: &DB) -> anyhow::Result<Vec<QmOrganization>> {
     Ok(query_as!(
-        Organization,
+        QmOrganization,
         r#"
 SELECT
     id,
@@ -219,9 +219,9 @@ FROM organizations;"#
     .await?)
 }
 
-pub async fn fetch_institutions(db: &DB) -> anyhow::Result<Vec<Institution>> {
+pub async fn fetch_institutions(db: &DB) -> anyhow::Result<Vec<QmInstitution>> {
     Ok(query_as!(
-        Institution,
+        QmInstitution,
         r#"
 SELECT
     id,
@@ -237,27 +237,4 @@ FROM institutions;"#
     )
     .fetch_all(db.pool())
     .await?)
-}
-
-pub async fn fetch_organization_units(db: &DB) -> anyhow::Result<Vec<OrganizationUnit>> {
-    Ok(query_as!(
-        OrganizationUnitQuery,
-        r#"
-SELECT
-    v.id as id,
-    v.name as name,
-    ty,
-    v.customer_id as customer_id,
-    v.organization_id as organization_id,
-    v.created_by as created_by,
-    v.created_at as created_at,
-    v.updated_by as updated_by,
-    v.updated_at as updated_at
-FROM organization_units v"#
-    )
-    .fetch_all(db.pool())
-    .await?
-    .into_iter()
-    .map(Into::into)
-    .collect())
 }

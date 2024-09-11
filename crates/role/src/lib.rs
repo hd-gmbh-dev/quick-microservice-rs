@@ -1,6 +1,9 @@
-use std::{collections::BTreeSet, str::FromStr, sync::Arc};
-
 use async_graphql::{InputValueError, InputValueResult, Scalar, ScalarType, Value};
+use std::{
+    collections::{BTreeSet, HashSet},
+    str::FromStr,
+    sync::Arc,
+};
 use strum::{AsRefStr, EnumString};
 use tokio::sync::RwLock;
 
@@ -47,10 +50,6 @@ pub enum AccessLevel {
     Customer,
     #[strum(serialize = "organization")]
     Organization,
-    #[strum(serialize = "customer_unit")]
-    CustomerUnit,
-    #[strum(serialize = "institution_unit")]
-    InstitutionUnit,
     #[strum(serialize = "institution")]
     Institution,
 }
@@ -63,27 +62,12 @@ impl AccessLevel {
     pub fn id_required(&self) -> bool {
         matches!(
             self,
-            AccessLevel::Customer
-                | AccessLevel::Organization
-                | AccessLevel::CustomerUnit
-                | AccessLevel::InstitutionUnit
-                | AccessLevel::Institution
+            AccessLevel::Customer | AccessLevel::Organization | AccessLevel::Institution
         )
-    }
-
-    pub fn as_number(&self) -> u32 {
-        match self {
-            Self::Admin => u32::MAX,
-            Self::Support => u32::MAX - 1,
-            Self::Customer => u32::MAX - 2,
-            Self::Organization | Self::CustomerUnit => u32::MAX - 3,
-            Self::Institution | Self::InstitutionUnit => u32::MAX - 4,
-            Self::None => 0,
-        }
     }
 }
 
-#[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
+#[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq, Hash)]
 pub struct Access {
     ty: AccessLevel,
     id: Option<Arc<str>>,
@@ -150,11 +134,11 @@ impl FromStr for Access {
     }
 }
 
-#[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Hash)]
+#[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Hash, Clone, Copy)]
 pub struct Role<R, P>
 where
-    R: std::fmt::Debug,
-    P: std::fmt::Debug,
+    R: std::fmt::Debug + std::marker::Copy + Clone,
+    P: std::fmt::Debug + std::marker::Copy + Clone,
 {
     pub ty: R,
     pub permission: Option<P>,
@@ -162,8 +146,8 @@ where
 
 impl<R, P> Role<R, P>
 where
-    R: std::fmt::Debug,
-    P: std::fmt::Debug,
+    R: std::fmt::Debug + std::marker::Copy + Clone,
+    P: std::fmt::Debug + std::marker::Copy + Clone,
 {
     pub fn new(ty: R, permission: Option<P>) -> Self {
         Self { ty, permission }
@@ -172,8 +156,8 @@ where
 
 impl<R, P> From<(R, P)> for Role<R, P>
 where
-    R: std::fmt::Debug,
-    P: std::fmt::Debug,
+    R: std::fmt::Debug + std::marker::Copy + Clone,
+    P: std::fmt::Debug + std::marker::Copy + Clone,
 {
     fn from(value: (R, P)) -> Self {
         Self {
@@ -185,8 +169,8 @@ where
 
 impl<R, P> FromStr for Role<R, P>
 where
-    R: FromStr<Err = strum::ParseError> + std::fmt::Debug,
-    P: FromStr<Err = strum::ParseError> + std::fmt::Debug,
+    R: FromStr<Err = strum::ParseError> + std::fmt::Debug + std::marker::Copy + Clone,
+    P: FromStr<Err = strum::ParseError> + std::fmt::Debug + std::marker::Copy + Clone,
 {
     type Err = anyhow::Error;
 
@@ -212,8 +196,8 @@ where
 
 impl<R, P> std::fmt::Display for Role<R, P>
 where
-    R: AsRef<str> + std::fmt::Debug,
-    P: AsRef<str> + std::fmt::Debug,
+    R: AsRef<str> + std::fmt::Debug + std::marker::Copy + Clone,
+    P: AsRef<str> + std::fmt::Debug + std::marker::Copy + Clone,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if let Some(permission) = &self.permission {
@@ -227,8 +211,22 @@ where
 #[Scalar]
 impl<R, P> ScalarType for Role<R, P>
 where
-    R: FromStr<Err = strum::ParseError> + AsRef<str> + std::fmt::Debug + Send + Sync + 'static,
-    P: FromStr<Err = strum::ParseError> + AsRef<str> + std::fmt::Debug + Send + Sync + 'static,
+    R: FromStr<Err = strum::ParseError>
+        + AsRef<str>
+        + std::fmt::Debug
+        + std::marker::Copy
+        + Clone
+        + Send
+        + Sync
+        + 'static,
+    P: FromStr<Err = strum::ParseError>
+        + AsRef<str>
+        + std::fmt::Debug
+        + std::marker::Copy
+        + Clone
+        + Send
+        + Sync
+        + 'static,
 {
     fn parse(value: Value) -> InputValueResult<Self> {
         if let Value::String(value) = &value {
@@ -246,11 +244,11 @@ where
     }
 }
 
-#[derive(Ord, PartialOrd, Eq, PartialEq)]
+#[derive(Ord, PartialOrd, Eq, PartialEq, Clone)]
 pub enum AccessOrRole<R, P>
 where
-    R: std::fmt::Debug,
-    P: std::fmt::Debug,
+    R: std::fmt::Debug + Clone + std::marker::Copy,
+    P: std::fmt::Debug + Clone + std::marker::Copy,
 {
     Access(Access),
     Role(Role<R, P>),
@@ -258,8 +256,8 @@ where
 
 impl<R, P> FromStr for AccessOrRole<R, P>
 where
-    R: FromStr<Err = strum::ParseError> + std::fmt::Debug,
-    P: FromStr<Err = strum::ParseError> + std::fmt::Debug,
+    R: FromStr<Err = strum::ParseError> + std::fmt::Debug + std::marker::Copy + Clone,
+    P: FromStr<Err = strum::ParseError> + std::fmt::Debug + std::marker::Copy + Clone,
 {
     type Err = anyhow::Error;
     fn from_str(v: &str) -> Result<Self, Self::Err> {
@@ -291,30 +289,40 @@ where
 
 pub struct ParseResult<R, P>
 where
-    R: std::fmt::Debug,
-    P: std::fmt::Debug,
+    R: std::fmt::Debug + std::marker::Copy + Clone,
+    P: std::fmt::Debug + std::marker::Copy + Clone,
 {
     pub access: BTreeSet<Access>,
-    pub roles: BTreeSet<Role<R, P>>,
+    pub roles: HashSet<Role<R, P>>,
 }
 
 impl<R, P> Default for ParseResult<R, P>
 where
-    R: std::fmt::Debug,
-    P: std::fmt::Debug,
+    R: std::fmt::Debug + std::marker::Copy + Clone,
+    P: std::fmt::Debug + std::marker::Copy + Clone,
 {
     fn default() -> Self {
         Self {
             access: BTreeSet::default(),
-            roles: BTreeSet::default(),
+            roles: HashSet::default(),
         }
     }
 }
 
 pub fn parse<R, P>(roles: &[Arc<str>]) -> ParseResult<R, P>
 where
-    R: Ord + FromStr<Err = strum::ParseError> + std::fmt::Debug,
-    P: Ord + FromStr<Err = strum::ParseError> + std::fmt::Debug,
+    R: Ord
+        + FromStr<Err = strum::ParseError>
+        + std::fmt::Debug
+        + std::marker::Copy
+        + Clone
+        + std::hash::Hash,
+    P: Ord
+        + FromStr<Err = strum::ParseError>
+        + std::fmt::Debug
+        + std::marker::Copy
+        + Clone
+        + std::hash::Hash,
 {
     roles
         .iter()
@@ -335,8 +343,8 @@ where
 
 pub struct Group<R, P>
 where
-    R: std::fmt::Debug,
-    P: std::fmt::Debug,
+    R: std::fmt::Debug + std::marker::Copy + Clone,
+    P: std::fmt::Debug + std::marker::Copy + Clone,
 {
     pub name: String,
     pub path: String,
@@ -347,8 +355,8 @@ where
 
 impl<R, P> Group<R, P>
 where
-    R: std::fmt::Debug,
-    P: std::fmt::Debug,
+    R: std::fmt::Debug + std::marker::Copy + Clone,
+    P: std::fmt::Debug + std::marker::Copy + Clone,
 {
     pub fn new(
         name: String,
@@ -377,8 +385,8 @@ where
 
 impl<R, P> Group<R, P>
 where
-    R: AsRef<str> + std::fmt::Debug,
-    P: AsRef<str> + std::fmt::Debug,
+    R: AsRef<str> + std::fmt::Debug + std::marker::Copy + Clone,
+    P: AsRef<str> + std::fmt::Debug + std::marker::Copy + Clone,
 {
     pub fn resources(&self) -> Vec<String> {
         self.resource_roles.iter().map(|r| r.to_string()).collect()

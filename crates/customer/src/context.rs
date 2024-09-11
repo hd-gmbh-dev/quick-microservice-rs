@@ -87,8 +87,8 @@ pub trait RelatedStorage:
 pub trait UserContext<R, P>:
     IsAdmin + IsSupport + HasRole<R, P> + HasAccess + AsNumber + UserId + Send + Sync + 'static
 where
-    R: std::fmt::Debug,
-    P: std::fmt::Debug,
+    R: std::fmt::Debug + std::marker::Copy + Clone,
+    P: std::fmt::Debug + std::marker::Copy + Clone,
 {
 }
 
@@ -108,8 +108,8 @@ pub trait RelatedAuth<R, P>:
     + Sync
     + 'static
 where
-    R: std::fmt::Debug,
-    P: std::fmt::Debug,
+    R: std::fmt::Debug + std::marker::Copy + Clone,
+    P: std::fmt::Debug + std::marker::Copy + Clone,
 {
 }
 
@@ -137,6 +137,7 @@ pub trait RelatedResource:
     + UserResource
     + IsAdmin
     + Clone
+    + std::marker::Copy
     + Hash
     + Eq
     + FromStr<Err = strum::ParseError>
@@ -151,6 +152,7 @@ pub trait RelatedPermission:
     MutatePermissions
     + QueryPermissions
     + Clone
+    + std::marker::Copy
     + Hash
     + Eq
     + FromStr<Err = strum::ParseError>

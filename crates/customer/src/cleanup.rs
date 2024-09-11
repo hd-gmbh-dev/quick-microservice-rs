@@ -12,7 +12,6 @@ use tracing::error;
 use qm_entity::ids::CustomerIds;
 use qm_entity::ids::InstitutionIds;
 use qm_entity::ids::OrganizationIds;
-use qm_entity::ids::OrganizationUnitIds;
 use qm_keycloak::Keycloak;
 use qm_keycloak::KeycloakError;
 use sqlx::types::Uuid;
@@ -27,8 +26,6 @@ pub enum CleanupTaskType {
     Organizations(OrganizationIds),
     #[strum(serialize = "institutions")]
     Institutions(InstitutionIds),
-    #[strum(serialize = "organization_units")]
-    OrganizationUnits(OrganizationUnitIds),
     #[default]
     #[strum(serialize = "none")]
     None,
@@ -96,7 +93,6 @@ pub async fn cleanup_api_clients(
                         || client_ids_set.contains(&InfraContext::Organization(v.parent()))
                         || client_ids_set.contains(&InfraContext::Customer(v.root()))
                 }
-                _ => false,
             })
             .unwrap_or(false)
     });

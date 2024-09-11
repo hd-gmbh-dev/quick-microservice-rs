@@ -14,11 +14,11 @@ use crate::cache::CacheDB;
 use crate::config::SchemaConfig;
 use crate::groups::RelatedBuiltInGroup;
 use crate::marker::Marker;
-use crate::model::User;
-use crate::model::UserList;
-use crate::model::{CreateUserInput, Customer};
-use crate::model::{CreateUserPayload, Institution, Organization, OrganizationUnit, UserDetails};
-use crate::model::{Group, RequiredUserAction, Role, UserGroup};
+use crate::model::QmUser;
+use crate::model::QmUserList;
+use crate::model::{CreateUserPayload, QmInstitution, QmOrganization, QmUserDetails};
+use crate::model::{Group, QmRequiredUserAction, Role, UserGroup};
+use crate::model::{QmCreateUserInput, QmCustomer};
 use qm_entity::err;
 use qm_entity::error::EntityError;
 use qm_entity::error::EntityResult;
@@ -70,7 +70,7 @@ fn set_attributes(attributes: HashMap<&str, Option<String>>, u: &mut UserReprese
 pub async fn create_keycloak_user(
     realm: &str,
     keycloak: &Keycloak,
-    user: CreateUserInput,
+    user: QmCreateUserInput,
 ) -> FieldResult<UserRepresentation> {
     let username = user.username;
     let email = Some(user.email);
@@ -129,7 +129,7 @@ pub async fn create_keycloak_user(
         temporary: user
             .required_actions
             .as_ref()
-            .map(|actions| actions.contains(&RequiredUserAction::UpdatePassword)),
+            .map(|actions| actions.contains(&QmRequiredUserAction::UpdatePassword)),
         type_: Some("password".to_string()),
         user_label: None,
         value: Some(user.password),
@@ -154,9 +154,9 @@ pub async fn create_keycloak_user(
                     .ok_or(anyhow::format_err!("Unknown Error"))?;
                 if err_msg.contains("username") {
                     // conflicting_name("Benutzername", "username")
-                    err!(fields_conflict::<User>(&username, &["username"][..]))
+                    err!(fields_conflict::<QmUser>(&username, &["username"][..]))
                 } else if err_msg.contains("email") {
-                    err!(fields_conflict::<User>(&username, &["email"][..]))
+                    err!(fields_conflict::<QmUser>(&username, &["email"][..]))
                 } else {
                     err!(internal())
                 }
@@ -201,15 +201,15 @@ pub async fn create_keycloak_user(
     keycloak
         .user_by_username(realm, username.clone())
         .await?
-        .ok_or(EntityError::not_found_by_field::<User>(
+        .ok_or(EntityError::not_found_by_field::<QmUser>(
             "username", &username,
         ))
         .extend()
 }
 
 #[ComplexObject]
-impl UserDetails {
-    async fn customer(&self, ctx: &Context<'_>) -> Option<Arc<Customer>> {
+impl QmUserDetails {
+    async fn customer(&self, ctx: &Context<'_>) -> Option<Arc<QmCustomer>> {
         let cache = ctx.data::<CacheDB>().ok();
         if cache.is_none() {
             tracing::warn!("qm::customer::cache::CacheDB is not installed in schema context");
@@ -222,7 +222,7 @@ impl UserDetails {
         None
     }
 
-    async fn organization(&self, ctx: &Context<'_>) -> Option<Arc<Organization>> {
+    async fn organization(&self, ctx: &Context<'_>) -> Option<Arc<QmOrganization>> {
         let cache = ctx.data::<CacheDB>().ok();
         if cache.is_none() {
             tracing::warn!("qm::customer::cache::CacheDB is not installed in schema context");
@@ -239,24 +239,7 @@ impl UserDetails {
         None
     }
 
-    async fn organization_unit(&self, ctx: &Context<'_>) -> Option<Arc<OrganizationUnit>> {
-        let cache = ctx.data::<CacheDB>().ok();
-        if cache.is_none() {
-            tracing::warn!("qm::customer::cache::CacheDB is not installed in schema context");
-            return None;
-        }
-        let cache = cache.unwrap();
-        if let Some(id) = self
-            .context
-            .as_ref()
-            .and_then(InfraContext::organization_unit_id)
-        {
-            return cache.organization_unit_by_id(&id).await;
-        }
-        None
-    }
-
-    async fn institution(&self, ctx: &Context<'_>) -> Option<Arc<Institution>> {
+    async fn institution(&self, ctx: &Context<'_>) -> Option<Arc<QmInstitution>> {
         let cache = ctx.data::<CacheDB>().ok();
         if cache.is_none() {
             tracing::warn!("qm::customer::cache::CacheDB is not installed in schema context");
@@ -311,16 +294,16 @@ where
         &self,
         mut context: Option<InfraContext>,
         filter: Option<ListFilter>,
-    ) -> async_graphql::FieldResult<UserList> {
+    ) -> async_graphql::FieldResult<QmUserList> {
         context = self.0.enforce_current_context(context).await?;
         Ok(self.0.store.cache_db().user_list(context, filter).await)
     }
 
-    pub async fn by_id(&self, id: &str) -> Option<UserDetails> {
+    pub async fn by_id(&self, id: &str) -> Option<QmUserDetails> {
         self.0.store.cache_db().user_details_by_id(id).await
     }
 
-    pub async fn create(&self, input: CreateUserPayload) -> FieldResult<Arc<User>> {
+    pub async fn create(&self, input: CreateUserPayload) -> FieldResult<Arc<QmUser>> {
         let CreateUserPayload {
             user: mut user_input,
             access,
@@ -348,7 +331,7 @@ where
         }
 
         if !conflict_fields.is_empty() {
-            return err!(fields_conflict::<User>(
+            return err!(fields_conflict::<QmUser>(
                 user_input.username.as_str(),
                 &conflict_fields[..]
             )
@@ -366,7 +349,7 @@ where
 
         if user_input
             .required_actions
-            .map(|actions| actions.contains(&RequiredUserAction::VerifyEmail))
+            .map(|actions| actions.contains(&QmRequiredUserAction::VerifyEmail))
             .unwrap_or_default()
         {
             if let Err(err) = keycloak.send_verify_email_user(realm, &user_id, None).await {
@@ -414,7 +397,7 @@ where
                 user_roles.push(role);
             }
         }
-        let user = Arc::new(User {
+        let user = Arc::new(QmUser {
             id: Arc::from(user_uuid.to_string()),
             username: Arc::from(user_input.username),
             firstname: Arc::from(user_input.firstname),
@@ -472,7 +455,7 @@ where
     Permission: RelatedPermission,
     BuiltInGroup: RelatedBuiltInGroup,
 {
-    async fn me(&self, ctx: &Context<'_>) -> async_graphql::FieldResult<Option<UserDetails>> {
+    async fn me(&self, ctx: &Context<'_>) -> async_graphql::FieldResult<Option<QmUserDetails>> {
         let auth_ctx = AuthCtx::<'_, Auth, Store, Resource, Permission>::new(ctx)
             .await
             .extend()?;
@@ -484,7 +467,7 @@ where
         &self,
         ctx: &Context<'_>,
         id: Uuid,
-    ) -> async_graphql::FieldResult<Option<UserDetails>> {
+    ) -> async_graphql::FieldResult<Option<QmUserDetails>> {
         Ok(Ctx(
             &AuthCtx::<'_, Auth, Store, Resource, Permission>::new_with_role(
                 ctx,
@@ -502,7 +485,7 @@ where
         ctx: &Context<'_>,
         context: Option<InfraContext>,
         filter: Option<ListFilter>,
-    ) -> async_graphql::FieldResult<UserList> {
+    ) -> async_graphql::FieldResult<QmUserList> {
         Ctx(
             &AuthCtx::<'_, Auth, Store, Resource, Permission>::new_with_role(
                 ctx,
@@ -546,9 +529,9 @@ where
         ctx: &Context<'_>,
         access_level: AccessLevel,
         group_id: Option<String>,
-        input: CreateUserInput,
+        input: QmCreateUserInput,
         context: Option<InfraContext>,
-    ) -> async_graphql::FieldResult<Arc<User>> {
+    ) -> async_graphql::FieldResult<Arc<QmUser>> {
         let auth_ctx = AuthCtx::<'_, Auth, Store, Resource, Permission>::new_with_role(
             ctx,
             &qm_role::role!(Resource::user(), Permission::create()),
@@ -597,13 +580,9 @@ where
                 }
             }
         }
-        let user_access_level_u32 = auth_ctx.auth.as_number();
-        let access_level_u32 = access_level.as_number();
         let access = if let Some(context) = context.as_ref() {
             let access = Access::new(access_level).with_fmt_id(Some(&context));
-            if (user_access_level_u32 < access_level_u32)
-                || (user_access_level_u32 == access_level_u32 && !auth_ctx.auth.has_access(&access))
-            {
+            if !auth_ctx.auth.has_access(&access) {
                 return err!(unauthorized(&auth_ctx.auth).extend());
             }
             access
@@ -639,7 +618,7 @@ where
         &self,
         _ctx: &Context<'_>,
         _input: String,
-    ) -> async_graphql::FieldResult<Option<Arc<User>>> {
+    ) -> async_graphql::FieldResult<Option<Arc<QmUser>>> {
         // Ok(InstitutionCtx::<Auth, Store>::from_graphql(ctx)
         //     .await?
         //     .update(&input)
@@ -681,7 +660,7 @@ where
                     .extend()?;
                 user_ids.push(Arc::from(id));
             } else {
-                return exerr!(not_found_by_id::<User>(id.to_string()));
+                return exerr!(not_found_by_id::<QmUser>(id.to_string()));
             }
         }
         Ctx(&auth_ctx).remove(Arc::from(user_ids)).await.extend()

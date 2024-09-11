@@ -5,7 +5,7 @@ use qm_pg::DB;
 use crate::{
     cache::{
         update::{Op, Payload},
-        User, UserEntityUpdate, UserMap,
+        QmUser, UserEntityUpdate, UserMap,
     },
     query::fetch_users,
 };
@@ -31,7 +31,7 @@ impl Users {
                 let lastname: Arc<str> = Arc::from(row.lastname.unwrap());
                 let username: Arc<str> = Arc::from(row.username.unwrap());
                 let email: Arc<str> = Arc::from(row.email.unwrap());
-                state.entry(id.clone()).or_insert(Arc::new(User {
+                state.entry(id.clone()).or_insert(Arc::new(QmUser {
                     id,
                     username,
                     email,
@@ -60,25 +60,25 @@ impl Users {
         self.user_id_map.len() as i64
     }
 
-    pub fn new_user(&mut self, user: Arc<User>) {
+    pub fn new_user(&mut self, user: Arc<QmUser>) {
         self.user_id_map.insert(user.id.clone(), user.clone());
         self.users.insert(user.username.clone(), user.clone());
         self.user_email_map.insert(user.email.clone(), user);
     }
 
-    pub fn list(&self) -> Arc<[Arc<User>]> {
+    pub fn list(&self) -> Arc<[Arc<QmUser>]> {
         self.user_id_map.values().cloned().collect()
     }
 
-    pub fn get(&self, user_id: &str) -> Option<&Arc<User>> {
+    pub fn get(&self, user_id: &str) -> Option<&Arc<QmUser>> {
         self.user_id_map.get(user_id)
     }
 
-    pub fn by_username(&self, username: &str) -> Option<&Arc<User>> {
+    pub fn by_username(&self, username: &str) -> Option<&Arc<QmUser>> {
         self.users.get(username)
     }
 
-    pub fn by_email(&self, email: &str) -> Option<&Arc<User>> {
+    pub fn by_email(&self, email: &str) -> Option<&Arc<QmUser>> {
         self.user_email_map.get(email)
     }
 
@@ -91,7 +91,7 @@ impl Users {
         match (payload.op, payload.new, payload.old) {
             (Op::Insert, Some(new), None) => {
                 if realm.equals(new.realm_id.as_deref()) && new.has_all_fields() {
-                    let user = Arc::new(User {
+                    let user = Arc::new(QmUser {
                         id: new.id,
                         username: new.username,
                         email: new.email.unwrap(),
@@ -107,7 +107,7 @@ impl Users {
                     && realm.equals(old.realm_id.as_deref())
                     && new.has_all_fields()
                 {
-                    let user = Arc::new(User {
+                    let user = Arc::new(QmUser {
                         id: new.id,
                         username: new.username,
                         email: new.email.unwrap(),

@@ -13,6 +13,9 @@ pub enum EntityError {
     /// A unhandled Database error occurred.
     #[error("{0}")]
     Database(#[from] qm_mongodb::error::Error),
+    /// A unhandled Database error occurred.
+    #[error("{0}")]
+    SQLDatabase(#[from] sea_orm::DbErr),
     /// Keycloak request failure.
     #[error(transparent)]
     KeycloakRequest(#[from] reqwest::Error),
@@ -22,6 +25,8 @@ pub enum EntityError {
     /// A unexpected error occured.
     #[error(transparent)]
     UnexpectedError(#[from] anyhow::Error),
+    #[error(transparent)]
+    SerdeJson(#[from] serde_json::Error),
     /// Conflicting error, because resource already exists.
     #[error("the resource {0} with id '{1}' already exists")]
     IdConflict(String, String),

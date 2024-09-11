@@ -16,8 +16,8 @@ pub struct InstitutionData(
 );
 
 #[derive(Debug, Clone, SimpleObject)]
-pub struct InstitutionList {
-    pub items: Arc<[Arc<Institution>]>,
+pub struct QmInstitutionList {
+    pub items: Arc<[Arc<QmInstitution>]>,
     pub limit: Option<i64>,
     pub total: Option<i64>,
     pub page: Option<i64>,
@@ -25,7 +25,7 @@ pub struct InstitutionList {
 
 #[derive(Debug, Clone, SimpleObject, FromRow, Serialize, Deserialize)]
 #[graphql(complex)]
-pub struct Institution {
+pub struct QmInstitution {
     #[graphql(skip)]
     pub id: InfraId,
     #[graphql(skip)]
@@ -71,8 +71,8 @@ impl From<InstitutionUpdate> for RemoveInstitutionPayload {
     }
 }
 
-impl<'a> From<&'a Institution> for RemoveInstitutionPayload {
-    fn from(value: &'a Institution) -> Self {
+impl<'a> From<&'a QmInstitution> for RemoveInstitutionPayload {
+    fn from(value: &'a QmInstitution) -> Self {
         Self {
             id: value.id,
             customer_id: value.customer_id,
@@ -94,8 +94,8 @@ pub struct UpdateInstitutionInput {
     pub name: String,
 }
 
-impl<'a> From<&'a Institution> for InstitutionId {
-    fn from(val: &'a Institution) -> Self {
+impl<'a> From<&'a QmInstitution> for InstitutionId {
+    fn from(val: &'a QmInstitution) -> Self {
         let cid: i64 = val.customer_id.into();
         let oid: i64 = val.organization_id.into();
         let iid: i64 = val.id.into();
@@ -103,16 +103,16 @@ impl<'a> From<&'a Institution> for InstitutionId {
     }
 }
 
-impl<'a> From<&'a Institution> for OrganizationId {
-    fn from(val: &'a Institution) -> Self {
+impl<'a> From<&'a QmInstitution> for OrganizationId {
+    fn from(val: &'a QmInstitution) -> Self {
         let cid: i64 = val.customer_id.into();
         let oid: i64 = val.organization_id.into();
         (cid, oid).into()
     }
 }
 
-impl<'a> From<&'a Institution> for CustomerId {
-    fn from(val: &'a Institution) -> Self {
+impl<'a> From<&'a QmInstitution> for CustomerId {
+    fn from(val: &'a QmInstitution) -> Self {
         let cid: i64 = val.customer_id.into();
         cid.into()
     }

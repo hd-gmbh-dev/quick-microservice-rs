@@ -89,7 +89,7 @@ impl KcUserRoleQuery {
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Debug, Clone, Enum, Copy, Eq, PartialEq)]
-pub enum RequiredUserAction {
+pub enum QmRequiredUserAction {
     #[graphql(name = "VERIFY_EMAIL")]
     VerifyEmail,
     #[graphql(name = "UPDATE_PROFILE")]
@@ -102,14 +102,14 @@ pub enum RequiredUserAction {
     TermsAndConditions,
 }
 
-impl std::fmt::Display for RequiredUserAction {
+impl std::fmt::Display for QmRequiredUserAction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let str = match self {
-            RequiredUserAction::VerifyEmail => "VERIFY_EMAIL",
-            RequiredUserAction::UpdateProfile => "UPDATE_PROFILE",
-            RequiredUserAction::ConfigureTotp => "CONFIGURE_TOTP",
-            RequiredUserAction::UpdatePassword => "UPDATE_PASSWORD",
-            RequiredUserAction::TermsAndConditions => "TERMS_AND_CONDITIONS",
+            QmRequiredUserAction::VerifyEmail => "VERIFY_EMAIL",
+            QmRequiredUserAction::UpdateProfile => "UPDATE_PROFILE",
+            QmRequiredUserAction::ConfigureTotp => "CONFIGURE_TOTP",
+            QmRequiredUserAction::UpdatePassword => "UPDATE_PASSWORD",
+            QmRequiredUserAction::TermsAndConditions => "TERMS_AND_CONDITIONS",
         }
         .to_string();
         write!(f, "{}", str)
@@ -118,7 +118,7 @@ impl std::fmt::Display for RequiredUserAction {
 
 #[derive(Default, serde::Deserialize, serde::Serialize, Debug, Clone, InputObject)]
 #[serde(rename_all = "camelCase")]
-pub struct CreateUserInput {
+pub struct QmCreateUserInput {
     pub username: String,
     pub firstname: String,
     pub lastname: String,
@@ -129,19 +129,19 @@ pub struct CreateUserInput {
     pub room_number: Option<String>,
     pub job_title: Option<String>,
     pub enabled: Option<bool>,
-    pub required_actions: Option<Vec<RequiredUserAction>>,
+    pub required_actions: Option<Vec<QmRequiredUserAction>>,
 }
 
 #[derive(Debug)]
 pub struct CreateUserPayload {
-    pub user: CreateUserInput,
+    pub user: QmCreateUserInput,
     pub group_id: Option<String>,
     pub access: Option<String>,
     pub context: Option<InfraContext>,
 }
 
 #[derive(Debug, Clone, SimpleObject)]
-pub struct User {
+pub struct QmUser {
     pub id: Arc<str>,
     pub username: Arc<str>,
     pub email: Arc<str>,
@@ -150,8 +150,8 @@ pub struct User {
     pub enabled: bool,
 }
 
-pub type UserMap = HashMap<Arc<str>, Arc<User>>;
-pub type UserUidMap = HashMap<Uuid, Arc<User>>;
+pub type UserMap = HashMap<Arc<str>, Arc<QmUser>>;
+pub type UserUidMap = HashMap<Uuid, Arc<QmUser>>;
 pub type UserGroupMap = HashMap<Arc<str>, HashSet<Arc<str>>>;
 pub type UserRoleMap = HashMap<Arc<str>, HashSet<Arc<str>>>;
 
@@ -174,8 +174,8 @@ pub struct UserGroupMembership {
 }
 
 #[derive(Debug, Clone, SimpleObject)]
-pub struct UserList {
-    pub items: Arc<[UserDetails]>,
+pub struct QmUserList {
+    pub items: Arc<[QmUserDetails]>,
     pub limit: Option<i64>,
     pub total: Option<i64>,
     pub page: Option<i64>,
@@ -183,9 +183,9 @@ pub struct UserList {
 
 #[derive(Debug, Clone, SimpleObject)]
 #[graphql(complex)]
-pub struct UserDetails {
+pub struct QmUserDetails {
     #[graphql(flatten)]
-    pub user: Arc<User>,
+    pub user: Arc<QmUser>,
     #[graphql(skip)]
     pub context: Option<InfraContext>,
     #[graphql(skip)]
@@ -194,13 +194,12 @@ pub struct UserDetails {
     pub group: Option<Arc<GroupDetail>>,
 }
 
-impl PartialEqual<'_, InfraContext> for UserDetails {
+impl PartialEqual<'_, InfraContext> for QmUserDetails {
     fn partial_equal(&'_ self, r: &'_ InfraContext) -> bool {
         if let Some(context) = self.context.as_ref() {
             match r {
                 InfraContext::Customer(v) => context.has_customer(v),
                 InfraContext::Organization(v) => context.has_organization(v),
-                InfraContext::OrganizationUnit(v) => context.has_organization_unit(v),
                 InfraContext::Institution(v) => context.has_institution(v),
             }
         } else {
@@ -209,7 +208,7 @@ impl PartialEqual<'_, InfraContext> for UserDetails {
     }
 }
 
-impl PartialEqual<'_, InstitutionId> for UserDetails {
+impl PartialEqual<'_, InstitutionId> for QmUserDetails {
     fn partial_equal(&'_ self, r: &'_ InstitutionId) -> bool {
         if let Some(context) = self.context.as_ref() {
             context.has_institution(r)

@@ -1,7 +1,6 @@
 use crate::model::*;
 use crate::query::fetch_customers;
 use crate::query::fetch_institutions;
-use crate::query::fetch_organization_units;
 use crate::query::fetch_organizations;
 use prometheus_client::metrics::gauge::Gauge;
 use qm_entity::ids::InfraId;
@@ -17,14 +16,12 @@ use tokio::sync::RwLock;
 use super::update::Op;
 use super::update::Payload;
 
-pub type CustomerMap = HashMap<Arc<str>, Arc<Customer>>;
-pub type CustomerIdMap = HashMap<InfraId, Arc<Customer>>;
-pub type OrganizationMap = HashMap<(Arc<str>, InfraId), Arc<Organization>>;
-pub type OrganizationIdMap = HashMap<InfraId, Arc<Organization>>;
-pub type OrganizationUnitMap = HashMap<(Arc<str>, InfraId, Option<InfraId>), Arc<OrganizationUnit>>;
-pub type OrganizationUnitIdMap = HashMap<InfraId, Arc<OrganizationUnit>>;
-pub type InstitutionMap = HashMap<(Arc<str>, InfraId, InfraId), Arc<Institution>>;
-pub type InstitutionIdMap = HashMap<InfraId, Arc<Institution>>;
+pub type CustomerMap = HashMap<Arc<str>, Arc<QmCustomer>>;
+pub type CustomerIdMap = HashMap<InfraId, Arc<QmCustomer>>;
+pub type OrganizationMap = HashMap<(Arc<str>, InfraId), Arc<QmOrganization>>;
+pub type OrganizationIdMap = HashMap<InfraId, Arc<QmOrganization>>;
+pub type InstitutionMap = HashMap<(Arc<str>, InfraId, InfraId), Arc<QmInstitution>>;
+pub type InstitutionIdMap = HashMap<InfraId, Arc<QmInstitution>>;
 
 fn parse_date_time(s: &str) -> Option<PrimitiveDateTime> {
     let format = format_description!("[year]-[month]-[day]T[hour]:[minute]:[second].[subsecond]");
@@ -38,9 +35,6 @@ pub struct InfraDB {
     pub organizations: RwLock<OrganizationMap>,
     pub organization_id_map: RwLock<OrganizationIdMap>,
     pub organizations_total: Gauge<i64, AtomicI64>,
-    pub organization_units: RwLock<OrganizationUnitMap>,
-    pub organization_unit_id_map: RwLock<OrganizationUnitIdMap>,
-    pub organization_units_total: Gauge<i64, AtomicI64>,
     pub institutions: RwLock<InstitutionMap>,
     pub institution_id_map: RwLock<InstitutionIdMap>,
     pub institutions_total: Gauge<i64, AtomicI64>,
@@ -57,7 +51,6 @@ impl InfraDB {
     pub async fn new(db: &DB) -> anyhow::Result<Self> {
         let customers_total = Gauge::default();
         let organizations_total = Gauge::default();
-        let organization_units_total = Gauge::default();
         let institutions_total = Gauge::default();
         let mut migrator = sqlx::migrate!("./migrations/customer");
         migrator.set_ignore_missing(true);
@@ -69,9 +62,6 @@ impl InfraDB {
             organizations: Default::default(),
             organization_id_map: Default::default(),
             organizations_total,
-            organization_units: Default::default(),
-            organization_unit_id_map: Default::default(),
-            organization_units_total,
             institutions: Default::default(),
             institution_id_map: Default::default(),
             institutions_total,
@@ -100,22 +90,14 @@ impl InfraDB {
         Ok(())
     }
 
-    async fn load_organization_units(&self, db: &DB) -> anyhow::Result<()> {
-        for v in fetch_organization_units(db).await? {
-            self.new_organization_unit(Arc::new(v)).await;
-        }
-        Ok(())
-    }
-
     pub async fn reload(&self, db: &DB) -> anyhow::Result<()> {
         self.load_customers(db).await?;
         self.load_organizations(db).await?;
         self.load_institutions(db).await?;
-        self.load_organization_units(db).await?;
         Ok(())
     }
 
-    pub async fn new_customer(&self, customer: Arc<Customer>) {
+    pub async fn new_customer(&self, customer: Arc<QmCustomer>) {
         let customers_total = {
             let mut customers = self.customers.write().await;
             customers.insert(customer.name.clone(), customer.clone());
@@ -128,7 +110,7 @@ impl InfraDB {
         self.customers_total.set(customers_total as i64);
     }
 
-    pub async fn new_organization(&self, organization: Arc<Organization>) {
+    pub async fn new_organization(&self, organization: Arc<QmOrganization>) {
         let organizations_total = {
             let mut organizations = self.organizations.write().await;
             organizations.insert(
@@ -144,28 +126,7 @@ impl InfraDB {
         self.organizations_total.set(organizations_total as i64);
     }
 
-    pub async fn new_organization_unit(&self, organization_unit: Arc<OrganizationUnit>) {
-        let organization_units_total = {
-            let mut organization_units = self.organization_units.write().await;
-            organization_units.insert(
-                (
-                    organization_unit.name.clone(),
-                    organization_unit.customer_id,
-                    organization_unit.organization_id,
-                ),
-                organization_unit.clone(),
-            );
-            self.organization_unit_id_map
-                .write()
-                .await
-                .insert(organization_unit.id, organization_unit);
-            organization_units.len()
-        };
-        self.organization_units_total
-            .set(organization_units_total as i64);
-    }
-
-    pub async fn new_institution(&self, institution: Arc<Institution>) {
+    pub async fn new_institution(&self, institution: Arc<QmInstitution>) {
         let institutions_total = {
             let mut institutions = self.institutions.write().await;
             institutions.insert(
@@ -195,7 +156,7 @@ impl InfraDB {
         self.customers_total.set(customers_total as i64);
     }
 
-    pub async fn update_customer(&self, new: Arc<Customer>, old: RemoveCustomerPayload) {
+    pub async fn update_customer(&self, new: Arc<QmCustomer>, old: RemoveCustomerPayload) {
         let customers_total = {
             let mut customers = self.customers.write().await;
             let mut customer_id_map = self.customer_id_map.write().await;
@@ -210,7 +171,7 @@ impl InfraDB {
 
     pub async fn update_organization(
         &self,
-        new: Arc<Organization>,
+        new: Arc<QmOrganization>,
         old: RemoveOrganizationPayload,
     ) {
         let organizations_total = {
@@ -225,7 +186,7 @@ impl InfraDB {
         self.organizations_total.set(organizations_total as i64);
     }
 
-    pub async fn update_institution(&self, new: Arc<Institution>, old: RemoveInstitutionPayload) {
+    pub async fn update_institution(&self, new: Arc<QmInstitution>, old: RemoveInstitutionPayload) {
         let institutions_total = {
             let mut institutions = self.institutions.write().await;
             let mut institution_id_map = self.institution_id_map.write().await;
@@ -241,27 +202,6 @@ impl InfraDB {
         self.institutions_total.set(institutions_total as i64);
     }
 
-    pub async fn update_organization_unit(
-        &self,
-        new: Arc<OrganizationUnit>,
-        old: RemoveOrganizationUnitPayload,
-    ) {
-        let organization_units_total = {
-            let mut organization_units = self.organization_units.write().await;
-            let mut organization_unit_id_map = self.organization_unit_id_map.write().await;
-            organization_units.remove(&(old.name.clone(), old.customer_id, old.organization_id));
-            organization_unit_id_map.remove(&old.id);
-            organization_units.insert(
-                (new.name.clone(), new.customer_id, new.organization_id),
-                new.clone(),
-            );
-            organization_unit_id_map.insert(new.id, new);
-            organization_units.len()
-        };
-        self.organization_units_total
-            .set(organization_units_total as i64);
-    }
-
     pub async fn remove_organization(&self, v: OrganizationUpdate) {
         let organizations_total = {
             let mut organizations = self.organizations.write().await;
@@ -270,17 +210,6 @@ impl InfraDB {
             organizations.len()
         };
         self.organizations_total.set(organizations_total as i64);
-    }
-
-    pub async fn remove_organization_unit(&self, v: OrganizationUnitUpdate) {
-        let organization_units_total = {
-            let mut organization_units = self.organization_units.write().await;
-            organization_units.remove(&(v.name.clone(), v.customer_id, v.organization_id));
-            self.organization_unit_id_map.write().await.remove(&v.id);
-            organization_units.len()
-        };
-        self.organization_units_total
-            .set(organization_units_total as i64);
     }
 
     pub async fn remove_institution(&self, v: InstitutionUpdate) {
@@ -299,7 +228,6 @@ impl InfraDB {
             .listen_all([
                 "customers_update",
                 "organizations_update",
-                "organization_units_update",
                 "institutions_update",
             ])
             .await?;
@@ -311,10 +239,6 @@ impl InfraDB {
                 }
                 "organizations_update" => {
                     self.organizations_update(notification.payload()).await?;
-                }
-                "organization_units_update" => {
-                    self.organization_units_update(notification.payload())
-                        .await?;
                 }
                 "institutions_update" => {
                     self.institutions_update(notification.payload()).await?;
@@ -331,7 +255,7 @@ impl InfraDB {
         match (payload.op, payload.new, payload.old) {
             (Op::Insert, Some(new), None) => {
                 if let Some(created_at) = parse_date_time(&new.created_at) {
-                    let customer = Arc::new(Customer {
+                    let customer = Arc::new(QmCustomer {
                         id: new.id,
                         name: new.name,
                         ty: new.ty,
@@ -356,7 +280,7 @@ impl InfraDB {
         match (payload.op, payload.new, payload.old) {
             (Op::Insert, Some(new), None) => {
                 if let Some(created_at) = parse_date_time(&new.created_at) {
-                    let organization = Arc::new(Organization {
+                    let organization = Arc::new(QmOrganization {
                         id: new.id,
                         customer_id: new.customer_id,
                         name: new.name,
@@ -377,40 +301,12 @@ impl InfraDB {
         Ok(())
     }
 
-    async fn organization_units_update(&self, payload: &str) -> anyhow::Result<()> {
-        let payload: Payload<OrganizationUnitUpdate> = serde_json::from_str(payload)?;
-        match (payload.op, payload.new, payload.old) {
-            (Op::Insert, Some(new), None) => {
-                if let Some(created_at) = parse_date_time(&new.created_at) {
-                    let organization_unit = Arc::new(OrganizationUnit {
-                        id: new.id,
-                        customer_id: new.customer_id,
-                        organization_id: new.organization_id,
-                        name: new.name,
-                        ty: new.ty,
-                        created_at,
-                        created_by: new.created_by,
-                        updated_at: new.updated_at.and_then(|s| parse_date_time(&s)),
-                        updated_by: new.updated_by,
-                        members: Arc::from(vec![]),
-                    });
-                    self.new_organization_unit(organization_unit).await;
-                }
-            }
-            (Op::Delete, None, Some(old)) => {
-                self.remove_organization_unit(old).await;
-            }
-            _ => {}
-        }
-        Ok(())
-    }
-
     async fn institutions_update(&self, payload: &str) -> anyhow::Result<()> {
         let payload: Payload<InstitutionUpdate> = serde_json::from_str(payload)?;
         match (payload.op, payload.new, payload.old) {
             (Op::Insert, Some(new), None) => {
                 if let Some(created_at) = parse_date_time(&new.created_at) {
-                    let organization = Arc::new(Institution {
+                    let organization = Arc::new(QmInstitution {
                         id: new.id,
                         customer_id: new.customer_id,
                         organization_id: new.organization_id,

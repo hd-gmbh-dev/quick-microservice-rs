@@ -23,7 +23,7 @@ base64 = "0.22.0"
 constcat = "0.5.0"
 chrono = { version="0.4.31", features = ["serde"] }
 futures = "0.3.30"
-tokio = { version = "1.39.3", features = ["full"] }
+tokio = { version = "1.40.0", features = ["full"] }
 tower-http = { version = "0.5.0", features = ["cors"] }
 thiserror = "1.0.56"
 itertools = "0.13.0"
@@ -31,9 +31,9 @@ envy = "0.4.2"
 reqwest = { version = "0.12.7", default-features = false, features = ["json"] }
 jsonwebtoken = "9.2.0"
 serde = { version = "1.0.208", features = ["derive", "rc"] }
-serde_json = "1.0.125"
+serde_json = "1.0.128"
 keycloak = "25.0.200"
-mongodb = "3.0.0"
+mongodb = "3.1.0"
 lazy_static = "1.4.0"
 tracing = "0.1.40"
 strum = { version = "0.26", features = ["derive"] }
@@ -42,7 +42,7 @@ deadpool-redis = "0.16.0"
 uuid = { version = "1.6.1", features = ["v4", "v7"]}
 glob = "0.3.1"
 async-graphql-axum = "7.0.1"
-sqlx = { version = "0.7.4", features = ["runtime-tokio", "postgres", "uuid", "time"]}
+sqlx = { version = "0.8", features = ["runtime-tokio", "postgres", "uuid", "time"]}
 time = { version = "0.3.14", features = ["formatting", "parsing", "macros", "serde"] }
 Inflector = "0.11.4"
 async-graphql = { version = "7.0.1", features = [
@@ -58,7 +58,7 @@ rdkafka = { version = "0.36.2" }
 
 hex = "0.4.3"
 serde_with = "3.7.0"
-sea-orm = { version = "1.0.0", default-features = false, features = [ "sqlx-postgres" ] }
+sea-orm = { version = "1.1.0-rc.1", default-features = false, features = [ "sqlx-postgres" ] }
 
 qm-entity = { path = "crates/entity", version = "0.0.29" }
 qm-entity-derive = { path = "crates/entity-derive", version = "0.0.29" }
@@ -105,18 +105,18 @@ qm-utils = { workspace = true, optional = true }
 
 [features]
 default = [
-  "entity",
-  "customer",
-  "server",
-  "mongodb",
-  "redis",
-  "pg",
-  "s3",
-  "kafka",
-  "keycloak",
-  "role",
-  "role-build",
-  "utils",
+  # "entity",
+  # "customer",
+  # "server",
+  # "mongodb",
+  # "redis",
+  # "pg",
+  # "s3",
+  # "kafka",
+  # "keycloak",
+  # "role",
+  # "role-build",
+  # "utils",
 ]
 entity = ["qm-entity"]
 customer = ["qm-customer"]

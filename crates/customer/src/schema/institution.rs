@@ -24,22 +24,22 @@ use crate::context::RelatedResource;
 use crate::context::RelatedStorage;
 use crate::groups::RelatedBuiltInGroup;
 use crate::marker::Marker;
-use crate::model::Customer;
-use crate::model::Institution;
-use crate::model::Organization;
+use crate::model::QmCustomer;
+use crate::model::QmInstitution;
+use crate::model::QmOrganization;
 use crate::model::{CreateInstitutionInput, UpdateInstitutionInput};
-use crate::model::{InstitutionData, InstitutionList};
+use crate::model::{InstitutionData, QmInstitutionList};
 use crate::mutation::{remove_institutions, update_institution};
 use crate::roles;
 use crate::schema::auth::AuthCtx;
 
 #[ComplexObject]
-impl Institution {
+impl QmInstitution {
     async fn id(&self) -> async_graphql::FieldResult<InstitutionId> {
         Ok(self.into())
     }
 
-    async fn customer(&self, ctx: &Context<'_>) -> Option<Arc<Customer>> {
+    async fn customer(&self, ctx: &Context<'_>) -> Option<Arc<QmCustomer>> {
         let cache = ctx.data::<CacheDB>().ok();
         if cache.is_none() {
             tracing::warn!("qm::customer::cache::CacheDB is not installed in schema context");
@@ -49,7 +49,7 @@ impl Institution {
         cache.customer_by_id(&self.customer_id).await
     }
 
-    async fn organization(&self, ctx: &Context<'_>) -> Option<Arc<Organization>> {
+    async fn organization(&self, ctx: &Context<'_>) -> Option<Arc<QmOrganization>> {
         let cache = ctx.data::<CacheDB>().ok();
         if cache.is_none() {
             tracing::warn!("qm::customer::cache::CacheDB is not installed in schema context");
@@ -80,7 +80,7 @@ where
         mut context: Option<CustomerOrOrganization>,
         filter: Option<ListFilter>,
         ty: Option<String>,
-    ) -> async_graphql::FieldResult<InstitutionList> {
+    ) -> async_graphql::FieldResult<QmInstitutionList> {
         context = self
             .0
             .enforce_customer_or_organization_context(context)
@@ -94,7 +94,7 @@ where
             .await)
     }
 
-    pub async fn by_id(&self, id: InstitutionId) -> Option<Arc<Institution>> {
+    pub async fn by_id(&self, id: InstitutionId) -> Option<Arc<QmInstitution>> {
         self.0.store.cache_db().institution_by_id(&id.into()).await
     }
 
@@ -107,7 +107,7 @@ where
             .is_some()
     }
 
-    pub async fn create(&self, institution: InstitutionData) -> EntityResult<Arc<Institution>> {
+    pub async fn create(&self, institution: InstitutionData) -> EntityResult<Arc<QmInstitution>> {
         let user_id = self.0.auth.user_id().unwrap();
         let (cid, oid) = institution.0.unzip();
         let name: Arc<str> = Arc::from(institution.1.clone());
@@ -165,16 +165,20 @@ where
         .await?;
         self.0.store.redis().unlock(&lock_key, &lock.id).await?;
         if exists {
-            return err!(name_conflict::<Institution>(name.to_string()));
+            return err!(name_conflict::<QmInstitution>(name.to_string()));
         }
         Ok(result)
     }
 
-    pub async fn update(&self, id: InstitutionId, name: String) -> EntityResult<Arc<Institution>> {
+    pub async fn update(
+        &self,
+        id: InstitutionId,
+        name: String,
+    ) -> EntityResult<Arc<QmInstitution>> {
         let user_id = self.0.auth.user_id().unwrap();
         let id: InfraId = id.into();
         let old = self.0.store.cache_db().institution_by_id(&id).await.ok_or(
-            EntityError::not_found_by_field::<Institution>("name", &name),
+            EntityError::not_found_by_field::<QmInstitution>("name", &name),
         )?;
         let result =
             update_institution(self.0.store.customer_db().pool(), id, &name, user_id).await?;
@@ -232,11 +236,11 @@ where
     Permission: RelatedPermission,
     BuiltInGroup: RelatedBuiltInGroup,
 {
-    async fn institution_by_id(
+    async fn qm_institution_by_id(
         &self,
         ctx: &Context<'_>,
         id: InstitutionId,
-    ) -> async_graphql::FieldResult<Option<Arc<Institution>>> {
+    ) -> async_graphql::FieldResult<Option<Arc<QmInstitution>>> {
         Ok(Ctx(
             &AuthCtx::<'_, Auth, Store, Resource, Permission>::new_with_role(
                 ctx,
@@ -249,7 +253,7 @@ where
         .await)
     }
 
-    async fn institution_exists(
+    async fn qm_institution_exists(
         &self,
         ctx: &Context<'_>,
         id: OrganizationId,
@@ -268,13 +272,13 @@ where
         .await)
     }
 
-    async fn institutions(
+    async fn qm_institutions(
         &self,
         ctx: &Context<'_>,
         context: Option<CustomerOrOrganization>,
         filter: Option<ListFilter>,
         ty: Option<String>,
-    ) -> async_graphql::FieldResult<InstitutionList> {
+    ) -> async_graphql::FieldResult<QmInstitutionList> {
         Ctx(
             &AuthCtx::<'_, Auth, Store, Resource, Permission>::new_with_role(
                 ctx,
@@ -312,12 +316,12 @@ where
     Permission: RelatedPermission,
     BuiltInGroup: RelatedBuiltInGroup,
 {
-    async fn create_institution(
+    async fn qm_create_institution(
         &self,
         ctx: &Context<'_>,
         context: OrganizationId,
         input: CreateInstitutionInput,
-    ) -> async_graphql::FieldResult<Arc<Institution>> {
+    ) -> async_graphql::FieldResult<Arc<QmInstitution>> {
         let auth_ctx = AuthCtx::<Auth, Store, Resource, Permission>::mutate_with_role(
             ctx,
             qm_entity::ids::InfraContext::Organization(context),
@@ -330,12 +334,12 @@ where
             .extend()
     }
 
-    async fn update_institution(
+    async fn qm_update_institution(
         &self,
         ctx: &Context<'_>,
         context: InstitutionId,
         input: UpdateInstitutionInput,
-    ) -> async_graphql::FieldResult<Arc<Institution>> {
+    ) -> async_graphql::FieldResult<Arc<QmInstitution>> {
         let auth_ctx = AuthCtx::<'_, Auth, Store, Resource, Permission>::new_with_role(
             ctx,
             &qm_role::role!(Resource::institution(), Permission::update()),
@@ -347,7 +351,7 @@ where
         Ctx(&auth_ctx).update(context, input.name).await.extend()
     }
 
-    async fn remove_institutions(
+    async fn qm_remove_institutions(
         &self,
         ctx: &Context<'_>,
         ids: InstitutionIds,
@@ -364,7 +368,7 @@ where
                 let object_owner = InfraContext::Organization(id.parent());
                 auth_ctx.can_mutate(Some(&object_owner)).await.extend()?;
             } else {
-                return exerr!(not_found_by_id::<Institution>(id.to_string()));
+                return exerr!(not_found_by_id::<QmInstitution>(id.to_string()));
             }
         }
         Ctx(&auth_ctx).remove(ids).await.extend()
