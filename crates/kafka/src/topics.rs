@@ -1,4 +1,6 @@
 use rdkafka::admin::AdminClient;
+use rdkafka::admin::ConfigEntry;
+use rdkafka::admin::ResourceSpecifier;
 use rdkafka::admin::TopicReplication;
 use rdkafka::admin::{AdminOptions, NewTopic};
 use rdkafka::client::DefaultClientContext;
@@ -20,6 +22,10 @@ impl Client {
         Ok(Self { inner })
     }
 
+    pub fn admin(&self) -> &AdminClient<DefaultClientContext> {
+        &self.inner
+    }
+
     pub async fn create_topic(&self, topic_name: &str) -> anyhow::Result<()> {
         self.inner
             .create_topics(
@@ -27,7 +33,26 @@ impl Client {
                     name: topic_name,
                     num_partitions: 1,
                     replication: TopicReplication::Fixed(1),
-                    config: vec![],
+                    config: vec![("retention.ms", "-1")],
+                }],
+                &AdminOptions::default(),
+            )
+            .await?;
+        Ok(())
+    }
+
+    pub async fn create_topic_with_config(
+        &self,
+        topic_name: &str,
+        config: Vec<(&str, &str)>,
+    ) -> anyhow::Result<()> {
+        self.inner
+            .create_topics(
+                &[NewTopic {
+                    name: topic_name,
+                    num_partitions: 1,
+                    replication: TopicReplication::Fixed(1),
+                    config,
                 }],
                 &AdminOptions::default(),
             )
@@ -59,6 +84,20 @@ impl Client {
             }
         }
         Ok(())
+    }
+
+    pub async fn topic_config(&self, topic_name: &str) -> anyhow::Result<Vec<ConfigEntry>> {
+        Ok(self
+            .inner
+            .describe_configs(
+                &[ResourceSpecifier::Topic(topic_name)],
+                &AdminOptions::default(),
+            )
+            .await?
+            .pop()
+            .transpose()?
+            .map(|v| v.entries)
+            .unwrap_or_default())
     }
 
     // TODO: only delete topic containing prefix
