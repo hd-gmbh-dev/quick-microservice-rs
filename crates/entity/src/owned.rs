@@ -6,7 +6,9 @@ use futures::{StreamExt as _, TryStreamExt as _};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 use qm_mongodb::{
-    bson::{doc, oid::ObjectId, serde_helpers::chrono_datetime_as_bson_datetime, Document, Uuid},
+    bson::{
+        doc, oid::ObjectId, serde_helpers::chrono_datetime_as_bson_datetime, Bson, Document, Uuid,
+    },
     options::FindOptions,
     Collection, Database,
 };
@@ -228,6 +230,10 @@ where
 
 pub trait AsMongoId {
     fn as_mongo_id(&self) -> ObjectId;
+}
+
+pub trait FromMongoId: Sized {
+    fn from_mongo_id(old_id: Self, bson: Bson) -> Option<Self>;
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -482,6 +488,48 @@ where
             .upsert(true)
             .await?;
         Ok(result.modified_count > 0 || result.upserted_id.is_some())
+    }
+
+    pub async fn save_with_id<C>(
+        db: &Database,
+        context: C,
+        input: impl Into<T>,
+        user_id: Uuid,
+    ) -> Result<Option<C>, EntityError>
+    where
+        T: Clone + std::fmt::Debug,
+        C: FromMongoId + ToMongoFilterOne + Into<OwnerId> + Clone,
+    {
+        let filter = context.to_mongo_filter_one();
+        #[derive(Debug, Serialize)]
+        struct SaveEntity<F> {
+            owner: OwnerId,
+            #[serde(flatten)]
+            fields: F,
+            #[serde(flatten)]
+            defaults: Arc<Defaults>,
+        }
+        let defaults = Arc::new(Defaults::now(user_id));
+        let entity = SaveEntity {
+            owner: context.clone().into(),
+            fields: input.into(),
+            defaults,
+        };
+        let result = T::mongo_collection::<SaveEntity<_>>(db)
+            .replace_one(filter, &entity)
+            .upsert(true)
+            .await?;
+
+        Ok(result
+            .upserted_id
+            .and_then(|bson| C::from_mongo_id(context.clone(), bson))
+            .or({
+                if result.modified_count > 0 {
+                    Some(context)
+                } else {
+                    None
+                }
+            }))
     }
 
     pub async fn remove<I>(db: &Database, ids: I) -> Result<i32, EntityError>
