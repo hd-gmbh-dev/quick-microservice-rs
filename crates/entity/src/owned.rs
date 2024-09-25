@@ -236,6 +236,10 @@ pub trait FromMongoId: Sized {
     fn from_mongo_id(old_id: Self, bson: Bson) -> Option<Self>;
 }
 
+pub trait IsMongoInsert {
+    fn is_mongo_insert(&self) -> bool;
+}
+
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Entity<T> {
     id: ID,
@@ -498,7 +502,7 @@ where
     ) -> Result<Option<C>, EntityError>
     where
         T: Clone + std::fmt::Debug,
-        C: FromMongoId + ToMongoFilterOne + Into<OwnerId> + Clone,
+        C: FromMongoId + IsMongoInsert + ToMongoFilterOne + Into<OwnerId> + Clone,
     {
         let filter = context.to_mongo_filter_one();
         #[derive(Debug, Serialize)]
@@ -515,21 +519,27 @@ where
             fields: input.into(),
             defaults,
         };
-        let result = T::mongo_collection::<SaveEntity<_>>(db)
-            .replace_one(filter, &entity)
-            .upsert(true)
-            .await?;
-
-        Ok(result
-            .upserted_id
-            .and_then(|bson| C::from_mongo_id(context.clone(), bson))
-            .or({
-                if result.modified_count > 0 {
-                    Some(context)
-                } else {
-                    None
-                }
-            }))
+        Ok(if context.is_mongo_insert() {
+            let result = T::mongo_collection::<SaveEntity<_>>(db)
+                .insert_one(&entity)
+                .await?;
+            C::from_mongo_id(context, result.inserted_id)
+        } else {
+            let result = T::mongo_collection::<SaveEntity<_>>(db)
+                .replace_one(filter, &entity)
+                .upsert(true)
+                .await?;
+            result
+                .upserted_id
+                .and_then(|bson| C::from_mongo_id(context.clone(), bson))
+                .or({
+                    if result.modified_count > 0 {
+                        Some(context)
+                    } else {
+                        None
+                    }
+                })
+        })
     }
 
     pub async fn remove<I>(db: &Database, ids: I) -> Result<i32, EntityError>
