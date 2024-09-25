@@ -66,6 +66,8 @@ pub enum EntityError {
     NotEmpty,
     #[error("List of ids only allowed with same owner")]
     NotSameOwner,
+    #[error("Bson could not be serialized: {0}")]
+    Bson(String),
 }
 
 pub type EntityResult<T> = Result<T, EntityError>;

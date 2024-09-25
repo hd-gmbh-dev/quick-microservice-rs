@@ -7,7 +7,8 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 use qm_mongodb::{
     bson::{
-        doc, oid::ObjectId, serde_helpers::chrono_datetime_as_bson_datetime, Bson, Document, Uuid,
+        doc, oid::ObjectId, serde_helpers::chrono_datetime_as_bson_datetime, to_bson, Bson,
+        Document, Uuid,
     },
     options::FindOptions,
     Collection, Database,
@@ -494,39 +495,52 @@ where
         Ok(result.modified_count > 0 || result.upserted_id.is_some())
     }
 
-    pub async fn save_with_id<C>(
+    pub async fn save_with_id<C, I>(
         db: &Database,
         context: C,
-        input: impl Into<T>,
+        input: I,
         user_id: Uuid,
     ) -> Result<Option<C>, EntityError>
     where
         T: Clone + std::fmt::Debug,
         C: FromMongoId + IsMongoInsert + ToMongoFilterOne + Into<OwnerId> + Clone,
+        I: Into<T> + Send + Sync,
     {
         let filter = context.to_mongo_filter_one();
-        #[derive(Debug, Serialize)]
-        struct SaveEntity<F> {
-            owner: OwnerId,
-            #[serde(flatten)]
-            fields: F,
-            #[serde(flatten)]
-            defaults: Arc<Defaults>,
-        }
-        let defaults = Arc::new(Defaults::now(user_id));
-        let entity = SaveEntity {
-            owner: context.clone().into(),
-            fields: input.into(),
-            defaults,
-        };
         Ok(if context.is_mongo_insert() {
-            let result = T::mongo_collection::<SaveEntity<_>>(db)
+            #[derive(Debug, Serialize)]
+            struct SaveEntity<F> {
+                owner: OwnerId,
+                #[serde(flatten)]
+                fields: F,
+                #[serde(flatten)]
+                defaults: Defaults,
+            }
+            let defaults = Defaults::now(user_id);
+            let entity = SaveEntity {
+                owner: context.clone().into(),
+                fields: input.into(),
+                defaults,
+            };
+            let result = T::mongo_collection::<SaveEntity<T>>(db)
                 .insert_one(&entity)
                 .await?;
             C::from_mongo_id(context, result.inserted_id)
         } else {
-            let result = T::mongo_collection::<SaveEntity<_>>(db)
-                .replace_one(filter, &entity)
+            #[derive(Debug, Serialize)]
+            struct SaveEntity<F> {
+                owner: OwnerId,
+                #[serde(flatten)]
+                fields: F,
+                modified: UserModification,
+            }
+            let entity = SaveEntity {
+                owner: context.clone().into(),
+                fields: input.into(),
+                modified: UserModification::now(user_id),
+            };
+            let result = T::mongo_collection::<SaveEntity<T>>(db)
+                .update_one(filter, doc!{ "$set": to_bson(&entity).map_err(|err| EntityError::Bson(err.to_string()))? })
                 .upsert(true)
                 .await?;
             result
