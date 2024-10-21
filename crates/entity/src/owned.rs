@@ -577,13 +577,20 @@ where
             .count()
             .await;
 
-        if total == 0 {
-            return Ok(Page::empty());
-        }
-
         let page_info: PageInfo = page_selector.try_into()?;
 
         let limit = page_info.limit;
+
+        if total == 0 {
+            return Ok(if limit.is_some() {
+                Page {
+                    limit,
+                    ..Page::empty()
+                }
+            } else {
+                Page::empty()
+            });
+        }
 
         T::mongo_collection(db)
             .find(filter)
