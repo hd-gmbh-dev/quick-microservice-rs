@@ -17,8 +17,9 @@ use qm_mongodb::{
 use crate::{
     error::EntityError,
     ids::{
-        InstitutionId, InstitutionResourceId, OrganizationId, OrganizationOrInstitution,
-        OrganizationResourceId, OwnerId,
+        CustomerId, CustomerOrOrganization, CustomerResourceId, InstitutionId,
+        InstitutionResourceId, OrganizationId, OrganizationOrInstitution, OrganizationResourceId,
+        OwnerId,
     },
     model::ListFilter,
 };
@@ -122,10 +123,19 @@ impl ToMongoFilterMany for Option<Document> {
     }
 }
 
-impl ToMongoFilterMany for InstitutionId {
+impl<T> ToMongoFilterMany for Option<T>
+where
+    T: ToMongoFilterMany,
+{
     fn to_mongo_filter_many(&self) -> Option<Document> {
-        let (cid, oid, iid) = self.unzip();
-        Some(doc! { "owner.cid": cid, "owner.oid": oid, "owner.iid": iid })
+        self.as_ref().and_then(|v| v.to_mongo_filter_many())
+    }
+}
+
+impl ToMongoFilterMany for CustomerId {
+    fn to_mongo_filter_many(&self) -> Option<Document> {
+        let cid = self.unzip();
+        Some(doc! { "owner.cid": cid })
     }
 }
 
@@ -136,9 +146,19 @@ impl ToMongoFilterMany for OrganizationId {
     }
 }
 
-impl ToMongoFilterMany for Option<OrganizationId> {
+impl ToMongoFilterMany for InstitutionId {
     fn to_mongo_filter_many(&self) -> Option<Document> {
-        self.as_ref().and_then(|v| v.to_mongo_filter_many())
+        let (cid, oid, iid) = self.unzip();
+        Some(doc! { "owner.cid": cid, "owner.oid": oid, "owner.iid": iid })
+    }
+}
+
+impl ToMongoFilterMany for CustomerOrOrganization {
+    fn to_mongo_filter_many(&self) -> Option<Document> {
+        match self {
+            Self::Customer(v) => v.to_mongo_filter_many(),
+            Self::Organization(v) => v.to_mongo_filter_many(),
+        }
     }
 }
 
@@ -148,12 +168,6 @@ impl ToMongoFilterMany for OrganizationOrInstitution {
             Self::Institution(v) => v.to_mongo_filter_many(),
             Self::Organization(v) => v.to_mongo_filter_many(),
         }
-    }
-}
-
-impl ToMongoFilterMany for Option<OrganizationOrInstitution> {
-    fn to_mongo_filter_many(&self) -> Option<Document> {
-        self.as_ref().and_then(|v| v.to_mongo_filter_many())
     }
 }
 
@@ -167,31 +181,50 @@ impl ToMongoFilterOne for Document {
     }
 }
 
-impl ToMongoFilterOne for InstitutionResourceId {
+impl ToMongoFilterOne for CustomerResourceId {
     fn to_mongo_filter_one(&self) -> Document {
-        let (cid, oid, iid, id) = self.unzip();
-        doc! { "owner.cid": cid, "owner.oid": oid, "owner.iid": iid, "_id": id }
+        let (.., id) = self.unzip();
+        doc! { "_id": id }
     }
 }
 
 impl ToMongoFilterOne for OrganizationResourceId {
     fn to_mongo_filter_one(&self) -> Document {
-        let (cid, oid, id) = self.unzip();
-        doc! { "owner.cid": cid, "owner.oid": oid, "_id": id }
+        doc! { "_id": self.id() }
+    }
+}
+
+impl ToMongoFilterOne for InstitutionResourceId {
+    fn to_mongo_filter_one(&self) -> Document {
+        let (.., id) = self.unzip();
+        doc! { "_id": id }
+    }
+}
+
+impl ToMongoFilterOne for CustomerId {
+    fn to_mongo_filter_one(&self) -> Document {
+        doc! { "_id": self.unzip() }
     }
 }
 
 impl ToMongoFilterOne for OrganizationId {
     fn to_mongo_filter_one(&self) -> Document {
-        let (cid, oid) = self.unzip();
-        doc! { "owner.cid": cid, "_id": oid }
+        doc! { "_id": self.id() }
     }
 }
 
 impl ToMongoFilterOne for InstitutionId {
     fn to_mongo_filter_one(&self) -> Document {
-        let (cid, oid, iid) = self.unzip();
-        doc! { "owner.cid": cid, "owner.oid": oid, "_id": iid }
+        doc! { "_id": self.id() }
+    }
+}
+
+impl ToMongoFilterOne for CustomerOrOrganization {
+    fn to_mongo_filter_one(&self) -> Document {
+        match self {
+            Self::Customer(v) => v.to_mongo_filter_one(),
+            Self::Organization(v) => v.to_mongo_filter_one(),
+        }
     }
 }
 
