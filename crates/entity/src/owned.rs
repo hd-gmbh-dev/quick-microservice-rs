@@ -574,18 +574,15 @@ where
             };
             let result = T::mongo_collection::<SaveEntity<T>>(db)
                 .update_one(filter, doc!{ "$set": to_bson(&entity).map_err(|err| EntityError::Bson(err.to_string()))? })
-                .upsert(true)
                 .await?;
-            result
-                .upserted_id
-                .and_then(|bson| C::from_mongo_id(context.clone(), bson))
-                .or({
-                    if result.modified_count > 0 {
-                        Some(context)
-                    } else {
-                        None
-                    }
-                })
+            if result.matched_count == 0 {
+                return Err(EntityError::NotFound);
+            }
+            if result.modified_count > 0 {
+                Some(context)
+            } else {
+                None
+            }
         })
     }
 
