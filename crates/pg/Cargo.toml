@@ -2,7 +2,7 @@
 name = "qm-pg"
 description = "PostgreSQL helper functions"
 edition = "2021"
-rust-version = "1.75.0"
+rust-version.workspace = true
 version.workspace = true
 authors = ["Jürgen Seitz <juergen.seitz@h-d-gmbh.de>"]
 license = "MIT"

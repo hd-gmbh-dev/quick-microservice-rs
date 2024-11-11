@@ -2,7 +2,7 @@
 name = "qm-mongodb"
 description = "MongoDB helper functions"
 edition = "2021"
-rust-version = "1.75.0"
+rust-version = "1.82.0"
 version.workspace = true
 authors = ["Jürgen Seitz <juergen.seitz@h-d-gmbh.de>"]
 license = "MIT"
