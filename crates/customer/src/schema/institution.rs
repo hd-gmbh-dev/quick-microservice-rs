@@ -147,6 +147,7 @@ where
                             .create_event(
                                 &qm_kafka::producer::EventNs::Institution,
                                 "institution",
+                                "sys",
                                 &result,
                             )
                             .await?;
