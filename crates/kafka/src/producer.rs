@@ -69,6 +69,7 @@ pub enum EventType {
 pub struct Event {
     pub event: EventType,
     pub ty: String,
+    pub cty: String,
     pub object: serde_json::Value,
 }
 
@@ -123,12 +124,13 @@ impl Producer {
         &self,
         event_ns: &EventNs,
         ty: &str,
+        cty: &str,
         object: O,
     ) -> anyhow::Result<()>
     where
         O: serde::ser::Serialize,
     {
-        self.produce_event("create", EventType::Create, event_ns, ty, object)
+        self.produce_event("create", EventType::Create, event_ns, ty, cty, object)
             .await
     }
 
@@ -136,12 +138,13 @@ impl Producer {
         &self,
         event_ns: &EventNs,
         ty: &str,
+        cty: &str,
         object: O,
     ) -> anyhow::Result<()>
     where
         O: serde::ser::Serialize,
     {
-        self.produce_event("update", EventType::Update, event_ns, ty, object)
+        self.produce_event("update", EventType::Update, event_ns, ty, cty, object)
             .await
     }
 
@@ -149,20 +152,27 @@ impl Producer {
         &self,
         event_ns: &EventNs,
         ty: &str,
+        cty: &str,
         object: O,
     ) -> anyhow::Result<()>
     where
         O: serde::ser::Serialize,
     {
-        self.produce_event("delete", EventType::Delete, event_ns, ty, object)
+        self.produce_event("delete", EventType::Delete, event_ns, ty, cty, object)
             .await
     }
 
-    pub async fn link_event<O>(&self, event_ns: &EventNs, ty: &str, object: O) -> anyhow::Result<()>
+    pub async fn link_event<O>(
+        &self,
+        event_ns: &EventNs,
+        ty: &str,
+        cty: &str,
+        object: O,
+    ) -> anyhow::Result<()>
     where
         O: serde::ser::Serialize,
     {
-        self.produce_event("link", EventType::Link, event_ns, ty, object)
+        self.produce_event("link", EventType::Link, event_ns, ty, cty, object)
             .await
     }
 
@@ -172,6 +182,7 @@ impl Producer {
         event: EventType,
         event_ns: &N,
         ty: &str,
+        cty: &str,
         object: O,
     ) -> anyhow::Result<()>
     where
@@ -183,6 +194,7 @@ impl Producer {
         let event = Event {
             event,
             ty: ty.to_string(),
+            cty: cty.to_string(),
             object,
         };
         let event = serde_json::to_string(&event)?;
@@ -209,6 +221,7 @@ impl Producer {
         event: EventType,
         event_ns: &N,
         ty: &str,
+        cty: &str,
         object: O,
     ) -> anyhow::Result<()>
     where
@@ -220,6 +233,7 @@ impl Producer {
         let event = Event {
             event,
             ty: ty.to_string(),
+            cty: cty.to_string(),
             object,
         };
         let event = serde_json::to_string(&event)?;

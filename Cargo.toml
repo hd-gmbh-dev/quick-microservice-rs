@@ -15,37 +15,37 @@ license = "MIT"
 repository = "https://github.com/hd-gmbh-dev/quick-microservice-rs"
 
 [workspace.dependencies]
-anyhow = "1.0.79"
-async-trait = "0.1.77"
-axum = "0.7.4"
-tynm = "0.1.8"
-base64 = "0.22.0"
-constcat = "0.5.0"
-chrono = { version="0.4.31", features = ["serde"] }
-futures = "0.3.30"
-tokio = { version = "1.40.0", features = ["full"] }
-tower-http = { version = "0.5.0", features = ["cors"] }
-thiserror = "1.0.56"
+anyhow = "1.0.93"
+async-trait = "0.1.83"
+axum = "0.7.9"
+tynm = "0.1.10"
+base64 = "0.22.1"
+constcat = "0.5.1"
+chrono = { version="0.4.38", features = ["serde"] }
+futures = "0.3.31"
+tokio = { version = "1.41.1", features = ["full"] }
+tower-http = { version = "0.6.2", features = ["cors"] }
+thiserror = "2.0.3"
 itertools = "0.13.0"
 envy = "0.4.2"
-reqwest = { version = "0.12.7", default-features = false, features = ["json"] }
-jsonwebtoken = "9.2.0"
-serde = { version = "1.0.208", features = ["derive", "rc"] }
-serde_json = "1.0.128"
+reqwest = { version = "0.12.9", default-features = false, features = ["json"] }
+jsonwebtoken = "9.3.0"
+serde = { version = "1.0.215", features = ["derive", "rc"] }
+serde_json = "1.0.133"
 keycloak = "25.0.200"
 mongodb = "3.1.0"
-lazy_static = "1.4.0"
+lazy_static = "1.5.0"
 tracing = "0.1.40"
 strum = { version = "0.26", features = ["derive"] }
-redis = { version = "0.26.1", features = ["tokio-comp"] }
-deadpool-redis = "0.16.0"
-uuid = { version = "1.6.1", features = ["v4", "v7"]}
+redis = { version = "0.27.5", features = ["tokio-comp"] }
+deadpool-redis = "0.18.0"
+uuid = { version = "1.11.0", features = ["v4", "v7"]}
 glob = "0.3.1"
-async-graphql-axum = "7.0.1"
+async-graphql-axum = "7.0.11"
 sqlx = { version = "0.8", features = ["runtime-tokio", "postgres", "uuid", "time"]}
-time = { version = "0.3.14", features = ["formatting", "parsing", "macros", "serde"] }
+time = { version = "0.3.36", features = ["formatting", "parsing", "macros", "serde"] }
 Inflector = "0.11.4"
-async-graphql = { version = "7.0.1", features = [
+async-graphql = { version = "7.0.11", features = [
     "bson",
     "chrono",
     "chrono-tz",
@@ -53,12 +53,12 @@ async-graphql = { version = "7.0.1", features = [
     "graphiql",
     "time"
 ] }
-prometheus-client = "0.22.1"
-rdkafka = { version = "0.36.2" }
+prometheus-client = "0.22.3"
+rdkafka = { version = "0.36.3" }
 
 hex = "0.4.3"
-serde_with = "3.7.0"
-sea-orm = { version = "1.1.0-rc.1", default-features = false, features = [ "sqlx-postgres" ] }
+serde_with = "3.11.0"
+sea-orm = { version = "1.1.1", default-features = false, features = [ "sqlx-postgres" ] }
 
 qm-entity = { path = "crates/entity", version = "0.0.38" }
 qm-entity-derive = { path = "crates/entity-derive", version = "0.0.38" }

@@ -188,7 +188,7 @@ impl WorkQueue {
             None => return Ok(None),
         };
 
-        db.set_ex(
+        let _: () = db.set_ex(
             self.lease_key.of(&item.id),
             &self.session,
             lease_duration.as_secs(),
@@ -203,7 +203,7 @@ impl WorkQueue {
         if removed == 0 {
             return Ok(false);
         }
-        redis::pipe()
+        let _: () = redis::pipe()
             .del(self.item_data_key.of(&item.id))
             .del(self.lease_key.of(&item.id))
             .query_async(db)

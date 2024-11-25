@@ -167,7 +167,7 @@ where
     // Emit the Kafka event
     if let Some(producer) = store.mutation_event_producer() {
         producer
-            .delete_event(&EventNs::Customer, "customer", cids)
+            .delete_event(&EventNs::Customer, "customer", "sys", cids)
             .await?;
     }
     worker_ctx.complete().await?;
@@ -252,7 +252,7 @@ where
     // // Emit the Kafka event
     if let Some(producer) = store.mutation_event_producer() {
         producer
-            .delete_event(&EventNs::Organization, "organization", strict_oids)
+            .delete_event(&EventNs::Organization, "organization", "sys", strict_oids)
             .await?;
     }
     worker_ctx.complete().await?;
@@ -314,7 +314,7 @@ where
     // // Emit the Kafka event
     if let Some(producer) = store.mutation_event_producer() {
         producer
-            .delete_event(&EventNs::Institution, "institution", strict_iids)
+            .delete_event(&EventNs::Institution, "institution", "sys", strict_iids)
             .await?;
     }
     worker_ctx.complete().await?;
