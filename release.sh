@@ -6,6 +6,7 @@ export SQLX_OFFLINE=true
 
 cargo set-version --workspace --bump patch
 VERSION=`cargo pkgid | cut -d "@" -f2`
+cargo update
 cargo build
 
 git add .
