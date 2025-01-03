@@ -96,6 +96,21 @@ impl Redis {
     }
 }
 
+pub async fn mutex_run<S, O, E, F>(lock_name: S, redis: &Redis, f: F) -> Result<O, E>
+where
+    S: AsRef<str>,
+    F: std::future::Future<Output = Result<O, E>>,
+    E: From<self::lock::Error>,
+{
+    let lock = redis.lock(lock_name.as_ref(), 5000, 20, 250).await?;
+
+    let result = f.await;
+
+    redis.unlock(lock_name.as_ref(), &lock.id).await?;
+
+    result
+}
+
 #[macro_export]
 macro_rules! redis {
     ($storage:ty) => {
@@ -209,13 +224,12 @@ where
                 request_queue.complete(&mut con, &item).await?;
                 continue;
             }
-            if let Ok(request) = serde_json::from_slice::<T>(&item.data).map_err(|err| {
+            if let Ok(request) = serde_json::from_slice::<T>(&item.data).inspect_err(|_| {
                 tracing::error!(
                     "invalid request item on worker {} #{worker_id} Item: {}",
                     worker.prefix,
                     String::from_utf8_lossy(&item.data)
                 );
-                err
             }) {
                 if let Some(work) = worker.work.as_ref() {
                     work.run(
