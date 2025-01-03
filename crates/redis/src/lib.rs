@@ -96,6 +96,14 @@ impl Redis {
     }
 }
 
+/// Runs async function exclusively using Redis lock.
+///
+/// Lock will be released even if async block fails.
+///
+/// # Errors
+///
+/// This function will return an error if either `f` call triggers exception, or lock failure.
+/// Panic in async call will not release lock, but it will be released after timeout.
 pub async fn mutex_run<S, O, E, F>(lock_name: S, redis: &Redis, f: F) -> Result<O, E>
 where
     S: AsRef<str>,
