@@ -38,6 +38,7 @@ pub struct Claims {
     pub scope: String,
     #[serde(default)]
     pub sid: String,
+    #[serde(default)]
     pub email_verified: bool,
     #[serde(default)]
     pub name: String,

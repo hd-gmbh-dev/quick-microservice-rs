@@ -16,7 +16,7 @@ repository = "https://github.com/hd-gmbh-dev/quick-microservice-rs"
 
 [workspace.dependencies]
 anyhow = "1.0.93"
-async-trait = "0.1.83"
+async-trait = "0.1.85"
 axum = "0.7.9"
 tynm = "0.1.10"
 base64 = "0.22.1"
@@ -25,14 +25,14 @@ chrono = { version="0.4.38", features = ["serde"] }
 futures = "0.3.31"
 tokio = { version = "1.41.1", features = ["full"] }
 tower-http = { version = "0.6.2", features = ["cors"] }
-thiserror = "2.0.3"
-itertools = "0.13.0"
+thiserror = "2.0.9"
+itertools = "0.14.0"
 envy = "0.4.2"
 reqwest = { version = "0.12.9", default-features = false, features = ["json"] }
 jsonwebtoken = "9.3.0"
 serde = { version = "1.0.215", features = ["derive", "rc"] }
-serde_json = "1.0.133"
-keycloak = "25.0.200"
+serde_json = "1.0.135"
+keycloak = "26.0.700"
 mongodb = "3.1.0"
 lazy_static = "1.5.0"
 tracing = "0.1.40"
