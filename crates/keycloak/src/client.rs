@@ -405,7 +405,7 @@ impl Keycloak {
     ) -> Result<Vec<UserRepresentation>, KeycloakError> {
         self.inner
             .admin
-            .realm_roles_with_role_name_users_get(realm, role_name, None, None)
+            .realm_roles_with_role_name_users_get(realm, role_name, None, None, None)
             .await
             .map_err(|e| {
                 tracing::error!("{e:#?}");
@@ -471,7 +471,7 @@ impl Keycloak {
         Ok(self
             .inner
             .admin
-            .realm_roles_with_role_name_users_get(realm, role_name, None, None)
+            .realm_roles_with_role_name_users_get(realm, role_name, None, None, None)
             .await
             .map_err(|e| {
                 tracing::error!("{e:#?}");

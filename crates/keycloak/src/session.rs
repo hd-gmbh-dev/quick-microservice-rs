@@ -76,6 +76,7 @@ pub struct ParsedAccessToken {
     //:"openid profile email",
     sid: Option<String>,
     //:"cdfaa367-5c30-4142-b31a-f770073e2051",
+    #[serde(default)]
     email_verified: bool,
     //:false,
     preferred_username: Option<String>, //:"admin"
