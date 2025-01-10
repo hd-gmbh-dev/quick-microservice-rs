@@ -17,7 +17,7 @@ repository = "https://github.com/hd-gmbh-dev/quick-microservice-rs"
 [workspace.dependencies]
 anyhow = "1.0.93"
 async-trait = "0.1.85"
-axum = "0.7.9"
+axum = "0.8.1"
 tynm = "0.1.10"
 base64 = "0.22.1"
 constcat = "0.5.1"
@@ -25,7 +25,7 @@ chrono = { version="0.4.38", features = ["serde"] }
 futures = "0.3.31"
 tokio = { version = "1.41.1", features = ["full"] }
 tower-http = { version = "0.6.2", features = ["cors"] }
-thiserror = "2.0.9"
+thiserror = "2.0.10"
 itertools = "0.14.0"
 envy = "0.4.2"
 reqwest = { version = "0.12.9", default-features = false, features = ["json"] }
@@ -37,9 +37,9 @@ mongodb = "3.1.0"
 lazy_static = "1.5.0"
 tracing = "0.1.40"
 strum = { version = "0.26", features = ["derive"] }
-redis = { version = "0.27.5", features = ["tokio-comp"] }
+redis = { version = "0.27.6", features = ["tokio-comp"] }
 deadpool-redis = "0.18.0"
-uuid = { version = "1.11.0", features = ["v4", "v7"]}
+uuid = { version = "1.11.1", features = ["v4", "v7"]}
 glob = "0.3.1"
 async-graphql-axum = "7.0.11"
 sqlx = { version = "0.8", features = ["runtime-tokio", "postgres", "uuid", "time"]}
@@ -53,8 +53,8 @@ async-graphql = { version = "7.0.11", features = [
     "graphiql",
     "time"
 ] }
-prometheus-client = "0.22.3"
-rdkafka = { version = "0.36" }
+prometheus-client = "0.23.0"
+rdkafka = { version = "0.37" }
 
 hex = "0.4.3"
 serde_with = "3.11.0"
