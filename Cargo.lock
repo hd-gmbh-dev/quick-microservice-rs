@@ -947,12 +947,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "669a445ee724c5c69b1b06fe0b63e70a1c84bc9bb7d9696cd4f4e3ec45050408"
 
 [[package]]
-name = "dtoa"
-version = "1.0.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dcbb2bf8e87535c23f7a8a321e364ce21462d0ff10cb6407820e8e96dfff6653"
-
-[[package]]
 name = "either"
 version = "1.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1806,15 +1800,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "itertools"
-version = "0.14.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2b192c782037fadd9cfa75548310488aabdbf3d2da73885b31bd0abd03351285"
-dependencies = [
- "either",
-]
-
-[[package]]
 name = "itoa"
 version = "1.0.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2568,33 +2553,9 @@ dependencies = [
 ]
 
 [[package]]
-name = "prometheus-client"
-version = "0.23.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "92f2b0cae6fd19ec4f2b6ded3f39ffcce7a8c8490b34aa406c27e2c855bdc97d"
-dependencies = [
- "dtoa",
- "itoa",
- "parking_lot",
- "prometheus-client-derive-encode",
-]
-
-[[package]]
-name = "prometheus-client-derive-encode"
-version = "0.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "440f724eba9f6996b75d63681b0a92b06947f1457076d503a4d2e2c8f56442b8"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.96",
-]
-
-[[package]]
 name = "qm"
 version = "0.0.43"
 dependencies = [
- "qm-customer",
  "qm-entity",
  "qm-kafka",
  "qm-keycloak",
@@ -2606,39 +2567,6 @@ dependencies = [
  "qm-s3",
  "qm-server",
  "qm-utils",
-]
-
-[[package]]
-name = "qm-customer"
-version = "0.0.43"
-dependencies = [
- "Inflector",
- "anyhow",
- "async-graphql",
- "async-trait",
- "chrono",
- "constcat",
- "deadpool-redis",
- "envy",
- "futures",
- "itertools 0.14.0",
- "lazy_static",
- "prometheus-client",
- "qm-entity",
- "qm-kafka",
- "qm-keycloak",
- "qm-mongodb",
- "qm-pg",
- "qm-redis",
- "qm-role",
- "serde",
- "serde_json",
- "sqlx",
- "strum 0.26.3",
- "time",
- "tokio",
- "tracing",
- "tynm",
 ]
 
 [[package]]

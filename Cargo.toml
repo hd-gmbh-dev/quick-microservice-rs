@@ -62,7 +62,6 @@ sea-orm = { version = "1.1.1", default-features = false, features = [ "sqlx-post
 
 qm-entity = { path = "crates/entity", version = "0.0.43" }
 qm-entity-derive = { path = "crates/entity-derive", version = "0.0.43" }
-qm-customer = { path = "crates/customer", version = "0.0.43" }
 qm-server = { path = "crates/server", version = "0.0.43" }
 qm-mongodb = { path = "crates/mongodb", version = "0.0.43" }
 qm-pg = { path = "crates/pg", version = "0.0.43" }
@@ -91,7 +90,6 @@ repository = "https://github.com/hd-gmbh-dev/quick-microservice-rs"
 
 [dependencies]
 qm-entity = { workspace = true, optional = true }
-qm-customer = { workspace = true, optional = true }
 qm-server = { workspace = true, optional = true }
 qm-mongodb = { workspace = true, optional = true }
 qm-redis = { workspace = true, optional = true }
@@ -106,7 +104,6 @@ qm-utils = { workspace = true, optional = true }
 [features]
 default = [
   # "entity",
-  # "customer",
   # "server",
   # "mongodb",
   # "redis",
@@ -119,7 +116,6 @@ default = [
   # "utils",
 ]
 entity = ["qm-entity"]
-customer = ["qm-customer"]
 server = ["qm-server"]
 mongodb = ["qm-mongodb"]
 redis = ["qm-redis"]

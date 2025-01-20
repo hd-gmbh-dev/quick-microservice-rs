@@ -20,5 +20,4 @@ qm = { workspace = true, default-features = false, features = [
     "server",
     "role",
     "entity",
-    "customer",
 ]}

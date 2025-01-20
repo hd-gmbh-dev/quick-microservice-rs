@@ -1,14 +1,7 @@
 use async_graphql::{EmptySubscription, MergedObject, Object};
-use qm::{
-    customer::schema::{QmCustomerMutationRoot, QmCustomerQueryRoot},
-    entity::ids::InstitutionResourceId,
-    role::AuthContainer,
-};
+use qm::{entity::ids::InstitutionResourceId, role::AuthContainer};
 
-use qm_example_auth::{
-    roles::{BuiltInGroup, Permission, Resource},
-    Authorization,
-};
+use qm_example_auth::Authorization;
 use qm_example_ctx::Storage;
 
 pub type Schema = async_graphql::Schema<QueryRoot, MutationRoot, EmptySubscription>;
@@ -58,16 +51,10 @@ impl DomainMutationRoot {
 }
 
 #[derive(MergedObject, Default)]
-pub struct QueryRoot(
-    QmCustomerQueryRoot<Authorization, Storage, Resource, Permission, BuiltInGroup>,
-    DomainQueryRoot,
-);
+pub struct QueryRoot(DomainQueryRoot);
 
 #[derive(MergedObject, Default)]
-pub struct MutationRoot(
-    QmCustomerMutationRoot<Authorization, Storage, Resource, Permission, BuiltInGroup>,
-    DomainMutationRoot,
-);
+pub struct MutationRoot(DomainMutationRoot);
 
 #[derive(Default)]
 pub struct SchemaBuilder {

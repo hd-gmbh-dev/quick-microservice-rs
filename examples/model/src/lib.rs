@@ -1,5 +1,4 @@
 use async_graphql::{ComplexObject, InputObject, MaybeUndefined, SimpleObject};
-use qm::customer::model::{QmCustomer, QmInstitution, QmOrganization};
 use qm::entity::ids::{InstitutionResourceId, OrganizationResourceId, Owner, ID};
 use serde::{Deserialize, Serialize};
 
@@ -47,17 +46,6 @@ pub struct Employee {
 
 #[ComplexObject]
 impl Employee {
-    async fn customer(&self) -> async_graphql::FieldResult<QmCustomer> {
-        unimplemented!()
-    }
-
-    async fn organization(&self) -> async_graphql::FieldResult<QmOrganization> {
-        unimplemented!()
-    }
-
-    async fn institution(&self) -> async_graphql::FieldResult<QmInstitution> {
-        unimplemented!()
-    }
 }
 
 #[derive(SimpleObject)]
