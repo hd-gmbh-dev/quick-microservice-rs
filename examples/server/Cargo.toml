@@ -30,7 +30,6 @@ qm = { workspace = true, default-features = false, features = [
     "server",
     "role",
     "entity",
-    "customer",
 ]}
 strum.workspace = true
 serde_json.workspace = true

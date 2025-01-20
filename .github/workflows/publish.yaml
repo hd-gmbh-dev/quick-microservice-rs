@@ -29,7 +29,6 @@ jobs:
         cargo publish --token ${CRATES_TOKEN} -p qm-keycloak
         cargo publish --token ${CRATES_TOKEN} -p qm-entity-derive
         cargo publish --token ${CRATES_TOKEN} -p qm-entity
-        cargo publish --token ${CRATES_TOKEN} -p qm-customer
         cargo publish --token ${CRATES_TOKEN} -p qm-server
         cargo publish --token ${CRATES_TOKEN} -p qm
       env:

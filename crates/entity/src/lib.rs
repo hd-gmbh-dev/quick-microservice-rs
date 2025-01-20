@@ -14,7 +14,6 @@ use crate::{
     model::{ListFilter, ListResult},
 };
 
-pub mod ctx;
 pub mod error;
 pub mod ids;
 pub mod list;

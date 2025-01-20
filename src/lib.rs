@@ -28,8 +28,5 @@ pub use qm_role_build as role_build;
 #[cfg(feature = "entity")]
 pub use qm_entity as entity;
 
-#[cfg(feature = "customer")]
-pub use qm_customer as customer;
-
 #[cfg(feature = "utils")]
 pub use qm_utils as utils;
