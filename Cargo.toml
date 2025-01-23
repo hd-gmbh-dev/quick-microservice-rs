@@ -17,6 +17,7 @@ repository = "https://github.com/hd-gmbh-dev/quick-microservice-rs"
 [workspace.dependencies]
 anyhow = "1.0.93"
 async-trait = "0.1.85"
+async-nats = "0.38.0"
 axum = "0.7.9"
 tynm = "0.1.10"
 base64 = "0.22.1"
@@ -68,6 +69,7 @@ qm-pg = { path = "crates/pg", version = "0.0.43" }
 qm-redis = { path = "crates/redis", version = "0.0.43" }
 qm-s3 = { path = "crates/s3", version = "0.0.43" }
 qm-kafka = { path = "crates/kafka", version = "0.0.43" }
+qm-nats = { path = "crates/nats", version = "0.0.43" }
 qm-keycloak = { path = "crates/keycloak", version = "0.0.43" }
 qm-role = { path = "crates/role", version = "0.0.43" }
 qm-role-build = { path = "crates/role-build", version = "0.0.43" }
@@ -94,6 +96,7 @@ qm-server = { workspace = true, optional = true }
 qm-mongodb = { workspace = true, optional = true }
 qm-redis = { workspace = true, optional = true }
 qm-pg = { workspace = true, optional = true }
+qm-nats = { workspace = true, optional = true }
 qm-s3 = { workspace = true, optional = true }
 qm-kafka = { workspace = true, optional = true }
 qm-keycloak = { workspace = true, optional = true }
@@ -122,6 +125,7 @@ redis = ["qm-redis"]
 pg = ["qm-pg"]
 s3 = ["qm-s3"]
 kafka = ["qm-kafka"]
+nats = ["qm-nats"]
 keycloak = ["qm-keycloak"]
 role = ["qm-role"]
 role-build = ["qm-role-build"]
