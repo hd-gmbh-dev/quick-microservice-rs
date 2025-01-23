@@ -30,4 +30,5 @@ qm-redis.workspace = true
 qm-keycloak.workspace = true
 qm-role.workspace = true
 qm-mongodb.workspace = true
+qm-nats.workspace = true
 qm-entity-derive.workspace = true

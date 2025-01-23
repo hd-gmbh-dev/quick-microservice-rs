@@ -2814,6 +2814,7 @@ dependencies = [
  "qm-entity-derive",
  "qm-keycloak",
  "qm-mongodb",
+ "qm-nats",
  "qm-redis",
  "qm-role",
  "reqwest",

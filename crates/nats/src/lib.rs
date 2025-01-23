@@ -24,7 +24,7 @@ use tokio::task::JoinHandle;
 
 pub use async_nats;
 
-pub mod communal;
+pub mod subject;
 
 #[derive(Clone, serde::Deserialize)]
 pub struct Config {
@@ -438,13 +438,13 @@ impl LockManager {
             let v = kv.create(&name, "r".into()).await;
             if let Err(err) = v {
                 if err.kind() == async_nats::jetstream::kv::CreateErrorKind::AlreadyExists {
-                    tracing::info!("seems to be locked already, {tries} try to watch for changes");
+                    tracing::debug!("seems to be locked already, {tries} try to watch for changes");
                     let mut w = kv.watch(&name).await?;
                     let f = async {
                         'inner: while let Some(m) = w.next().await {
                             if let Ok(e) = m {
                                 if e.operation == Operation::Delete {
-                                    tracing::info!("retry because prev lock was deleted");
+                                    tracing::debug!("retry because prev lock was deleted");
                                     break 'inner;
                                 }
                             }
@@ -464,7 +464,7 @@ impl LockManager {
             } else {
                 let r = v.unwrap();
                 revision.store(r, Ordering::SeqCst);
-                tracing::info!("got lock");
+                tracing::debug!("got lock: '{name}'");
                 break;
             }
         }
@@ -477,7 +477,7 @@ impl LockManager {
             loop {
                 run += 1;
                 tokio::time::sleep(std::time::Duration::from_secs(2)).await;
-                tracing::info!("refresh lock {w_name}");
+                tracing::debug!("refresh lock {w_name}");
                 let result = w_kv
                     .update(&w_name, "u".into(), w_revision.load(Ordering::SeqCst))
                     .await;
@@ -488,7 +488,7 @@ impl LockManager {
                     w_revision.store(result.unwrap(), Ordering::SeqCst);
                 }
                 if run >= 5 {
-                    tracing::info!("release lock after timeout");
+                    tracing::debug!("release lock after timeout");
                     break;
                 }
             }

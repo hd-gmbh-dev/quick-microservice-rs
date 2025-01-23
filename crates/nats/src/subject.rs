@@ -8,6 +8,7 @@ pub enum Op {
     #[default]
     Req,
     Res,
+    Mut,
 }
 
 #[derive(Default, AsRefStr, Clone, Copy, PartialEq, Eq, Enum)]
@@ -29,104 +30,23 @@ pub enum Type {
     Unassign,
 }
 
-#[derive(Default, AsRefStr, Clone, Copy, PartialEq, Eq, Enum)]
-#[strum(serialize_all = "UPPERCASE")]
-pub enum ParentCtx {
-    #[default]
-    DE,
-    BW,
-    BY,
-    BE,
-    BB,
-    HB,
-    HH,
-    HE,
-    MV,
-    NI,
-    NW,
-    RP,
-    SL,
-    SN,
-    ST,
-    SH,
-    TH,
-}
-
-macro_rules! impl_from_for_parent_ctx {
-    ($ty:ty) => {        
-        impl From<$ty> for ParentCtx {
-            fn from(value: $ty) -> Self {
-                match value {
-                    0x08 => ParentCtx::BW,
-                    0x09 => ParentCtx::BY,
-                    0x0B => ParentCtx::BE,
-                    0x0C => ParentCtx::BB,
-                    0x04 => ParentCtx::HB,
-                    0x02 => ParentCtx::HH,
-                    0x06 => ParentCtx::HE,
-                    0x0D => ParentCtx::MV,
-                    0x03 => ParentCtx::NI,
-                    0x05 => ParentCtx::NW,
-                    0x07 => ParentCtx::RP,
-                    0x0A => ParentCtx::SL,
-                    0x0E => ParentCtx::SN,
-                    0x0F => ParentCtx::ST,
-                    0x01 => ParentCtx::SH,
-                    0x10 => ParentCtx::TH,
-                    _ => ParentCtx::DE,
-                }
-            }
-        }
-
-        impl From<Option<$ty>> for ParentCtx {
-            fn from(value: Option<$ty>) -> Self {
-                let value = value.unwrap_or(0);
-                ParentCtx::from(value)
-            }
-        }
-    };
-}
-
-impl_from_for_parent_ctx!(i8);
-impl_from_for_parent_ctx!(i16);
-impl_from_for_parent_ctx!(i32);
-impl_from_for_parent_ctx!(i64);
-
-impl_from_for_parent_ctx!(u8);
-impl_from_for_parent_ctx!(u16);
-impl_from_for_parent_ctx!(u32);
-impl_from_for_parent_ctx!(u64);
-
-#[derive(Default, AsRefStr, Clone, Copy, PartialEq, Eq, Enum)]
-#[strum(serialize_all = "UPPERCASE")]
-pub enum CtxType {
-    #[default]
-    System,
-    Olb,
-    OlbBranch,
-    Hdp,
-    Wsp,
-    WspBranch,
-    Lab,
-    LabBranch,
-}
-
-pub const NONE: &'static str = "none";
+pub const NONE: &'static str = "_";
 
 #[derive(Default)]
-struct Event {
+struct Event<P, C> {
     op: Op,
     ty: Type,
-    parent_ctx: ParentCtx,
-    ctx_type: CtxType,
+    parent_ctx: P,
+    ctx_type: C,
     ctx: Option<String>,
     request_id: Option<String>,
     actor: Option<String>,
     error: bool,
 }
 
-fn format(ev: &Event, resource_name: impl std::fmt::Display) -> String {
+fn format<P: AsRef<str>, C: AsRef<str>>(ev: &Event<P, C>, resource_name: impl std::fmt::Display) -> String {
     let append = match ev.op {
+        Op::Mut => "",
         Op::Req => "",
         Op::Res => {
             if ev.error {
@@ -148,6 +68,7 @@ fn format(ev: &Event, resource_name: impl std::fmt::Display) -> String {
         ev.actor.as_deref().unwrap_or(NONE),
     )
 }
+
 pub trait ResourceName {
     fn name(&self) -> &str;
 }
@@ -156,9 +77,11 @@ pub trait StaticResourceName {
     fn name() -> &'static str;
 }
 
-pub struct Subject<E>(Event, E);
-impl<E> Subject<E>
+pub struct Subject<P, C, E>(Event<P, C>, E);
+impl<P, C, E> Subject<P, C, E>
 where
+    P: Default + AsRef<str> + Copy,
+    C: Default + AsRef<str> + Copy,
     E: Default,
 {
     pub fn op(&self) -> Op {
@@ -169,11 +92,11 @@ where
         self.0.ty
     }
 
-    pub fn parent_ctx(&self) -> ParentCtx {
+    pub fn parent_ctx(&self) -> P {
         self.0.parent_ctx
     }
 
-    pub fn ctx_type(&self) -> CtxType {
+    pub fn ctx_type(&self) -> C {
         self.0.ctx_type
     }
 
@@ -202,7 +125,7 @@ where
     pub fn create() -> Self {
         Self::factory(Type::Create)
     }
-    
+
     pub fn renew() -> Self {
         Self::factory(Type::Renew)
     }
@@ -247,6 +170,11 @@ where
         Self::factory(Type::Unassign)
     }
 
+    pub fn into_mut(mut self) -> Self {
+        self.0.op = Op::Mut;
+        self
+    }
+
     pub fn into_response(mut self) -> Self {
         self.0.op = Op::Res;
         self
@@ -264,12 +192,22 @@ where
         self
     }
 
-    pub fn with_parent_ctx<T: Into<ParentCtx>>(mut self, ctx: T) -> Self {
+    pub fn with_resource(mut self, resource: E) -> Self {
+        self.1 = resource;
+        self
+    }
+    
+    pub fn with_type(mut self, ty: Type) -> Self {
+        self.0.ty = ty;
+        self
+    }
+
+    pub fn with_parent_ctx<T: Into<P>>(mut self, ctx: T) -> Self {
         self.0.parent_ctx = ctx.into();
         self
     }
 
-    pub fn with_ctx_type(mut self, ctx_type: CtxType) -> Self {
+    pub fn with_ctx_type(mut self, ctx_type: C) -> Self {
         self.0.ctx_type = ctx_type;
         self
     }
@@ -290,8 +228,10 @@ where
     }
 }
 
-impl<E> Subject<E>
+impl<P, C, E> Subject<P, C, E>
 where
+    P: AsRef<str>,
+    C: AsRef<str>,
     E: EntityName,
 {
     pub fn entity(&self) -> async_nats::Subject {
@@ -299,8 +239,10 @@ where
     }
 }
 
-impl<E> Subject<E>
+impl<P, C, E> Subject<P, C, E>
 where
+    P: AsRef<str>,
+    C: AsRef<str>,
     E: ResourceName,
 {
     pub fn resource(&self) -> async_nats::Subject {
@@ -308,8 +250,10 @@ where
     }
 }
 
-impl<E> Subject<std::marker::PhantomData<E>>
+impl<P, C, E> Subject<P, C, std::marker::PhantomData<E>>
 where
+    P: AsRef<str>,
+    C: AsRef<str>,
     E: StaticResourceName,
 {
     pub fn static_resource(&self) -> async_nats::Subject {
@@ -323,8 +267,10 @@ pub struct StaticResource;
 
 use crate::EventToSubject;
 
-impl<E> EventToSubject<Entity> for Subject<E>
+impl<P, C, E> EventToSubject<Entity> for Subject<P, C, E>
 where
+    P: AsRef<str>,
+    C: AsRef<str>,
     E: EntityName,
 {
     fn event_to_subject(&self) -> async_nats::Subject {
@@ -332,8 +278,10 @@ where
     }
 }
 
-impl<E> EventToSubject<Resource> for Subject<E>
+impl<P, C, E> EventToSubject<Resource> for Subject<P, C, E>
 where
+    P: AsRef<str>,
+    C: AsRef<str>,
     E: ResourceName,
 {
     fn event_to_subject(&self) -> async_nats::Subject {
@@ -341,8 +289,10 @@ where
     }
 }
 
-impl<E> EventToSubject<Resource> for Subject<std::marker::PhantomData<E>>
+impl<P, C, E> EventToSubject<Resource> for Subject<P, C, std::marker::PhantomData<E>>
 where
+    P: AsRef<str>,
+    C: AsRef<str>,
     E: StaticResourceName,
 {
     fn event_to_subject(&self) -> async_nats::Subject {
@@ -353,8 +303,40 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::ParentCtx;
+    use async_graphql::Enum;
+    use strum::AsRefStr;
+
     use super::{ResourceName, Subject};
+
+    #[derive(Default, AsRefStr, Clone, Copy, PartialEq, Eq, Enum)]
+    #[strum(serialize_all = "UPPERCASE")]
+    pub enum ParentCtx {
+        #[default]
+        DE,
+        BY,
+    }
+
+    #[derive(Default, AsRefStr, Clone, Copy, PartialEq, Eq, Enum)]
+    #[strum(serialize_all = "snake_case")]
+    pub enum CtxType {
+        #[default]
+        System,
+        Test,
+    }
+
+    #[derive(Default, AsRefStr, Clone, Copy, PartialEq, Eq, Enum)]
+    #[strum(serialize_all = "snake_case")]
+    pub enum Resource {
+        #[default]
+        Unknown,
+        User,
+    }
+
+    impl ResourceName for Resource {
+        fn name(&self) -> &str {
+            self.as_ref()
+        }
+    }
 
     #[derive(Default)]
     struct TestEntity;
@@ -365,27 +347,48 @@ mod tests {
     }
 
     #[test]
-    fn test_subject_creation() {
-        let mut subject = Subject::<TestEntity>::send()
-            .with_parent_ctx(ParentCtx::BY)
-            .with_ctx_type(super::CtxType::Lab)
-            .with_ctx("R3425921760D")
-            .with_request_id("165789548978")
-            .with_actor("EA4DCDCA-1CFD-48B9-905A-60DAB47964CB");
+    fn test_subject_empty_creation() {
+        let mut subject = Subject::<ParentCtx, CtxType, Resource>::create()
+            .with_resource(Resource::User);
         assert_eq!(
             subject.resource(),
-            async_nats::Subject::from_static("ev.req.BY.LAB.R3425921760D.qr.send.165789548978.EA4DCDCA-1CFD-48B9-905A-60DAB47964CB"),
+            async_nats::Subject::from_static("ev.req.DE.system._.user.create._._"),
         );
         subject = subject.into_success();
         assert_eq!(
             subject.resource(),
-            async_nats::Subject::from_static("ev.res.BY.LAB.R3425921760D.qr.send.165789548978.EA4DCDCA-1CFD-48B9-905A-60DAB47964CB.success"),
+            async_nats::Subject::from_static("ev.res.DE.system._.user.create._._.success"),
         );
 
         subject = subject.into_error();
         assert_eq!(
             subject.resource(),
-            async_nats::Subject::from_static("ev.res.BY.LAB.R3425921760D.qr.send.165789548978.EA4DCDCA-1CFD-48B9-905A-60DAB47964CB.error"),
+            async_nats::Subject::from_static("ev.res.DE.system._.user.create._._.error"),
+        );
+    }
+
+    #[test]
+    fn test_subject_creation() {
+        let mut subject = Subject::<ParentCtx, CtxType, TestEntity>::send()
+            .with_parent_ctx(ParentCtx::BY)
+            .with_ctx_type(CtxType::Test)
+            .with_ctx("R3425921760D")
+            .with_request_id("165789548978")
+            .with_actor("EA4DCDCA-1CFD-48B9-905A-60DAB47964CB");
+        assert_eq!(
+            subject.resource(),
+            async_nats::Subject::from_static("ev.req.BY.test.R3425921760D.qr.send.165789548978.EA4DCDCA-1CFD-48B9-905A-60DAB47964CB"),
+        );
+        subject = subject.into_success();
+        assert_eq!(
+            subject.resource(),
+            async_nats::Subject::from_static("ev.res.BY.test.R3425921760D.qr.send.165789548978.EA4DCDCA-1CFD-48B9-905A-60DAB47964CB.success"),
+        );
+
+        subject = subject.into_error();
+        assert_eq!(
+            subject.resource(),
+            async_nats::Subject::from_static("ev.res.BY.test.R3425921760D.qr.send.165789548978.EA4DCDCA-1CFD-48B9-905A-60DAB47964CB.error"),
         );
     }
 }
