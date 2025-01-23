@@ -16,6 +16,7 @@ pub enum Type {
     #[default]
     Unknown,
     Create,
+    Renew,
     Update,
     Delete,
     Download,
@@ -51,36 +52,50 @@ pub enum ParentCtx {
     TH,
 }
 
-impl From<i16> for ParentCtx {
-    fn from(value: i16) -> Self {
-        match value {
-            0x08 => ParentCtx::BW,
-            0x09 => ParentCtx::BY,
-            0x0B => ParentCtx::BE,
-            0x0C => ParentCtx::BB,
-            0x04 => ParentCtx::HB,
-            0x02 => ParentCtx::HH,
-            0x06 => ParentCtx::HE,
-            0x0D => ParentCtx::MV,
-            0x03 => ParentCtx::NI,
-            0x05 => ParentCtx::NW,
-            0x07 => ParentCtx::RP,
-            0x0A => ParentCtx::SL,
-            0x0E => ParentCtx::SN,
-            0x0F => ParentCtx::ST,
-            0x01 => ParentCtx::SH,
-            0x10 => ParentCtx::TH,
-            _ => ParentCtx::DE,
+macro_rules! impl_from_for_parent_ctx {
+    ($ty:ty) => {        
+        impl From<$ty> for ParentCtx {
+            fn from(value: $ty) -> Self {
+                match value {
+                    0x08 => ParentCtx::BW,
+                    0x09 => ParentCtx::BY,
+                    0x0B => ParentCtx::BE,
+                    0x0C => ParentCtx::BB,
+                    0x04 => ParentCtx::HB,
+                    0x02 => ParentCtx::HH,
+                    0x06 => ParentCtx::HE,
+                    0x0D => ParentCtx::MV,
+                    0x03 => ParentCtx::NI,
+                    0x05 => ParentCtx::NW,
+                    0x07 => ParentCtx::RP,
+                    0x0A => ParentCtx::SL,
+                    0x0E => ParentCtx::SN,
+                    0x0F => ParentCtx::ST,
+                    0x01 => ParentCtx::SH,
+                    0x10 => ParentCtx::TH,
+                    _ => ParentCtx::DE,
+                }
+            }
         }
-    }
+
+        impl From<Option<$ty>> for ParentCtx {
+            fn from(value: Option<$ty>) -> Self {
+                let value = value.unwrap_or(0);
+                ParentCtx::from(value)
+            }
+        }
+    };
 }
 
-impl From<Option<i16>> for ParentCtx {
-    fn from(value: Option<i16>) -> Self {
-        let value = value.unwrap_or(0);
-        ParentCtx::from(value)
-    }
-}
+impl_from_for_parent_ctx!(i8);
+impl_from_for_parent_ctx!(i16);
+impl_from_for_parent_ctx!(i32);
+impl_from_for_parent_ctx!(i64);
+
+impl_from_for_parent_ctx!(u8);
+impl_from_for_parent_ctx!(u16);
+impl_from_for_parent_ctx!(u32);
+impl_from_for_parent_ctx!(u64);
 
 #[derive(Default, AsRefStr, Clone, Copy, PartialEq, Eq, Enum)]
 #[strum(serialize_all = "UPPERCASE")]
@@ -95,6 +110,8 @@ pub enum CtxType {
     Lab,
     LabBranch,
 }
+
+pub const NONE: &'static str = "none";
 
 #[derive(Default)]
 struct Event {
@@ -124,11 +141,11 @@ fn format(ev: &Event, resource_name: impl std::fmt::Display) -> String {
         ev.op.as_ref(),
         ev.parent_ctx.as_ref(),
         ev.ctx_type.as_ref(),
-        ev.ctx.as_deref().unwrap_or("none"),
+        ev.ctx.as_deref().unwrap_or(NONE),
         resource_name,
         ev.ty.as_ref(),
-        ev.request_id.as_deref().unwrap_or("none"),
-        ev.actor.as_deref().unwrap_or("none"),
+        ev.request_id.as_deref().unwrap_or(NONE),
+        ev.actor.as_deref().unwrap_or(NONE),
     )
 }
 pub trait ResourceName {
@@ -184,6 +201,10 @@ where
 
     pub fn create() -> Self {
         Self::factory(Type::Create)
+    }
+    
+    pub fn renew() -> Self {
+        Self::factory(Type::Renew)
     }
 
     pub fn update() -> Self {
