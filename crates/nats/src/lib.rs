@@ -17,7 +17,9 @@ use async_nats::{
         kv::{self, Operation, Store},
         stream::ConsumerError,
         Context,
-    }, subject::ToSubject, Client, ConnectError, ConnectErrorKind
+    },
+    subject::ToSubject,
+    Client, ConnectError, ConnectErrorKind,
 };
 use futures::{StreamExt, TryStreamExt};
 use tokio::task::JoinHandle;
@@ -110,6 +112,14 @@ impl Nats {
         })
     }
 
+    pub fn client(&self) -> &Client {
+        &self.inner.client
+    }
+
+    pub fn config(&self) -> &Config {
+        &self.inner.config
+    }
+
     pub async fn publisher(&self) -> Result<Publisher, CreateStreamError> {
         let ctx = jetstream::new(self.inner.client.clone());
         let p = Publisher { ctx };
@@ -146,6 +156,23 @@ impl Nats {
         .await
     }
 
+    pub async fn sys_consumer_with_filters(
+        &self,
+        name: String,
+        filter_subjects: Vec<String>,
+    ) -> Result<PullConsumer, ConsumerError> {
+        let ctx = jetstream::new(self.inner.client.clone());
+        ctx.create_consumer_on_stream(
+            jetstream::consumer::pull::Config {
+                durable_name: Some(name),
+                filter_subjects,
+                ..Default::default()
+            },
+            self.inner.config.events_stream_name(),
+        )
+        .await
+    }
+
     pub async fn tmp_sys_consumer_with_filter(
         &self,
         filter_subject: String,
@@ -172,7 +199,6 @@ impl Nats {
         SequenceManager { ctx }
     }
 }
-
 
 pub trait EventToSubject<M> {
     fn event_to_subject(&self) -> async_nats::Subject;
@@ -250,7 +276,10 @@ pub struct DistributedLocks {
 
 impl DistributedLocks {
     async fn new(ctx: Context, config: &Config) -> Result<Self, DistributedLocksError> {
-        let lm = DistributedLocks { ctx, sys_locks: config.sys_locks().to_string() };
+        let lm = DistributedLocks {
+            ctx,
+            sys_locks: config.sys_locks().to_string(),
+        };
         if !lm.exists(config.sys_locks()).await? {
             lm.create(config.sys_locks(), 5).await?;
         }
@@ -511,4 +540,3 @@ pub struct Lock {
     revision: Arc<AtomicU64>,
     jh: JoinHandle<anyhow::Result<()>>,
 }
-

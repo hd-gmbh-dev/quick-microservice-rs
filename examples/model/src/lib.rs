@@ -45,8 +45,7 @@ pub struct Employee {
 }
 
 #[ComplexObject]
-impl Employee {
-}
+impl Employee {}
 
 #[derive(SimpleObject)]
 pub struct EmployeeList {
