@@ -31,12 +31,12 @@ pub enum Type {
 
 pub const NONE: &'static str = "_";
 
-#[derive(Default, Debug, SimpleObject)]
+#[derive(Default, Debug, Clone, SimpleObject)]
 pub struct Event<V, P, C>
 where
-    V: OutputType,
-    P: OutputType,
-    C: OutputType,
+    V: Clone + OutputType,
+    P: Clone + OutputType,
+    C: Clone + OutputType,
 {
     pub version: V,
     pub op: Op,
@@ -54,9 +54,9 @@ fn format<V: AsRef<str>, P: AsRef<str>, C: AsRef<str>>(
     resource_name: impl std::fmt::Display,
 ) -> String
 where
-    V: OutputType,
-    P: OutputType,
-    C: OutputType,
+    V: Clone + OutputType,
+    P: Clone + OutputType,
+    C: Clone + OutputType,
 {
     let append = match ev.op {
         Op::Mut => "",
@@ -91,12 +91,12 @@ pub trait StaticResourceName {
     fn name() -> &'static str;
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Subject<V, P, C, E>(pub Event<V, P, C>, pub E)
 where
-    V: OutputType,
-    P: OutputType,
-    C: OutputType;
+    V: Clone + OutputType,
+    P: Clone + OutputType,
+    C: Clone + OutputType;
 impl<V, P, C, E> Subject<V, P, C, E>
 where
     V: OutputType + Default + AsRef<str> + Copy,
@@ -254,9 +254,9 @@ where
 
 impl<V, P, C, E> Subject<V, P, C, E>
 where
-    V: OutputType + std::fmt::Debug + AsRef<str>,
-    P: OutputType + std::fmt::Debug + AsRef<str>,
-    C: OutputType + std::fmt::Debug + AsRef<str>,
+    V: Clone + OutputType + std::fmt::Debug + AsRef<str>,
+    P: Clone + OutputType + std::fmt::Debug + AsRef<str>,
+    C: Clone + OutputType + std::fmt::Debug + AsRef<str>,
     E: std::fmt::Debug + ResourceName,
 {
     pub fn resource(&self) -> async_nats::Subject {
@@ -269,9 +269,9 @@ use crate::EventToSubject;
 
 impl<V, P, C, E> EventToSubject<Resource> for Subject<V, P, C, E>
 where
-    V: OutputType + std::fmt::Debug + AsRef<str>,
-    P: OutputType + std::fmt::Debug + AsRef<str>,
-    C: OutputType + std::fmt::Debug + AsRef<str>,
+    V: Clone + OutputType + std::fmt::Debug + AsRef<str>,
+    P: Clone + OutputType + std::fmt::Debug + AsRef<str>,
+    C: Clone + OutputType + std::fmt::Debug + AsRef<str>,
     E: std::fmt::Debug + ResourceName,
 {
     fn event_to_subject(&self) -> async_nats::Subject {
@@ -281,9 +281,9 @@ where
 
 impl<V, P, C, E> std::str::FromStr for Subject<V, P, C, E>
 where
-    V: OutputType + std::str::FromStr<Err = strum::ParseError>,
-    P: OutputType + std::str::FromStr<Err = strum::ParseError>,
-    C: OutputType + std::str::FromStr<Err = strum::ParseError>,
+    V: Clone + OutputType + std::str::FromStr<Err = strum::ParseError>,
+    P: Clone + OutputType + std::str::FromStr<Err = strum::ParseError>,
+    C: Clone + OutputType + std::str::FromStr<Err = strum::ParseError>,
     E: std::str::FromStr<Err = strum::ParseError>,
 {
     type Err = strum::ParseError;
