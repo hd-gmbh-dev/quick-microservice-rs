@@ -8,7 +8,7 @@ members = [
 
 [workspace.package]
 edition = "2021"
-version = "0.0.43"
+version = "0.0.44"
 rust-version = "1.81.0"
 authors = ["Jürgen Seitz <juergen.seitz@h-d-gmbh.de>"]
 license = "MIT"
@@ -17,7 +17,8 @@ repository = "https://github.com/hd-gmbh-dev/quick-microservice-rs"
 [workspace.dependencies]
 anyhow = "1.0.93"
 async-trait = "0.1.85"
-axum = "0.7.9"
+async-nats = "0.38.0"
+axum = "0.8.1"
 tynm = "0.1.10"
 base64 = "0.22.1"
 constcat = "0.5.1"
@@ -25,23 +26,23 @@ chrono = { version="0.4.38", features = ["serde"] }
 futures = "0.3.31"
 tokio = { version = "1.41.1", features = ["full"] }
 tower-http = { version = "0.6.2", features = ["cors"] }
-thiserror = "2.0.10"
+thiserror = "2.0.11"
 itertools = "0.14.0"
 envy = "0.4.2"
 reqwest = { version = "0.12.9", default-features = false, features = ["json"] }
 jsonwebtoken = "9.3.0"
 serde = { version = "1.0.215", features = ["derive", "rc"] }
-serde_json = "1.0.135"
-keycloak = "26.0.700"
-mongodb = "3.1.0"
+serde_json = "1.0.137"
+keycloak = "26.1.0"
+mongodb = "3.2.0"
 lazy_static = "1.5.0"
 tracing = "0.1.40"
 strum = { version = "0.26", features = ["derive"] }
 redis = { version = "0.27.6", features = ["tokio-comp"] }
 deadpool-redis = "0.18.0"
-uuid = { version = "1.11.1", features = ["v4", "v7"]}
+uuid = { version = "1.12.1", features = ["v4", "v7"]}
 glob = "0.3.1"
-async-graphql-axum = "7.0.13"
+async-graphql-axum = "7.0.14"
 sqlx = { version = "0.8", features = ["runtime-tokio", "postgres", "uuid", "time"]}
 time = { version = "0.3.36", features = ["formatting", "parsing", "macros", "serde"] }
 Inflector = "0.11.4"
@@ -58,22 +59,23 @@ rdkafka = { version = "0.37" }
 
 hex = "0.4.3"
 serde_with = "3.11.0"
-sea-orm = { version = "1.1.1", default-features = false, features = [ "sqlx-postgres" ] }
+sea-orm = { version = "1.1.4", default-features = false, features = [ "sqlx-postgres" ] }
 
-qm-entity = { path = "crates/entity", version = "0.0.43" }
-qm-entity-derive = { path = "crates/entity-derive", version = "0.0.43" }
-qm-server = { path = "crates/server", version = "0.0.43" }
-qm-mongodb = { path = "crates/mongodb", version = "0.0.43" }
-qm-pg = { path = "crates/pg", version = "0.0.43" }
-qm-redis = { path = "crates/redis", version = "0.0.43" }
-qm-s3 = { path = "crates/s3", version = "0.0.43" }
-qm-kafka = { path = "crates/kafka", version = "0.0.43" }
-qm-keycloak = { path = "crates/keycloak", version = "0.0.43" }
-qm-role = { path = "crates/role", version = "0.0.43" }
-qm-role-build = { path = "crates/role-build", version = "0.0.43" }
-qm-utils = { path = "crates/utils", version = "0.0.43" }
-qm-utils-derive = { path = "crates/utils-derive", version = "0.0.43" }
-qm = { path = ".", default-features = false, version = "0.0.43" }
+qm-entity = { path = "crates/entity", version = "0.0.44" }
+qm-entity-derive = { path = "crates/entity-derive", version = "0.0.44" }
+qm-server = { path = "crates/server", version = "0.0.44" }
+qm-mongodb = { path = "crates/mongodb", version = "0.0.44" }
+qm-pg = { path = "crates/pg", version = "0.0.44" }
+qm-redis = { path = "crates/redis", version = "0.0.44" }
+qm-s3 = { path = "crates/s3", version = "0.0.44" }
+qm-kafka = { path = "crates/kafka", version = "0.0.44" }
+qm-nats = { path = "crates/nats", version = "0.0.44" }
+qm-keycloak = { path = "crates/keycloak", version = "0.0.44" }
+qm-role = { path = "crates/role", version = "0.0.44" }
+qm-role-build = { path = "crates/role-build", version = "0.0.44" }
+qm-utils = { path = "crates/utils", version = "0.0.44" }
+qm-utils-derive = { path = "crates/utils-derive", version = "0.0.44" }
+qm = { path = ".", default-features = false, version = "0.0.44" }
 
 
 [package]
@@ -94,6 +96,7 @@ qm-server = { workspace = true, optional = true }
 qm-mongodb = { workspace = true, optional = true }
 qm-redis = { workspace = true, optional = true }
 qm-pg = { workspace = true, optional = true }
+qm-nats = { workspace = true, optional = true }
 qm-s3 = { workspace = true, optional = true }
 qm-kafka = { workspace = true, optional = true }
 qm-keycloak = { workspace = true, optional = true }
@@ -122,6 +125,7 @@ redis = ["qm-redis"]
 pg = ["qm-pg"]
 s3 = ["qm-s3"]
 kafka = ["qm-kafka"]
+nats = ["qm-nats"]
 keycloak = ["qm-keycloak"]
 role = ["qm-role"]
 role-build = ["qm-role-build"]

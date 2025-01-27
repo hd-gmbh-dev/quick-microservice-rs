@@ -22,6 +22,15 @@ pub enum EntityError {
     /// Keycloak error
     #[error(transparent)]
     KeycloakError(#[from] KeycloakError),
+    /// distributed locks error
+    #[error(transparent)]
+    DistributedLocksError(#[from] qm_nats::DistributedLocksError),
+    /// lock manager error
+    #[error(transparent)]
+    LockManagerError(#[from] qm_nats::LockManagerError),
+    /// sequence manager error
+    #[error(transparent)]
+    SequenceManagerError(#[from] qm_nats::SequenceManagerError),
     /// A unexpected error occured.
     #[error(transparent)]
     UnexpectedError(#[from] anyhow::Error),

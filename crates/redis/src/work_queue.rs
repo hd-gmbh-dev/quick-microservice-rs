@@ -188,12 +188,13 @@ impl WorkQueue {
             None => return Ok(None),
         };
 
-        let _: () = db.set_ex(
-            self.lease_key.of(&item.id),
-            &self.session,
-            lease_duration.as_secs(),
-        )
-        .await?;
+        let _: () = db
+            .set_ex(
+                self.lease_key.of(&item.id),
+                &self.session,
+                lease_duration.as_secs(),
+            )
+            .await?;
 
         Ok(Some(item))
     }
