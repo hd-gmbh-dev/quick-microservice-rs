@@ -60,42 +60,48 @@ impl DB {
                 .create_collection("counters")
                 .await?;
         }
-        let db_users = mongodb::bson::from_document::<DbUsers>(
-            admin
-                .database(cfg.database())
-                .run_command(doc! {
-                    "usersInfo": [{
-                        "db": cfg.database(),
-                        "user": cfg.username(),
-                    }],
-                    "showPrivileges": false,
-                    "showCredentials": false,
-                })
-                .await?,
-        )
-        .ok();
-        if !db_users
-            .map(|u| {
-                u.users
-                    .iter()
-                    .any(|u: &DbUser| u.db == cfg.database() && u.user == cfg.username())
-            })
-            .unwrap_or(false)
-        {
-            tracing::info!("{app_name} -> create db {}", cfg.database());
-            admin
-                .database(cfg.database())
-                .run_command(doc! {
-                    "createUser": cfg.username(),
-                    "pwd": cfg.password(),
-                    "roles": [
-                        {
-                            "role": "readWrite",
+        if let (Some(username), Some(password)) = (cfg.username(), cfg.password()) {
+            let db_users = mongodb::bson::from_document::<DbUsers>(
+                admin
+                    .database(cfg.database())
+                    .run_command(doc! {
+                        "usersInfo": [{
                             "db": cfg.database(),
-                        }
-                    ]
+                            "user": username,
+                        }],
+                        "showPrivileges": false,
+                        "showCredentials": false,
+                    })
+                    .await?,
+            )
+            .ok();
+            if !db_users
+                .map(|u| {
+                    u.users
+                        .iter()
+                        .any(|u: &DbUser| u.db == cfg.database() && u.user == username)
                 })
-                .await?;
+                .unwrap_or(false)
+            {
+                tracing::info!(
+                    "{app_name} -> create user {} for db {}",
+                    username,
+                    cfg.database()
+                );
+                admin
+                    .database(cfg.database())
+                    .run_command(doc! {
+                        "createUser": username,
+                        "pwd": password,
+                        "roles": [
+                            {
+                                "role": "readWrite",
+                                "db": cfg.database(),
+                            }
+                        ]
+                    })
+                    .await?;
+            }
         }
         let mut client_options = ClientOptions::parse(cfg.address()).await?;
         client_options.app_name = Some(app_name.to_string());

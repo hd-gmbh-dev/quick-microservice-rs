@@ -27,12 +27,12 @@ impl Config {
         ConfigBuilder::default()
     }
 
-    pub fn username(&self) -> &str {
-        self.username.as_deref().unwrap()
+    pub fn username(&self) -> Option<&str> {
+        self.username.as_deref()
     }
 
-    pub fn password(&self) -> &str {
-        self.password.as_deref().unwrap()
+    pub fn password(&self) -> Option<&str> {
+        self.password.as_deref()
     }
 
     pub fn address(&self) -> &str {
