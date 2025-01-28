@@ -2,7 +2,7 @@ use futures::stream::StreamExt;
 use mongodb::bson::doc;
 use mongodb::bson::Document;
 use mongodb::options::{FindOneAndUpdateOptions, IndexOptions};
-use mongodb::{options::ClientOptions, Client, ClientSession, Collection, Database, IndexModel};
+use mongodb::{options::ClientOptions, Client, ClientSession, Database, IndexModel};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
@@ -54,12 +54,6 @@ impl DB {
         client_options.app_name = Some(app_name.to_string());
         let admin = Client::with_options(client_options)?;
         let collections = RwLock::new(collections(&admin, cfg.database()).await?);
-        if collections.read().await.is_empty() {
-            admin
-                .database(cfg.database())
-                .create_collection("counters")
-                .await?;
-        }
         if let (Some(username), Some(password)) = (cfg.username(), cfg.password()) {
             let db_users = mongodb::bson::from_document::<DbUsers>(
                 admin
@@ -153,13 +147,6 @@ impl DB {
             tracing::debug!("found collection: {}", col);
         }
         Ok(())
-    }
-
-    pub fn counters<T>(&self) -> Collection<T>
-    where
-        T: Send + Sync,
-    {
-        self.get().collection::<T>("counters")
     }
 
     pub async fn collections(&self) -> Arc<[Arc<str>]> {
