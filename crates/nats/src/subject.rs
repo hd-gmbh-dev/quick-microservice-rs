@@ -250,6 +250,11 @@ where
         self.0.actor = Some(actor.into());
         self
     }
+
+    pub fn with_version(mut self, version: V) -> Self {
+        self.0.version = version;
+        self
+    }
 }
 
 impl<V, P, C, E> Subject<V, P, C, E>
