@@ -27,6 +27,8 @@ pub enum Type {
     Recv,
     Assign,
     Unassign,
+    Activate,
+    Deactivate,
 }
 
 pub const NONE: &'static str = "_";
@@ -192,6 +194,14 @@ where
 
     pub fn unassign() -> Self {
         Self::factory(Type::Unassign)
+    }
+
+    pub fn activate() -> Self {
+        Self::factory(Type::Activate)
+    }
+
+    pub fn deactivate() -> Self {
+        Self::factory(Type::Deactivate)
     }
 
     pub fn into_mut(mut self) -> Self {
