@@ -2,7 +2,7 @@ use std::{borrow::Cow, sync::Arc};
 
 pub use keycloak::{
     types::{
-        AuthenticationExecutionInfoRepresentation, AuthenticationFlowRepresentation,
+        self, AuthenticationExecutionInfoRepresentation, AuthenticationFlowRepresentation,
         AuthenticatorConfigRepresentation, ClientRepresentation, CredentialRepresentation,
         GroupRepresentation, RealmRepresentation, RoleRepresentation, TypeMap, UserRepresentation,
     },

@@ -1,18 +1,21 @@
-use crate::schema::UserInput;
-use crate::validation::context::{Config, ValidationContext};
-use crate::validation::updater::{get_smtp_server_defaults, update_for_errors};
-use crate::validation::validator::validate_realm;
-use crate::Keycloak;
-use crate::KeycloakError;
-use crate::{
-    CredentialRepresentation, GroupRepresentation, RoleRepresentation, UserRepresentation,
-};
 use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::convert::identity;
+
+use crate::{
+    schema::UserInput,
+    validation::{
+        context::{Config, ValidationContext},
+        updater::{get_smtp_server_defaults, update_for_errors},
+        validator::validate_realm,
+    },
+    CredentialRepresentation, GroupRepresentation, Keycloak, KeycloakError, RealmRepresentation,
+    RoleRepresentation, UserRepresentation,
+};
 
 use qm_role::Group;
 
 lazy_static::lazy_static! {
-    static ref REALM_TEMPLATE: crate::RealmRepresentation = serde_json::from_str(include_str!("../templates/realm.json")).unwrap();
+    static ref REALM_TEMPLATE: RealmRepresentation = serde_json::from_str(include_str!("../templates/realm.json")).unwrap();
     static ref APP_URL: String = std::env::var("SERVER_APP_URL").unwrap_or_else(|_| "http://localhost:5173".to_string());
 }
 
@@ -21,6 +24,13 @@ pub fn app_url() -> &'static str {
 }
 
 pub async fn create(keycloak: &Keycloak) -> anyhow::Result<()> {
+    create_custom(keycloak, identity).await
+}
+
+pub async fn create_custom<T>(keycloak: &Keycloak, realm_repr_transform: T) -> anyhow::Result<()>
+where
+    T: Fn(RealmRepresentation) -> RealmRepresentation,
+{
     let realm = keycloak.config().realm();
     let url = APP_URL.as_str();
     let mut realm_representation = REALM_TEMPLATE.clone();
@@ -52,7 +62,9 @@ pub async fn create(keycloak: &Keycloak) -> anyhow::Result<()> {
     };
     realm_representation.smtp_server = get_smtp_server_defaults(&ctx);
     tracing::info!("create keycloak realm '{realm}'");
-    keycloak.create_realm(realm_representation).await?;
+    keycloak
+        .create_realm(realm_repr_transform(realm_representation))
+        .await?;
     Ok(())
 }
 
