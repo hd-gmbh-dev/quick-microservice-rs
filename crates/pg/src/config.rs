@@ -95,7 +95,7 @@ impl<'a> ConfigBuilder<'a> {
         }
         .from_env()?;
         let host = cfg.host.as_deref().unwrap_or("127.0.0.1");
-        let port = cfg.port.unwrap_or(27017);
+        let port = cfg.port.unwrap_or(5432);
         let mut address = match (cfg.username.as_deref(), cfg.password.as_deref()) {
             (Some(username), Some(password)) => {
                 format!("postgresql://{}:{}@{}:{}/", username, password, host, port)
