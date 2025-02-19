@@ -1,10 +1,11 @@
-use std::{borrow::Cow, sync::Arc};
+use std::{borrow::Cow, convert::identity, sync::Arc};
 
 pub use keycloak::{
     types::{
-        AuthenticationExecutionInfoRepresentation, AuthenticationFlowRepresentation,
+        self, AuthenticationExecutionInfoRepresentation, AuthenticationFlowRepresentation,
         AuthenticatorConfigRepresentation, ClientRepresentation, CredentialRepresentation,
-        GroupRepresentation, RealmRepresentation, RoleRepresentation, TypeMap, UserRepresentation,
+        GroupRepresentation, IdentityProviderRepresentation, RealmRepresentation,
+        RoleRepresentation, TypeMap, UserRepresentation,
     },
     KeycloakAdmin, KeycloakError, KeycloakTokenSupplier,
 };
@@ -1038,4 +1039,128 @@ impl Keycloak {
             .await?;
         Ok(())
     }
+
+    pub async fn find_identity_provider(
+        &self,
+        realm: &str,
+        alias: &str,
+    ) -> Result<IdentityProviderRepresentation, KeycloakError> {
+        self.inner
+            .admin
+            .realm_identity_provider_instances_with_alias_get(realm, alias)
+            .await
+    }
+
+    pub async fn add_saml_identity_provider(
+        &self,
+        realm: &str,
+        alias: &str,
+        metainfo_url: &str,
+        entity_id: &str,
+    ) -> Result<(), KeycloakError> {
+        self.add_saml_identity_provider_custom(realm, alias, metainfo_url, entity_id, identity)
+            .await
+    }
+
+    pub async fn add_saml_identity_provider_custom<T>(
+        &self,
+        realm: &str,
+        alias: &str,
+        metainfo_url: &str,
+        entity_id: &str,
+        idp_representation_transform: T,
+    ) -> Result<(), KeycloakError>
+    where
+        T: Fn(IdentityProviderRepresentation) -> IdentityProviderRepresentation,
+    {
+        let admin = &self.inner.admin;
+        let idp_config = [
+            ("alias", alias),
+            ("providerId", "saml"),
+            ("fromUrl", metainfo_url),
+        ]
+        .into_iter()
+        .map(|(key, value)| {
+            (
+                key.to_string(),
+                serde_json::Value::String(value.to_string()),
+            )
+        })
+        .collect();
+
+        let mut imported_config = admin
+            .realm_identity_provider_import_config_post(realm, idp_config)
+            .await?;
+        if imported_config
+            .get("nameIDPolicyFormat")
+            .map(|s| s.as_str())
+            == Some("urn:oasis:names:tc:SAML:2.0:nameid-format:transient")
+        {
+            imported_config.insert("principalType".into(), "ATTRIBUTE".into());
+        }
+
+        imported_config.insert("entityId".into(), entity_id.into());
+
+        let idp_representation = IdentityProviderRepresentation {
+            alias: Some(alias.to_string()),
+            config: Some(imported_config),
+            display_name: Some(alias.to_string()),
+            enabled: Some(true),
+            provider_id: Some("saml".to_string()),
+            ..Default::default()
+        };
+
+        admin
+            .realm_identity_provider_instances_post(realm, idp_representation.clone())
+            .await?;
+
+        admin
+            .realm_identity_provider_instances_with_alias_put(
+                realm,
+                alias,
+                idp_representation_transform(idp_representation),
+            )
+            .await?;
+
+        Ok(())
+    }
+}
+
+pub fn idp_signature_and_encryption(
+    mut idp: IdentityProviderRepresentation,
+    principal_attribute: &str,
+) -> IdentityProviderRepresentation {
+    if let Some(config) = &mut idp.config {
+        config.extend(
+            [
+                ("allowCreate", "true"),
+                ("allowedClockSkew", "0"),
+                ("artifactResolutionServiceUrl", ""),
+                ("attributeConsumingServiceIndex", "0"),
+                ("attributeConsumingServiceName", ""),
+                ("authnContextComparisonType", "exact"),
+                ("backchannelSupported", "false"),
+                ("caseSensitiveOriginalUsername", "false"),
+                ("encryptionAlgorithm", "RSA-OAEP"),
+                ("forceAuthn", "false"),
+                ("guiOrder", ""),
+                ("principalAttribute", principal_attribute),
+                ("principalType", "ATTRIBUTE"),
+                ("sendClientIdOnLogout", "false"),
+                ("sendIdTokenOnLogout", "true"),
+                ("signSpMetadata", "false"),
+                ("signatureAlgorithm", "RSA_SHA256"),
+                ("singleLogoutServiceUrl", ""),
+                ("syncMode", "LEGACY"),
+                ("useMetadataDescriptorUrl", "true"),
+                ("validateSignature", "true"),
+                ("wantAssertionsEncrypted", "true"),
+                ("wantAssertionsSigned", "true"),
+                ("wantAuthnRequestsSigned", "true"),
+                ("xmlSigKeyInfoKeyNameTransformer", "KEY_ID"),
+            ]
+            .map(|(k, v)| (k.to_string(), v.to_string())),
+        );
+    }
+    idp
 }
