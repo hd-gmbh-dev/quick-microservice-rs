@@ -91,6 +91,7 @@ pub struct Config {
     smtp_ssl: Option<bool>,
     browser_flow: Option<Arc<str>>,
     authenticator_email_subject: Option<Arc<str>>,
+    keystore_password: Option<Arc<str>>,
 }
 
 impl Config {
@@ -180,5 +181,9 @@ impl Config {
 
     pub fn authenticator_email_subject(&self) -> Option<&str> {
         self.authenticator_email_subject.as_deref()
+    }
+
+    pub fn keystore_password(&self) -> Option<&str> {
+        self.keystore_password.as_deref()
     }
 }
