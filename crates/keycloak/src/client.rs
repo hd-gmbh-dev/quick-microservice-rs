@@ -1,5 +1,6 @@
 use std::{borrow::Cow, convert::identity, sync::Arc};
 
+use keycloak::types::{ComponentRepresentation, IdentityProviderMapperRepresentation};
 pub use keycloak::{
     types::{
         self, AuthenticationExecutionInfoRepresentation, AuthenticationFlowRepresentation,
@@ -404,17 +405,10 @@ impl Keycloak {
         realm: &str,
         group_id: &str,
     ) -> Result<Vec<GroupRepresentation>, KeycloakError> {
-        let subgroups = self.inner
+        let subgroups = self
+            .inner
             .admin
-            .realm_groups_with_group_id_children_get(
-                realm,
-                group_id,
-                None,
-                None,
-                None,
-                None,
-                None,
-            )
+            .realm_groups_with_group_id_children_get(realm, group_id, None, None, None, None, None)
             .await?;
 
         Ok(subgroups
@@ -1123,6 +1117,77 @@ impl Keycloak {
             .await?;
 
         Ok(())
+    }
+
+    pub async fn find_identity_provider_mappers(
+        &self,
+        realm: &str,
+        alias: &str,
+    ) -> Result<Vec<IdentityProviderMapperRepresentation>, KeycloakError> {
+        self.inner
+            .admin
+            .realm_identity_provider_instances_with_alias_mappers_get(realm, alias)
+            .await
+    }
+
+    pub async fn add_identity_provider_mapper(
+        &self,
+        realm: &str,
+        alias: &str,
+        mapper: IdentityProviderMapperRepresentation,
+    ) -> Result<(), KeycloakError> {
+        self.inner
+            .admin
+            .realm_identity_provider_instances_with_alias_mappers_post(realm, alias, mapper)
+            .await?;
+        Ok(())
+    }
+
+    pub async fn find_key_providers(
+        &self,
+        realm: &str,
+    ) -> Result<Vec<ComponentRepresentation>, KeycloakError> {
+        self.inner
+            .admin
+            .realm_components_get(
+                realm,
+                None,
+                None,
+                Some("org.keycloak.keys.KeyProvider".into()),
+            )
+            .await
+    }
+
+    pub async fn add_key_provider(
+        &self,
+        realm: &str,
+        mut key_provider: ComponentRepresentation,
+    ) -> Result<(), KeycloakError> {
+        key_provider.provider_type = Some("org.keycloak.keys.KeyProvider".into());
+        self.inner
+            .admin
+            .realm_components_post(realm, key_provider)
+            .await?;
+        Ok(())
+    }
+
+    pub async fn delete_component(&self, realm: &str, id: &str) -> Result<(), KeycloakError> {
+        self.inner
+            .admin
+            .realm_components_with_id_delete(realm, id)
+            .await
+    }
+
+    pub async fn modify_component(
+        &self,
+        realm: &str,
+        id: &str,
+        component: ComponentRepresentation,
+    ) -> Result<(), KeycloakError> {
+        self.inner
+            .admin
+            .realm_components_with_id_put(realm, id, component)
+            .await
     }
 }
 
