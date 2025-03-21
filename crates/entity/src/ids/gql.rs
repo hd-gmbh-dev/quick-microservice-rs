@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use async_graphql::Description;
 use async_graphql::InputValueError;
 use async_graphql::InputValueResult;
 use async_graphql::OneofObject;
@@ -9,10 +10,39 @@ use async_graphql::Value;
 
 use crate::ids::CustomerId;
 use crate::ids::CustomerResourceId;
+use crate::ids::InfraContext;
 use crate::ids::InstitutionId;
 use crate::ids::InstitutionResourceId;
 use crate::ids::OrganizationId;
 use crate::ids::OrganizationResourceId;
+
+pub struct InfraContextId(pub InfraContext);
+
+impl Description for InfraContextId {
+    fn description() -> &'static str {
+        "InfraContextId"
+    }
+}
+
+#[Scalar(use_type_description)]
+impl ScalarType for InfraContextId {
+    fn parse(value: Value) -> InputValueResult<Self> {
+        if let Value::String(value) = &value {
+            // Parse the integer value
+            Ok(InfraContextId(
+                InfraContext::parse(value)
+                    .map_err(|err| InputValueError::custom(err.to_string()))?,
+            ))
+        } else {
+            // If the type does not match
+            Err(InputValueError::expected_type(value))
+        }
+    }
+
+    fn to_value(&self) -> Value {
+        Value::String(self.0.to_string())
+    }
+}
 
 #[macro_export]
 macro_rules! impl_id_scalar {

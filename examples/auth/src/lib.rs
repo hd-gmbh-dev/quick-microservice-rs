@@ -7,7 +7,7 @@ use qm::{
         MutatePermissions, QueryPermissions, SessionAccess, UserId,
     },
     keycloak::token::jwt::Claims,
-    role::{Access, AccessLevel},
+    role::Access,
 };
 use qm_example_ctx::Storage;
 use sqlx::types::Uuid;
@@ -55,7 +55,7 @@ impl FromGraphQLContext for Authorization {
             let is_support = parsed.roles.contains(&qm::role::role!(Resource::Support));
 
             let access = if is_admin {
-                Access::new(AccessLevel::Admin)
+                Access::new("admin".into())
             } else {
                 match parsed.access.pop_first() {
                     Some(access) => access,
@@ -124,12 +124,12 @@ impl AsNumber for Authorization {
             .access
             .as_ref()
             .map(|v| match v.ty() {
-                AccessLevel::None => 0,
-                AccessLevel::Admin => u32::MAX,
-                AccessLevel::Support => u32::MAX - 1,
-                AccessLevel::Customer => u32::MAX - 2,
-                AccessLevel::Organization => u32::MAX - 3,
-                AccessLevel::Institution => u32::MAX - 4,
+                "admin" => u32::MAX,
+                "support" => u32::MAX - 1,
+                "customer" => u32::MAX - 2,
+                "organization" => u32::MAX - 3,
+                "institution" => u32::MAX - 4,
+                _ => 0,
             })
             .unwrap_or(0)
     }

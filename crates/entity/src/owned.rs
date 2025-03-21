@@ -244,7 +244,7 @@ pub trait ToMongoFilterExact {
 pub struct ResourcesFilter<'a, I>(pub &'a [I])
 where
     I: ToMongoFilterOne;
-impl<'a, I> ToMongoFilterExact for ResourcesFilter<'a, I>
+impl<I> ToMongoFilterExact for ResourcesFilter<'_, I>
 where
     I: ToMongoFilterOne,
 {
@@ -314,7 +314,7 @@ impl<I> Page<I> {
     /// Returns page count.
     pub fn count(&self) -> usize {
         if let Some(limit) = self.limit.filter(|l| *l > 0).map(|l| l as usize) {
-            (self.total + (limit - 1)) / limit
+            self.total.div_ceil(limit)
         } else {
             0
         }

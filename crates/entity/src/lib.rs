@@ -57,7 +57,7 @@ pub fn unauthorized_name<T>(ty: &str, name: &str) -> Result<T, async_graphql::Er
     ))))
 }
 
-#[async_trait::async_trait]
+#[allow(async_fn_in_trait)]
 pub trait FromGraphQLContext: Sized {
     async fn from_graphql_context(ctx: &Context<'_>) -> FieldResult<Self>;
 }

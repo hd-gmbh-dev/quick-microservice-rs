@@ -55,21 +55,17 @@ pub fn parse(tables: MdTables) -> anyhow::Result<ParseResult> {
         .into_iter()
         .filter_map(|mut t| {
             let allowed_types = t.pop();
-            let access_level = t.pop();
             let display_name = t.pop();
             let path = t.pop();
             let user_group = t.pop();
             user_group
-                .zip(path.zip(display_name.zip(access_level.zip(allowed_types))))
+                .zip(path.zip(display_name.zip(allowed_types)))
                 .map(
-                    |(user_group, (path, (display_name, (access_level, allowed_types))))| {
-                        UserGroupNameMapping {
-                            user_group: Rc::from(user_group),
-                            display_name: Rc::from(display_name),
-                            path: Rc::from(path),
-                            access_level: Rc::from(access_level),
-                            allowed_types: allowed_types.into(),
-                        }
+                    |(user_group, (path, (display_name, allowed_types)))| UserGroupNameMapping {
+                        user_group: Rc::from(user_group),
+                        display_name: Rc::from(display_name),
+                        path: Rc::from(path),
+                        allowed_types: allowed_types.into(),
                     },
                 )
         })
