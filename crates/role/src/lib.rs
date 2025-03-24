@@ -4,7 +4,6 @@ use std::{
     str::FromStr,
     sync::Arc,
 };
-use strum::{AsRefStr, EnumString};
 use tokio::sync::RwLock;
 
 #[macro_export]
@@ -24,57 +23,14 @@ macro_rules! role {
     };
 }
 
-#[derive(
-    Default,
-    Clone,
-    Debug,
-    Copy,
-    EnumString,
-    async_graphql::Enum,
-    AsRefStr,
-    Hash,
-    Ord,
-    PartialOrd,
-    Eq,
-    PartialEq,
-)]
-pub enum AccessLevel {
-    #[default]
-    #[strum(serialize = "none")]
-    None,
-    #[strum(serialize = "admin")]
-    Admin,
-    #[strum(serialize = "support")]
-    Support,
-    #[strum(serialize = "customer")]
-    Customer,
-    #[strum(serialize = "organization")]
-    Organization,
-    #[strum(serialize = "institution")]
-    Institution,
-}
-
-impl AccessLevel {
-    pub fn is_admin(&self) -> bool {
-        matches!(self, AccessLevel::Admin)
-    }
-
-    pub fn id_required(&self) -> bool {
-        matches!(
-            self,
-            AccessLevel::Customer | AccessLevel::Organization | AccessLevel::Institution
-        )
-    }
-}
-
 #[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq, Hash)]
 pub struct Access {
-    ty: AccessLevel,
+    ty: Arc<str>,
     id: Option<Arc<str>>,
 }
 
 impl Access {
-    pub fn new(ty: AccessLevel) -> Self {
+    pub fn new(ty: Arc<str>) -> Self {
         Self { ty, id: None }
     }
 
@@ -90,7 +46,7 @@ impl Access {
         self
     }
 
-    pub fn ty(&self) -> &AccessLevel {
+    pub fn ty(&self) -> &str {
         &self.ty
     }
 
@@ -117,17 +73,18 @@ impl FromStr for Access {
         if let Some((access, id)) = s.next().zip(s.next()) {
             if let Some((access, method)) = access.split_once(':') {
                 if method == "access" {
-                    let ty = AccessLevel::from_str(access)?;
                     return Ok(Access {
-                        ty,
+                        ty: Arc::from(access.to_string()),
                         id: Some(Arc::from(id.to_string())),
                     });
                 }
             }
         } else if let Some((access, method)) = v.split_once(':') {
             if method == "access" {
-                let ty = AccessLevel::from_str(access)?;
-                return Ok(Access { ty, id: None });
+                return Ok(Access {
+                    ty: Arc::from(access.to_string()),
+                    id: None,
+                });
             }
         }
         anyhow::bail!("invalid access role {v}");
@@ -265,9 +222,8 @@ where
         if let Some((access, id)) = s.next().zip(s.next()) {
             if let Some((access, method)) = access.split_once(':') {
                 if method == "access" {
-                    let ty = AccessLevel::from_str(access)?;
                     return Ok(AccessOrRole::Access(Access {
-                        ty,
+                        ty: Arc::from(access.to_string()),
                         id: Some(Arc::from(id.to_string())),
                     }));
                 }
@@ -349,7 +305,6 @@ where
     pub name: String,
     pub path: String,
     resource_roles: Vec<Role<R, P>>,
-    allowed_access_levels: Vec<AccessLevel>,
     allowed_types: Vec<String>,
 }
 
@@ -361,7 +316,6 @@ where
     pub fn new(
         name: String,
         path: String,
-        allowed_access_levels: Vec<AccessLevel>,
         allowed_types: Vec<String>,
         resource_roles: Vec<Role<R, P>>,
     ) -> Self {
@@ -369,13 +323,8 @@ where
             name,
             path,
             resource_roles,
-            allowed_access_levels,
             allowed_types,
         }
-    }
-
-    pub fn allowed_access_levels(&self) -> &[AccessLevel] {
-        &self.allowed_access_levels
     }
 
     pub fn allowed_types(&self) -> &[String] {

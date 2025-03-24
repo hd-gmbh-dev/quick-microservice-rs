@@ -795,6 +795,23 @@ impl Keycloak {
         Ok(())
     }
 
+    pub async fn remove_user_from_roles(
+        &self,
+        realm: &str,
+        user_id: &str,
+        roles: Vec<RoleRepresentation>,
+    ) -> Result<(), KeycloakError> {
+        self.inner
+            .admin
+            .realm_users_with_user_id_role_mappings_realm_delete(realm, user_id, roles)
+            .await
+            .map_err(|e| {
+                tracing::error!("{e:#?}");
+                e
+            })?;
+        Ok(())
+    }
+
     pub async fn remove_user(&self, realm: &str, user_id: &str) -> Result<(), KeycloakError> {
         self.inner
             .admin
@@ -1187,6 +1204,28 @@ impl Keycloak {
         self.inner
             .admin
             .realm_components_with_id_put(realm, id, component)
+            .await
+    }
+
+    pub async fn user_groups(
+        &self,
+        realm: &str,
+        user_id: &str,
+    ) -> Result<Vec<keycloak::types::GroupRepresentation>, keycloak::KeycloakError> {
+        self.inner
+            .admin
+            .realm_users_with_user_id_groups_get(realm, user_id, Some(true), None, None, None)
+            .await
+    }
+
+    pub async fn user_roles(
+        &self,
+        realm: &str,
+        user_id: &str,
+    ) -> Result<Vec<keycloak::types::RoleRepresentation>, keycloak::KeycloakError> {
+        self.inner
+            .admin
+            .realm_users_with_user_id_role_mappings_realm_get(realm, user_id)
             .await
     }
 }

@@ -25,5 +25,5 @@ syn = { version = "2.0", features = [
   "visit-mut",
   "visit",
 ] }
-strum = { version = "0.25.0", features = ["derive"] }
+strum = { version = "0.27.1", features = ["derive"] }
 lazy_static = "1.4.0"

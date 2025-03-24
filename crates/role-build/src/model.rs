@@ -39,7 +39,6 @@ pub struct UserGroupNameMapping {
     pub user_group: Rc<str>,
     pub path: Rc<str>,
     pub display_name: Rc<str>,
-    pub access_level: Rc<str>,
     pub allowed_types: Rc<str>,
 }
 

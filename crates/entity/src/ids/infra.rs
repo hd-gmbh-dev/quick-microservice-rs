@@ -67,7 +67,7 @@ impl From<InfraId> for i64 {
     }
 }
 
-impl<'q> Encode<'q, Postgres> for InfraId {
+impl Encode<'_, Postgres> for InfraId {
     fn encode_by_ref(
         &self,
         buf: &mut PgArgumentBuffer,
@@ -914,6 +914,14 @@ impl InfraContext {
             }
         }
     }
+
+    pub fn id(&self) -> i64 {
+        match self {
+            InfraContext::Customer(customer_id) => customer_id.unzip(),
+            InfraContext::Organization(organization_id) => organization_id.id(),
+            InfraContext::Institution(institution_id) => institution_id.id(),
+        }
+    }
 }
 
 impl std::fmt::Display for InfraContext {
@@ -1088,7 +1096,7 @@ impl<'a, const N: usize> StringParser<'a, N> {
     }
 }
 
-impl<'a, const N: usize> Iterator for StringParser<'a, N> {
+impl<const N: usize> Iterator for StringParser<'_, N> {
     type Item = i64;
     fn next(&mut self) -> Option<i64> {
         if self.count >= N {

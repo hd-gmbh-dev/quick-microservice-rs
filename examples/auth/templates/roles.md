@@ -5,14 +5,14 @@ This file will generate roles and groups in a keycloak realm based on markdown t
 
 ## User groups `user_groups`
 
-| group            | name                 | display name         | access levels          | allowed types |
-|------------------|----------------------|----------------------|------------------------|---------------|
-| Admin            | /admin               | Admin                | Admin                  | none          |
-| Support          | /support             | Support              | Admin                  | none          |
-| CustomerOwner    | /customer_owner      | Owner of Customer    | Customer               | none          |
-| InstitutionOwner | /institution_owner   | Owner of Institution | Institution            | eco,state     |
-| Management       | /management          | Management           | Customer, Institution  | eco           |
-| Worker           | /worker              | Worker               | Institution            | state         |
+| group            | name                 | display name         | allowed types |
+|------------------|----------------------|----------------------|---------------|
+| Admin            | /admin               | Admin                | none          |
+| Support          | /support             | Support              | none          |
+| CustomerOwner    | /customer_owner      | Owner of Customer    | none          |
+| InstitutionOwner | /institution_owner   | Owner of Institution | eco,state     |
+| Management       | /management          | Management           | eco           |
+| Worker           | /worker              | Worker               | state         |
 
 ## Roles `roles`
 
