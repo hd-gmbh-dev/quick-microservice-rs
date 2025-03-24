@@ -34,7 +34,6 @@ pub struct Authorization {
     inner: Arc<Inner>,
 }
 
-#[async_trait::async_trait]
 impl FromGraphQLContext for Authorization {
     async fn from_graphql_context(
         ctx: &async_graphql::Context<'_>,
