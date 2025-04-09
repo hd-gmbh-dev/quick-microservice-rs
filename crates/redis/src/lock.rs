@@ -1,5 +1,6 @@
 use redis::AsyncCommands;
 use redis::RedisError;
+use redis::SetOptions;
 use redis::Value as RedisValue;
 use tokio::time::{sleep, Duration};
 use uuid::Uuid;
@@ -36,7 +37,6 @@ impl From<deadpool_redis::PoolError> for Error {
     }
 }
 
-const LOCK_SCRIPT: &str = "return redis.call('set', ARGV[1], ARGV[2], 'px', ARGV[3], 'nx')";
 const UNLOCK_SCRIPT: &str = r#"
   if redis.call("get", KEYS[1]) == ARGV[1] then
     return redis.call("del", KEYS[1])
@@ -56,12 +56,16 @@ pub async fn try_lock<C: AsyncCommands, T: AsRef<str>>(
     ttl: usize,
 ) -> Result<Lock, Error> {
     let id = Uuid::new_v4().to_string();
-    let result = redis::Script::new(LOCK_SCRIPT)
-        .arg(key.as_ref())
-        .arg(&id)
-        .arg(ttl)
-        .invoke_async(db)
-        .await?;
+    let options = SetOptions::default()
+        .with_expiration(redis::SetExpiry::PX(ttl as u64))
+        .conditional_set(redis::ExistenceCheck::NX);
+    let result = db.set_options(key.as_ref(), &id, options).await?;
+    // let result = redis::Script::new(LOCK_SCRIPT)
+    //     .arg(key.as_ref())
+    //     .arg(&id)
+    //     .arg(ttl)
+    //     .invoke_async(db)
+    //     .await?;
 
     match result {
         RedisValue::Okay => Ok(Lock { id }),

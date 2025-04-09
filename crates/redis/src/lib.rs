@@ -1,5 +1,9 @@
 pub use deadpool_redis::redis;
+use deadpool_redis::PoolError;
 use deadpool_redis::Runtime;
+use redis::FromRedisValue;
+use redis::RedisError;
+use redis::ToRedisArgs;
 use std::sync::Arc;
 mod config;
 pub mod lock;
@@ -24,6 +28,38 @@ use work_queue::WorkQueue;
 
 pub use crate::config::Config as RedisConfig;
 use crate::lock::Lock;
+
+#[derive(Debug, thiserror::Error)]
+pub enum CacheError {
+    #[error(transparent)]
+    Pool(#[from] PoolError),
+    #[error(transparent)]
+    Redis(#[from] RedisError),
+    #[error("failed to fetch: {0}")]
+    Failure(String),
+}
+
+#[derive(serde::Serialize, serde::Deserialize)]
+pub struct Json<T>(T);
+
+impl <T> FromRedisValue for Json<T> where T: DeserializeOwned {
+    fn from_redis_value(v: &redis::Value) -> RedisResult<Self> {
+        if let redis::Value::SimpleString(s) = v {
+            serde_json::from_str(s).map_err(From::from)
+        } else {
+            Err(redis::RedisError::from((redis::ErrorKind::TypeError, "expected simple string value")))
+        }
+    }
+}
+
+impl <T> ToRedisArgs for Json<T> where T: Serialize {
+    fn write_redis_args<W>(&self, out: &mut W)
+    where
+        W: ?Sized + redis::RedisWrite {
+        let v = serde_json::to_string(&self.0).unwrap_or_default();
+        v.write_redis_args(out);
+    }
+}
 
 pub struct Inner {
     config: RedisConfig,
