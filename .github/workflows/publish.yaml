@@ -36,18 +36,15 @@ jobs:
         CRATES_TOKEN: ${{ secrets.CRATES_TOKEN }}
         SQLX_OFFLINE: true
   release:
-      name: Release
-      runs-on: ubuntu-latest
-      needs: publish
-      steps:
-        - name: Checkout
-          uses: actions/checkout@v4
-        - name: Release
-          uses: actions/create-release@latest
-          env:
-            GITHUB_TOKEN: ${{ secrets.BOT_GITHUB_TOKEN }}
-          with:
-            tag_name: ${{ github.ref }}
-            release_name: ${{ github.ref }}
-            draft: true
-            prerelease: false
+    name: Release on GitHub
+    runs-on: ubuntu-latest
+    needs: publish
+    steps:
+    - uses: actions/checkout@v4
+    - name: Create a Release
+      uses: elgohr/Github-Release-Action@v5
+      env:
+        GH_TOKEN: ${{ secrets.BOT_GITHUB_TOKEN }}
+      with:
+        title: Release ${{ github.ref_name }}
+        tag: ${{ github.ref }}
