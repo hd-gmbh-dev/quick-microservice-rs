@@ -1,4 +1,4 @@
-use std::{borrow::Cow, convert::identity, sync::Arc};
+use std::{borrow::Cow, collections::HashMap, convert::identity, sync::Arc};
 
 use keycloak::types::{ComponentRepresentation, IdentityProviderMapperRepresentation};
 pub use keycloak::{
@@ -1099,22 +1099,42 @@ impl Keycloak {
         })
         .collect();
 
-        let mut imported_config = admin
+        let imported_config = admin
             .realm_identity_provider_import_config_post(realm, idp_config)
             .await?;
-        if imported_config
-            .get("nameIDPolicyFormat")
-            .map(|s| s.as_str())
+        self.add_saml_identity_provider_from_config(
+            realm,
+            alias,
+            imported_config,
+            entity_id,
+            idp_representation_transform,
+        )
+        .await
+    }
+
+    pub async fn add_saml_identity_provider_from_config<T>(
+        &self,
+        realm: &str,
+        alias: &str,
+        mut idp_config: HashMap<String, String>,
+        entity_id: &str,
+        idp_representation_transform: T,
+    ) -> Result<(), KeycloakError>
+    where
+        T: Fn(IdentityProviderRepresentation) -> IdentityProviderRepresentation,
+    {
+        let admin = &self.inner.admin;
+        if idp_config.get("nameIDPolicyFormat").map(|s| s.as_str())
             == Some("urn:oasis:names:tc:SAML:2.0:nameid-format:transient")
         {
-            imported_config.insert("principalType".into(), "ATTRIBUTE".into());
+            idp_config.insert("principalType".into(), "ATTRIBUTE".into());
         }
 
-        imported_config.insert("entityId".into(), entity_id.into());
+        idp_config.insert("entityId".into(), entity_id.into());
 
         let idp_representation = IdentityProviderRepresentation {
             alias: Some(alias.to_string()),
-            config: Some(imported_config),
+            config: Some(idp_config),
             display_name: Some(alias.to_string()),
             enabled: Some(true),
             provider_id: Some("saml".to_string()),
@@ -1226,6 +1246,27 @@ impl Keycloak {
         self.inner
             .admin
             .realm_users_with_user_id_role_mappings_realm_get(realm, user_id)
+            .await
+    }
+
+    pub async fn identity_provider_import_config(
+        &self,
+        realm: &str,
+        provider_id: String,
+        file: Vec<u8>,
+    ) -> Result<HashMap<String, String>, keycloak::KeycloakError> {
+        self.inner
+            .admin
+            .realm_identity_provider_import_config_post_form(realm, provider_id, file)
+            .await
+    }
+
+    pub async fn identity_provider_import_saml_config(
+        &self,
+        realm: &str,
+        file: Vec<u8>,
+    ) -> Result<HashMap<String, String>, keycloak::KeycloakError> {
+        self.identity_provider_import_config(realm, "saml".to_string(), file)
             .await
     }
 }
