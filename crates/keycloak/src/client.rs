@@ -349,10 +349,6 @@ impl Keycloak {
             .admin
             .realm_roles_with_role_name_get(realm, role_name)
             .await
-            .map_err(|e| {
-                tracing::error!("{e:#?}");
-                e
-            })
     }
 
     pub async fn create_role(
@@ -394,10 +390,6 @@ impl Keycloak {
             .admin
             .realm_group_by_path_with_path_get(realm, path)
             .await
-            .map_err(|e| {
-                tracing::error!("{e:#?}");
-                e
-            })
     }
 
     pub async fn group_by_id_with_children(
