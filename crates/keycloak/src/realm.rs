@@ -231,29 +231,35 @@ pub async fn ensure_roles(
     role_set: BTreeSet<String>,
 ) -> anyhow::Result<Vec<RoleRepresentation>> {
     let mut roles = vec![];
-    for role in role_set.into_iter() {
-        let result = keycloak
-            .create_role(
-                realm,
-                RoleRepresentation {
-                    name: Some(role.clone()),
-                    ..RoleRepresentation::default()
-                },
-            )
-            .await;
-        match result {
-            Ok(_) => {
-                roles.push(keycloak.realm_role_by_name(realm, &role).await?);
+    for role in role_set {
+        match keycloak.realm_role_by_name(realm, &role).await {
+            Ok(existing_role) => {
+                roles.push(existing_role);
             }
-            Err(err) => match err {
-                KeycloakError::HttpFailure { status: 409, .. } => {
-                    roles.push(keycloak.realm_role_by_name(realm, &role).await?);
+            Err(KeycloakError::HttpFailure { status: 404, .. }) => {
+                match keycloak
+                    .create_role(
+                        realm,
+                        RoleRepresentation {
+                            name: Some(role.clone()),
+                            ..RoleRepresentation::default()
+                        },
+                    )
+                    .await
+                {
+                    Ok(_) => {
+                        roles.push(keycloak.realm_role_by_name(realm, &role).await?);
+                    }
+                    Err(err) => {
+                        tracing::error!("{err:#?}");
+                        return Err(err.into());
+                    }
                 }
-                _ => {
-                    tracing::error!("{err:#?}");
-                    Err(err)?
-                }
-            },
+            }
+            Err(err) => {
+                tracing::error!("{err:#?}");
+                return Err(err.into());
+            }
         }
     }
     Ok(roles)
@@ -291,7 +297,13 @@ where
                         .map(|v| v.as_ref())
                         .collect::<Vec<&str>>()
                         .join(",");
-                    let result = keycloak
+
+                    if let Ok(existing) = keycloak.group_by_path(realm, &path).await {
+                        groups.insert(path.clone(), existing);
+                        continue;
+                    }
+
+                    let result: Result<(), KeycloakError> = keycloak
                         .create_sub_group_with_id(
                             realm,
                             parent_group.id.as_deref().unwrap(),
@@ -335,6 +347,12 @@ where
             } else {
                 let parent_path = format!("/{}", part);
                 if !groups.contains_key(&parent_path) {
+                    if let Ok(existing) = keycloak.group_by_path(realm, &parent_path).await {
+                        groups.insert(parent_path.clone(), existing);
+                        path = parent_path;
+                        continue;
+                    }
+
                     let result = keycloak
                         .create_group(
                             realm,
