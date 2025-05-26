@@ -1,6 +1,6 @@
 use std::{borrow::Cow, collections::HashMap, convert::identity, sync::Arc};
 
-use keycloak::types::{ComponentRepresentation, IdentityProviderMapperRepresentation};
+use keycloak::types::{ClientScopeRepresentation, ComponentRepresentation, IdentityProviderMapperRepresentation, ProtocolMapperRepresentation};
 pub use keycloak::{
     types::{
         self, AuthenticationExecutionInfoRepresentation, AuthenticationFlowRepresentation,
@@ -687,6 +687,88 @@ impl Keycloak {
         self.inner
             .admin
             .realm_clients_with_client_uuid_put(realm, id, rep)
+            .await
+            .map(|_| ())
+            .map_err(|e| {
+                tracing::error!("{e:#?}");
+                e
+            })
+    }
+
+    pub async fn get_client_scopes(
+        &self,
+        realm: &str,
+    ) -> Result<Vec<ClientScopeRepresentation>, keycloak::KeycloakError> {
+        self.inner
+            .admin
+            .realm_client_scopes_get(realm)
+            .await
+            .map_err(|e| {
+                tracing::error!("{e:#?}");
+                e
+            })
+    }
+
+    pub async fn get_client_scope_protocol_mapper(
+        &self,
+        realm: &str,
+        client_scope_id: &str,
+        id: &str,
+    ) -> Result<ProtocolMapperRepresentation, keycloak::KeycloakError> {
+        self.inner
+            .admin
+            .realm_client_scopes_with_client_scope_id_protocol_mappers_models_with_id_get(realm, client_scope_id, id)
+            .await
+            .map_err(|e| {
+                tracing::error!("{e:#?}");
+                e
+            })
+    }
+
+    pub async fn create_client_scope_protocol_mapper(
+        &self,
+        realm: &str,
+        client_scope_id: &str,
+        rep: ProtocolMapperRepresentation,
+    ) -> Result<Option<String>, keycloak::KeycloakError> {
+        self.inner
+            .admin
+            .realm_client_scopes_with_client_scope_id_protocol_mappers_models_post(realm, client_scope_id, rep)
+            .await
+            .map(|response| response.to_id().map(String::from))
+            .map_err(|e| {
+                tracing::error!("{e:#?}");
+                e
+            })
+    }
+
+    pub async fn update_client_scope_protocol_mapper(
+        &self,
+        realm: &str,
+        client_scope_id: &str,
+        id: &str,
+        rep: ProtocolMapperRepresentation,
+    ) -> Result<(), keycloak::KeycloakError> {
+        self.inner
+            .admin
+            .realm_client_scopes_with_client_scope_id_protocol_mappers_models_with_id_put(realm, client_scope_id, id, rep)
+            .await
+            .map(|_| ())
+            .map_err(|e| {
+                tracing::error!("{e:#?}");
+                e
+            })
+    }
+
+    pub async fn remove_client_scope_protocol_mapper(
+        &self,
+        realm: &str,
+        client_scope_id: &str,
+        id: &str,
+    ) -> Result<(), keycloak::KeycloakError> {
+        self.inner
+            .admin
+            .realm_client_scopes_with_client_scope_id_protocol_mappers_models_with_id_delete(realm, client_scope_id, id)
             .await
             .map(|_| ())
             .map_err(|e| {
