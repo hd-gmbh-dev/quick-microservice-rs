@@ -42,20 +42,30 @@ pub enum CacheError {
 #[derive(serde::Serialize, serde::Deserialize)]
 pub struct Json<T>(T);
 
-impl <T> FromRedisValue for Json<T> where T: DeserializeOwned {
+impl<T> FromRedisValue for Json<T>
+where
+    T: DeserializeOwned,
+{
     fn from_redis_value(v: &redis::Value) -> RedisResult<Self> {
         if let redis::Value::SimpleString(s) = v {
             serde_json::from_str(s).map_err(From::from)
         } else {
-            Err(redis::RedisError::from((redis::ErrorKind::TypeError, "expected simple string value")))
+            Err(redis::RedisError::from((
+                redis::ErrorKind::TypeError,
+                "expected simple string value",
+            )))
         }
     }
 }
 
-impl <T> ToRedisArgs for Json<T> where T: Serialize {
+impl<T> ToRedisArgs for Json<T>
+where
+    T: Serialize,
+{
     fn write_redis_args<W>(&self, out: &mut W)
     where
-        W: ?Sized + redis::RedisWrite {
+        W: ?Sized + redis::RedisWrite,
+    {
         let v = serde_json::to_string(&self.0).unwrap_or_default();
         v.write_redis_args(out);
     }
