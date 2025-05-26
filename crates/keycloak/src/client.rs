@@ -1,6 +1,9 @@
 use std::{borrow::Cow, collections::HashMap, convert::identity, sync::Arc};
 
-use keycloak::types::{ClientScopeRepresentation, ComponentRepresentation, IdentityProviderMapperRepresentation, ProtocolMapperRepresentation};
+use keycloak::types::{
+    ClientScopeRepresentation, ComponentRepresentation, IdentityProviderMapperRepresentation,
+    ProtocolMapperRepresentation,
+};
 pub use keycloak::{
     types::{
         self, AuthenticationExecutionInfoRepresentation, AuthenticationFlowRepresentation,
@@ -717,7 +720,11 @@ impl Keycloak {
     ) -> Result<ProtocolMapperRepresentation, keycloak::KeycloakError> {
         self.inner
             .admin
-            .realm_client_scopes_with_client_scope_id_protocol_mappers_models_with_id_get(realm, client_scope_id, id)
+            .realm_client_scopes_with_client_scope_id_protocol_mappers_models_with_id_get(
+                realm,
+                client_scope_id,
+                id,
+            )
             .await
             .map_err(|e| {
                 tracing::error!("{e:#?}");
@@ -733,7 +740,11 @@ impl Keycloak {
     ) -> Result<Option<String>, keycloak::KeycloakError> {
         self.inner
             .admin
-            .realm_client_scopes_with_client_scope_id_protocol_mappers_models_post(realm, client_scope_id, rep)
+            .realm_client_scopes_with_client_scope_id_protocol_mappers_models_post(
+                realm,
+                client_scope_id,
+                rep,
+            )
             .await
             .map(|response| response.to_id().map(String::from))
             .map_err(|e| {
@@ -751,7 +762,12 @@ impl Keycloak {
     ) -> Result<(), keycloak::KeycloakError> {
         self.inner
             .admin
-            .realm_client_scopes_with_client_scope_id_protocol_mappers_models_with_id_put(realm, client_scope_id, id, rep)
+            .realm_client_scopes_with_client_scope_id_protocol_mappers_models_with_id_put(
+                realm,
+                client_scope_id,
+                id,
+                rep,
+            )
             .await
             .map(|_| ())
             .map_err(|e| {
@@ -768,7 +784,11 @@ impl Keycloak {
     ) -> Result<(), keycloak::KeycloakError> {
         self.inner
             .admin
-            .realm_client_scopes_with_client_scope_id_protocol_mappers_models_with_id_delete(realm, client_scope_id, id)
+            .realm_client_scopes_with_client_scope_id_protocol_mappers_models_with_id_delete(
+                realm,
+                client_scope_id,
+                id,
+            )
             .await
             .map(|_| ())
             .map_err(|e| {
