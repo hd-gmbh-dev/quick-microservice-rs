@@ -139,6 +139,8 @@ pub const REALM_SMTP_SERVER_FROM_DISPLAY_NAME_MISMATCHED_KEY: &str =
 pub const REALM_SMTP_SERVER_SSL_MISSING_KEY: &str = "realm.smtp_server.ssl.missing";
 pub const REALM_SMTP_SERVER_SSL_MISMATCHED_KEY: &str = "realm.smtp_server.ssl.mismatched";
 pub const REALM_SMTP_SERVER_SSL_INVALID_KEY: &str = "realm.smtp_server.ssl.invalid";
+pub const REALM_DUPLICATE_EMAILS_ALLOWED_ID: &str = "realm.duplicate_emails_allowed.id";
+pub const REALM_DUPLICATE_EMAILS_ALLOWED_KEY: &str = "realm.duplicate_emails_allowed.key";
 pub const CLIENTS_CLIENT_ATTRIBUTES_OAUTH2_DEVICE_AUTHORIZATION_GRANT_ENABLED_INVALID_KEY: &str =
     "clients.client.attributes.oauth2_device_authorization_grant_enabled.invalid";
 pub const CLIENTS_CLIENT_ATTRIBUTES_OAUTH2_DEVICE_AUTHORIZATION_GRANT_ENABLED_MISSING_KEY: &str =

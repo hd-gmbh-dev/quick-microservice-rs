@@ -201,6 +201,17 @@ async fn check_realm_settings(
             errors,
         );
     }
+
+    if let Some(duplicate_emails_allowed) = rep.duplicate_emails_allowed {
+        if duplicate_emails_allowed != ctx.keycloak().config().duplicate_emails_allowed() {
+            add_error(
+                realm_errors::REALM_DUPLICATE_EMAILS_ALLOWED_ID,
+                realm_errors::REALM_DUPLICATE_EMAILS_ALLOWED_KEY,
+                errors,
+            );
+        }
+    }
+
     Ok(())
 }
 
