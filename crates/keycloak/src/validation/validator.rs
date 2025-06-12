@@ -201,6 +201,17 @@ async fn check_realm_settings(
             errors,
         );
     }
+
+    if rep.duplicate_emails_allowed.unwrap_or_default()
+        != ctx.keycloak().config().duplicate_emails_allowed()
+    {
+        add_error(
+            realm_errors::REALM_DUPLICATE_EMAILS_ALLOWED_MISMATCHED_ID,
+            realm_errors::REALM_DUPLICATE_EMAILS_ALLOWED_MISMATCHED_KEY,
+            errors,
+        );
+    }
+
     Ok(())
 }
 

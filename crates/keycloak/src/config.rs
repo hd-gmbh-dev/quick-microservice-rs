@@ -92,6 +92,7 @@ pub struct Config {
     browser_flow: Option<Arc<str>>,
     authenticator_email_subject: Option<Arc<str>>,
     keystore_password: Option<Arc<str>>,
+    duplicate_emails_allowed: Option<bool>,
 }
 
 impl Config {
@@ -185,5 +186,9 @@ impl Config {
 
     pub fn keystore_password(&self) -> Option<&str> {
         self.keystore_password.as_deref()
+    }
+
+    pub fn duplicate_emails_allowed(&self) -> bool {
+        self.duplicate_emails_allowed.unwrap_or_default()
     }
 }

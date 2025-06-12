@@ -539,3 +539,7 @@ where
         .await
     }
 }
+
+pub(crate) fn realm_template() -> &'static RealmRepresentation {
+    &REALM_TEMPLATE
+}
