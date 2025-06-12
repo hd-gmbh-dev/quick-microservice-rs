@@ -285,7 +285,7 @@ async fn update_realm_settings(
             );
         }
         realm_errors::REALM_DUPLICATE_EMAILS_ALLOWED_MISMATCHED_ID => {
-            tracing::trace!("Setting 'duplicate_emails_allowed' for realm '{}'", realm);
+            tracing::trace!("Setting 'duplicateEmailsAllowed', 'loginWithEmailAllowed', 'registrationEmailAsUsername' for realm '{}'", realm);
             let duplicate_emails_allowed = ctx.cfg().keycloak().duplicate_emails_allowed();
             rep.duplicate_emails_allowed = Some(duplicate_emails_allowed);
             if duplicate_emails_allowed {
