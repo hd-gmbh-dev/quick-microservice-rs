@@ -284,7 +284,7 @@ async fn update_realm_settings(
                 ctx.cfg().keycloak().smtp_ssl().unwrap().to_string(),
             );
         }
-        realm_errors::REALM_DUPLICATE_EMAILS_ALLOWED_ID => {
+        realm_errors::REALM_DUPLICATE_EMAILS_ALLOWED_MISMATCHED_ID => {
             tracing::trace!("Setting 'duplicate_emails_allowed' for realm '{}'", realm);
             let duplicate_emails_allowed = ctx.cfg().keycloak().duplicate_emails_allowed();
             rep.duplicate_emails_allowed = Some(duplicate_emails_allowed);
@@ -295,6 +295,10 @@ async fn update_realm_settings(
                 if rep.registration_email_as_username.unwrap_or_default() {
                     rep.registration_email_as_username = Some(false);
                 }
+            } else {
+                let realm_template = crate::realm::realm_template();
+                rep.login_with_email_allowed = realm_template.login_with_email_allowed;
+                rep.registration_email_as_username = realm_template.registration_email_as_username;
             }
         }
         _ => tracing::warn!("Unknown realm error id '{}'. No action taken.", e.id),
