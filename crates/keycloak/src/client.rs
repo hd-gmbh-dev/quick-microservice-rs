@@ -409,11 +409,20 @@ impl Keycloak {
         &self,
         realm: &str,
         group_id: &str,
+        max: i32,
     ) -> Result<Vec<GroupRepresentation>, KeycloakError> {
         let subgroups = self
             .inner
             .admin
-            .realm_groups_with_group_id_children_get(realm, group_id, None, None, None, None, None)
+            .realm_groups_with_group_id_children_get(
+                realm,
+                group_id,
+                None,
+                None,
+                None,
+                Some(max),
+                None,
+            )
             .await?;
 
         Ok(subgroups.into_iter().filter(|g| g.id.is_some()).collect())
