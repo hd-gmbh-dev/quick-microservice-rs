@@ -3059,6 +3059,9 @@ dependencies = [
  "anyhow",
  "async-graphql",
  "axum",
+ "serde",
+ "serde_json",
+ "serde_with",
  "strum 0.26.3",
  "tokio",
 ]

@@ -16,6 +16,11 @@ use crate::ids::InstitutionResourceId;
 use crate::ids::OrganizationId;
 use crate::ids::OrganizationResourceId;
 
+#[cfg_attr(
+    feature = "serde-str",
+    derive(serde::Deserialize, serde::Serialize),
+    serde(transparent)
+)]
 pub struct InfraContextId(pub InfraContext);
 
 impl Description for InfraContextId {
@@ -93,3 +98,19 @@ pub type OrganizationIds = Arc<[OrganizationId]>;
 pub type OrganizationResourceIds = Arc<[OrganizationResourceId]>;
 pub type InstitutionIds = Arc<[InstitutionId]>;
 pub type InstitutionResourceIds = Arc<[InstitutionResourceId]>;
+
+#[cfg(test)]
+mod tests {
+    #[cfg(feature = "serde-str")]
+    #[test]
+    fn test_infra_context_id_serde() {
+        use super::{InfraContext, InfraContextId};
+        let infra_context = serde_json::from_str::<InfraContextId>("\"V09\"")
+            .expect("Failed to parse InfraContext");
+        assert_eq!(infra_context.0, InfraContext::Customer(9.into()));
+        assert_eq!(
+            serde_json::to_string(&infra_context).expect("Failed to serialize InfraContext"),
+            "\"V09\""
+        );
+    }
+}
