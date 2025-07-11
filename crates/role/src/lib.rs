@@ -23,7 +23,14 @@ macro_rules! role {
     };
 }
 
+/// An access.
+///
+/// Represents an access in the system.
 #[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq, Hash)]
+#[cfg_attr(
+    feature = "serde-str",
+    derive(serde_with::DeserializeFromStr, serde_with::SerializeDisplay)
+)]
 pub struct Access {
     ty: Arc<str>,
     id: Option<Arc<str>>,
@@ -91,7 +98,14 @@ impl FromStr for Access {
     }
 }
 
+/// A role.
+///
+/// Represents a role in the system.
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Hash, Clone, Copy)]
+#[cfg_attr(
+    feature = "serde-str",
+    derive(serde_with::DeserializeFromStr, serde_with::SerializeDisplay)
+)]
 pub struct Role<R, P>
 where
     R: std::fmt::Debug + std::marker::Copy + Clone,
@@ -202,6 +216,7 @@ where
 }
 
 #[derive(Ord, PartialOrd, Eq, PartialEq, Clone)]
+#[cfg_attr(feature = "serde-str", derive(serde_with::DeserializeFromStr))]
 pub enum AccessOrRole<R, P>
 where
     R: std::fmt::Debug + Clone + std::marker::Copy,
@@ -209,6 +224,24 @@ where
 {
     Access(Access),
     Role(Role<R, P>),
+}
+
+#[cfg(feature = "serde-str")]
+impl<R, P> serde_with::serde::Serialize for AccessOrRole<R, P>
+where
+    R: AsRef<str> + std::fmt::Debug + Clone + std::marker::Copy,
+    P: AsRef<str> + std::fmt::Debug + Clone + std::marker::Copy,
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde_with::serde::Serializer,
+    {
+        let value = match self {
+            Self::Access(access) => access.to_string(),
+            Self::Role(role) => role.to_string(),
+        };
+        serializer.serialize_str(&value)
+    }
 }
 
 impl<R, P> FromStr for AccessOrRole<R, P>
@@ -398,5 +431,71 @@ impl<T> Default for AuthContainer<T> {
                 decoded: RwLock::new(None),
             }),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    #[cfg(feature = "serde-str")]
+    fn test_serde_str() {
+        use serde::Serialize;
+        use strum::{AsRefStr, EnumString};
+
+        let mut access: super::Access =
+            serde_json::from_str("\"qqq:access\"").expect("Failed to parse JSON");
+        assert_eq!(access.ty(), "qqq");
+        assert_eq!(access.id(), None);
+
+        access.id = Some("123".into());
+
+        assert_eq!(
+            serde_json::to_string(&access).expect("Failed to serialize JSON"),
+            "\"qqq:access@123\""
+        );
+
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, EnumString, AsRefStr, Serialize)]
+        #[strum(serialize_all = "snake_case")]
+        #[serde(rename_all = "snake_case")]
+        enum RoleTy {
+            Qqq,
+            Bbb,
+        }
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, EnumString, AsRefStr, Serialize)]
+        #[strum(serialize_all = "snake_case")]
+        #[serde(rename_all = "snake_case")]
+        enum RolePerm {
+            Grant,
+            Deny,
+        }
+        let mut role: super::Role<RoleTy, RolePerm> =
+            serde_json::from_str("\"qqq:grant\"").expect("Failed to parse JSON");
+        assert_eq!(role.ty, RoleTy::Qqq);
+        assert_eq!(role.permission, Some(RolePerm::Grant));
+
+        role.permission = Some(RolePerm::Deny);
+
+        assert_eq!(
+            serde_json::to_string(&role).expect("Failed to serialize JSON"),
+            "\"qqq:deny\""
+        );
+
+        let access_or_role_as_access: super::AccessOrRole<RoleTy, RolePerm> =
+            serde_json::from_str("\"qqq:access@123\"").expect("Failed to parse JSON");
+        assert!(
+            matches!(&access_or_role_as_access, super::AccessOrRole::Access(a) if a == &access)
+        );
+        assert_eq!(
+            serde_json::to_string(&access_or_role_as_access).expect("Failed to serialize JSON"),
+            "\"qqq:access@123\""
+        );
+
+        let access_or_role_as_role: super::AccessOrRole<RoleTy, RolePerm> =
+            serde_json::from_str("\"qqq:deny\"").expect("Failed to parse JSON");
+        assert!(matches!(access_or_role_as_role, super::AccessOrRole::Role(r) if r == role));
+        assert_eq!(
+            serde_json::to_string(&access_or_role_as_role).expect("Failed to serialize JSON"),
+            "\"qqq:deny\""
+        );
     }
 }

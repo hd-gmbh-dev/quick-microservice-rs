@@ -11,13 +11,10 @@
 //! |  R   | CustomerId + OrganizationId + InstitutionId                           | InstitutionId             |     7      |     52     |     24     |
 //! |  Q   | CustomerId + OrganizationId + InstitutionId + ID (24 Characters)      | InstitutionResourceId     |     31     |     76     |     36     |
 
-use async_graphql::OneofObject;
+use std::{fmt::Write, str::FromStr};
 
-use sqlx::postgres::PgArgumentBuffer;
-use sqlx::Encode;
-use sqlx::Postgres;
-use std::fmt::Write;
-use std::str::FromStr;
+use async_graphql::OneofObject;
+use sqlx::{postgres::PgArgumentBuffer, Encode, Postgres};
 
 use super::ID;
 
@@ -803,6 +800,10 @@ impl_institution_resource_id_from_ty_tuple!(u8);
 impl_institution_resource_id_from_ty_tuple!(i8);
 
 #[derive(Debug, Clone, Copy, OneofObject, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(
+    feature = "serde-str",
+    derive(serde_with::DeserializeFromStr, serde_with::SerializeDisplay)
+)]
 pub enum InfraContext {
     Customer(CustomerId),
     Organization(OrganizationId),
@@ -1427,5 +1428,14 @@ mod tests {
         assert_eq!(id1.root(), CustomerId { cid: 1 });
         assert_eq!(id1.parent(), InstitutionId { cid: 1, oid: 1, iid: 1 });
         assert_eq!(id1.unzip(), (1, 1, 1, oid1));
+    }
+
+    #[cfg(feature = "serde-str")]
+    #[test]
+    fn test_infra_context_serde() {
+        use super::InfraContext;
+        let infra_context = serde_json::from_str::<InfraContext>("\"V09\"").expect("Failed to parse InfraContext");
+        assert_eq!(infra_context, InfraContext::Customer(9.into()));
+        assert_eq!(serde_json::to_string(&infra_context).expect("Failed to serialize InfraContext"), "\"V09\"");
     }
 }

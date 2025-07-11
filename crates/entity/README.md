@@ -24,3 +24,7 @@
 
 The opinionated concept of `Entity` introduces a way to work with database objects, define ownership
 and have access control with different levels.
+
+## Features
+
+- `serde-str`: add `serde` support based on `Display` and `FromStr` traits for `InfraContext` and `InfraContextId` types.
