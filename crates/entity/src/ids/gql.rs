@@ -106,10 +106,10 @@ mod tests {
     fn test_infra_context_id_serde() {
         use super::{InfraContext, InfraContextId};
         let infra_context = serde_json::from_str::<InfraContextId>("\"V09\"")
-            .expect("Failed to parse InfraContext");
+            .expect("Failed to parse InfraContextId");
         assert_eq!(infra_context.0, InfraContext::Customer(9.into()));
         assert_eq!(
-            serde_json::to_string(&infra_context).expect("Failed to serialize InfraContext"),
+            serde_json::to_string(&infra_context).expect("Failed to serialize InfraContextId"),
             "\"V09\""
         );
     }
