@@ -16,7 +16,7 @@ pub async fn ensure(app_name: &str, cfgs: &[&DbConfig]) -> anyhow::Result<()> {
             sqlx::__query_with_result("SELECT datname FROM pg_database;", query_args)
                 .try_map(|v: sqlx::postgres::PgRow| {
                     use ::sqlx::Row as _;
-                    Ok(v.try_get_unchecked::<String, _>(0usize)?.into())
+                    v.try_get_unchecked::<String, _>(0usize)
                 })
                 .fetch_all(db.pool())
                 .await?;
@@ -38,7 +38,7 @@ pub async fn ensure(app_name: &str, cfgs: &[&DbConfig]) -> anyhow::Result<()> {
                 sqlx::__query_with_result("SELECT usename FROM pg_catalog.pg_user;", query_args)
                     .try_map(|v: sqlx::postgres::PgRow| {
                         use ::sqlx::Row as _;
-                        Ok(v.try_get_unchecked::<Option<String>, _>(0usize)?.into())
+                        v.try_get_unchecked::<Option<String>, _>(0usize)
                     })
                     .fetch_all(db.pool())
                     .await?;

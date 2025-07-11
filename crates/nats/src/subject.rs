@@ -31,7 +31,7 @@ pub enum Type {
     Deactivate,
 }
 
-pub const NONE: &'static str = "_";
+pub const NONE: &str = "_";
 
 #[derive(Default, Debug, Clone, SimpleObject)]
 pub struct Event<V, P, C>
@@ -51,14 +51,11 @@ where
     pub error: bool,
 }
 
-fn format<V: AsRef<str>, P: AsRef<str>, C: AsRef<str>>(
-    ev: &Event<V, P, C>,
-    resource_name: impl std::fmt::Display,
-) -> String
+fn format<V, P, C>(ev: &Event<V, P, C>, resource_name: impl std::fmt::Display) -> String
 where
-    V: Clone + OutputType,
-    P: Clone + OutputType,
-    C: Clone + OutputType,
+    V: AsRef<str> + Clone + OutputType,
+    P: AsRef<str> + Clone + OutputType,
+    C: AsRef<str> + Clone + OutputType,
 {
     let append = match ev.op {
         Op::Mut => "",
@@ -143,8 +140,10 @@ where
     }
 
     fn factory(ty: Type) -> Self {
-        let mut ev = Event::default();
-        ev.ty = ty;
+        let ev = Event {
+            ty,
+            ..Default::default()
+        };
         Self(ev, E::default())
     }
 
@@ -315,10 +314,7 @@ where
         let ty = s.next().unwrap_or_default().parse()?;
         let request_id = s.next().map(|s| s.to_string());
         let actor = s.next().map(|s| s.to_string());
-        let error = match s.next() {
-            Some("error") => true,
-            _ => false,
-        };
+        let error = matches!(s.next(), Some("error"));
         Ok(Self(
             Event {
                 version,

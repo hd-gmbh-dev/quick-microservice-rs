@@ -135,7 +135,7 @@ impl DB {
         &self.inner.db_name
     }
 
-    pub async fn setup<'a>(&'a self, cfg: &MongoDbConfig) -> mongodb::error::Result<()> {
+    pub async fn setup(&self, cfg: &MongoDbConfig) -> mongodb::error::Result<()> {
         if self.is_sharded() {
             self.get_admin()
                 .run_command(doc! {
@@ -241,7 +241,6 @@ where
                         e
                     })
                     .ok()
-                    .map(From::from)
             })
         })
         .collect()
