@@ -244,6 +244,19 @@ where
     }
 }
 
+impl<R, P> std::fmt::Display for AccessOrRole<R, P>
+where
+    R: AsRef<str> + std::fmt::Debug + std::marker::Copy + Clone,
+    P: AsRef<str> + std::fmt::Debug + std::marker::Copy + Clone,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Access(access) => access.fmt(f),
+            Self::Role(role) => role.fmt(f),
+        }
+    }
+}
+
 impl<R, P> FromStr for AccessOrRole<R, P>
 where
     R: FromStr<Err = strum::ParseError> + std::fmt::Debug + std::marker::Copy + Clone,
