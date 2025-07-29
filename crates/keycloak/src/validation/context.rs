@@ -4,6 +4,7 @@ pub struct Config<'a> {
     pub keycloak: &'a KeycloakConfig,
     pub public_url: &'a str,
     pub realm: &'a str,
+    pub client_id: &'a str,
 }
 
 impl<'a> Config<'a> {
@@ -15,6 +16,9 @@ impl<'a> Config<'a> {
     }
     pub fn realm(&self) -> &'a str {
         self.realm
+    }
+    pub fn client_id(&self) -> &'a str {
+        self.client_id
     }
 }
 

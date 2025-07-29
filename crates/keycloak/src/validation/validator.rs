@@ -8,9 +8,11 @@ use crate::{ClientRepresentation, RealmRepresentation};
 pub async fn validate_realm(ctx: &Ctx<'_>) -> anyhow::Result<Option<Vec<RealmConfigError>>> {
     let mut errors = vec![];
     let realm = ctx.cfg().realm();
+    let client_id = ctx.cfg().client_id();
     tracing::info!("validating realm '{realm}'");
     check_realm_settings(ctx, realm, &mut errors).await?;
-    check_client(ctx, realm, &mut errors).await?;
+    tracing::info!("validating realm client '{client_id}'");
+    check_client(ctx, realm, client_id, &mut errors).await?;
     Ok(Some(errors))
 }
 
@@ -218,6 +220,7 @@ async fn check_realm_settings(
 async fn check_client(
     ctx: &Ctx<'_>,
     realm: &str,
+    client_id: &str,
     errors: &mut Vec<RealmConfigError>,
 ) -> anyhow::Result<()> {
     // clients must have `spa`
@@ -293,8 +296,8 @@ async fn check_client(
                 errors,
             );
         }
-        // client_id must be `spa`
-        if client.client_id.unwrap_or_default() != "spa" {
+        // client_id must be `client_id`
+        if client.client_id.unwrap_or_default() != client_id {
             add_error(
                 realm_errors::CLIENTS_CLIENT_CLIENT_ID_ID,
                 realm_errors::CLIENTS_CLIENT_CLIENT_ID_KEY,

@@ -73,14 +73,19 @@ impl JwtStore {
         Ok(builder.send().await?.json().await?)
     }
 
-    async fn get_jwt_from_realm(&self, realm: &str, header: Header) -> anyhow::Result<Jwt> {
+    async fn get_jwt_from_realm(
+        &self,
+        realm: &str,
+        client_id: &str,
+        header: Header,
+    ) -> anyhow::Result<Jwt> {
         let info = self.info(realm).await?;
         let public_key = info
             .public_key
             .ok_or(anyhow::anyhow!("unable to get public key"))?;
         match (header.alg, header.kid) {
             (Algorithm::RS256 | Algorithm::RS384 | Algorithm::RS512, Some(kid)) => {
-                Ok(Jwt::new(header.alg, kid, &public_key)?)
+                Ok(Jwt::new(header.alg, kid, &public_key, client_id)?)
             }
             _ => anyhow::bail!("Invalid token"),
         }
@@ -115,7 +120,10 @@ impl JwtStore {
                     .replace(self.inner.public_url.as_ref(), "");
                 let mut u = s.rsplit('/');
                 let realm = u.next().ok_or(anyhow::anyhow!("Invalid token"))?;
-                return self.get_jwt_from_realm(realm, token_header).await;
+                let client_id = &partial_claims.azp;
+                return self
+                    .get_jwt_from_realm(realm, client_id, token_header)
+                    .await;
             } else {
                 return Err(anyhow::anyhow!("Invalid token - issuer does not match - public_url '{public_url}' issuer url '{issuer_url}'"));
             }

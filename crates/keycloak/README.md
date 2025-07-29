@@ -47,6 +47,7 @@ These variables are available and are set with the following defaults.
 | variable                             | struct field                | default                         |
 | ------------------------------------ | --------------------------- | ------------------------------- |
 | KEYCLOAK_REALM                       | realm                       | "rmp"                           |
+| KEYCLOAK_CLIENT_ID                   | client_id                   | "spa"                           |
 | KEYCLOAK_USERNAME                    | username                    | "admin"                         |
 | KEYCLOAK_PASSWORD                    | password                    | "admin"                         |
 | KEYCLOAK_THEME                       | theme                       | "qm"                            |
