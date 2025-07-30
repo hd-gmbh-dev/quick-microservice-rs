@@ -583,7 +583,7 @@ impl Keycloak {
             .admin
             .realm_clients_get(
                 realm,
-                Some("spa".to_owned()),
+                Some(self.config().client_id().to_owned()),
                 None,
                 None,
                 None,

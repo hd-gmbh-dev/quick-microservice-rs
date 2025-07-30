@@ -12,6 +12,7 @@ use crate::{ClientRepresentation, RealmRepresentation};
 use crate::validation::context::ValidationContext as Ctx;
 use crate::validation::model::RealmConfigErrorInput;
 use crate::validation::realm_errors;
+
 pub async fn update_for_errors(
     ctx: &Ctx<'_>,
     errors: Vec<RealmConfigErrorInput>,
@@ -33,9 +34,11 @@ pub async fn update_for_errors(
     // Could be simplified with nightly api [`drain_filter`](https://doc.rust-lang.org/std/vec/struct.DrainFilter.html)
     actions.retain(|e| !e.id.starts_with(realm_errors::REALM_PREFIX));
 
+    let client_id = ctx.cfg().client_id();
     update_client_settings(
         ctx,
         realm,
+        client_id,
         actions
             .iter()
             .filter(|e| e.id.starts_with(realm_errors::CLIENTS_CLIENT_PREFIX))
@@ -542,6 +545,7 @@ async fn update_browser_flow(
 async fn update_client_settings(
     ctx: &Ctx<'_>,
     realm: &str,
+    client_id: &str,
     errors: Vec<RealmConfigErrorInput>,
 ) -> anyhow::Result<()> {
     if errors.is_empty() {
@@ -549,10 +553,8 @@ async fn update_client_settings(
         return Ok(());
     }
 
-    let mut client: Option<ClientRepresentation> = ctx
-        .keycloak()
-        .get_client(realm) // Hardcoded only gets `spa`
-        .await?;
+    let mut client: Option<ClientRepresentation> =
+        ctx.keycloak().get_client_by_id(realm, client_id).await?;
 
     if let Some(rep) = client.as_mut() {
         rep.direct_access_grants_enabled = Some(true);
@@ -565,12 +567,12 @@ async fn update_client_settings(
                     if let Some(attributes) = rep.attributes.as_mut() {
                         match e.id.as_str() {
                             realm_errors::CLIENTS_CLIENT_ATTRIBUTES_BACKCHANNEL_LOGOUT_DISABLED_ID => {
-                                tracing::trace!("Setting attribute 'backchannel.logout.url' for client 'spa' in realm '{}'", realm);
+                                tracing::trace!("Setting attribute 'backchannel.logout.url' for client '{client_id}' in realm '{realm}'");
                                 let backchannel_logout_url = env::var("BACKCHANNEL_LOGOUT_URL").unwrap_or("http://qm-backend:10220/api/logout".to_string());
                                 attributes.insert("backchannel.logout.url".to_string(), backchannel_logout_url.to_string());
                             },
                             _ => {
-                                tracing::trace!("Setting attribute 'oauth2.device.authorization.grant.enabled' for client 'spa' in realm '{}'", realm);
+                                tracing::trace!("Setting attribute 'oauth2.device.authorization.grant.enabled' for client '{client_id}' in realm '{realm}'");
                                 attributes.insert("oauth2.device.authorization.grant.enabled".to_string(), "false".to_string());}
                             }
                     } else {
@@ -580,19 +582,19 @@ async fn update_client_settings(
                 }
                 realm_errors::CLIENTS_CLIENT_BASE_URL_INVALID_ID
                 | realm_errors::CLIENTS_CLIENT_BASE_URL_MISSING_ID => {
-                    tracing::trace!("Setting 'registration_allowed' for client 'spa' in realm '{}'", realm);
+                    tracing::trace!("Setting 'registration_allowed' for client '{client_id}' in realm '{realm}'");
                     rep.base_url = Some(ctx.cfg().public_url().trim_end_matches('/').to_string());
                 }
                 realm_errors::CLIENTS_CLIENT_CLIENT_ID_ID => {
-                    tracing::trace!("Setting 'client_id' for client 'spa' in realm '{}'", realm);
-                    rep.client_id = Some("spa".to_string());
+                    tracing::trace!("Setting 'client_id' for client '{client_id}' in realm '{realm}'");
+                    rep.client_id = Some(client_id.to_string());
                 }
                 realm_errors::CLIENTS_CLIENT_CONSENT_REQUIRED_ID => {
-                    tracing::trace!("Setting 'consent_required' for client 'spa' in realm '{}'", realm);
+                    tracing::trace!("Setting 'consent_required' for client '{client_id}' in realm '{realm}'");
                     rep.consent_required = Some(false);
                 }
                 realm_errors::CLIENTS_CLIENT_DIRECT_ACCESS_GRANT_ENABLED_ID => {
-                    tracing::trace!("Setting 'direct_access_grants_enabled' for client 'spa' in realm '{}'", realm);
+                    tracing::trace!("Setting 'direct_access_grants_enabled' for client '{client_id}' in realm '{realm}'");
                     rep.direct_access_grants_enabled = Some(false);
                 }
                 realm_errors::CLIENTS_CLIENT_ENABLED_ID => {
@@ -600,16 +602,16 @@ async fn update_client_settings(
                     rep.enabled = Some(true);
                 }
                 realm_errors::CLIENTS_CLIENT_IMPLICIT_FLOW_ENABLED_ID => {
-                    tracing::trace!("Setting 'implicit_flow_enabled' for client 'spa' in realm '{}'", realm);
+                    tracing::trace!("Setting 'implicit_flow_enabled' for client '{client_id}' in realm '{realm}'");
                     rep.implicit_flow_enabled = Some(false);
                 }
                 realm_errors::CLIENTS_CLIENT_PUBLIC_CLIENT_ID => {
-                    tracing::trace!("Setting 'public_client' for client 'spa' in realm '{}'", realm);
+                    tracing::trace!("Setting 'public_client' for client '{client_id}' in realm '{realm}'");
                     rep.public_client = Some(true);
                 }
                 realm_errors::CLIENTS_CLIENT_REDIRECT_URIS_INVALID_ID
                 | realm_errors::CLIENTS_CLIENT_REDIRECT_URIS_MISSING_ID => {
-                    tracing::trace!("Adding 'redirect_uris' for configured value for client 'spa' in realm '{}'", realm);
+                    tracing::trace!("Adding 'redirect_uris' for configured value for client '{client_id}' in realm '{realm}'");
                     if let Some(uris) = rep.redirect_uris.as_mut() {
                         uris.clear();
                         uris.push(ctx.cfg().public_url().to_string());
@@ -620,19 +622,19 @@ async fn update_client_settings(
                 }
                 realm_errors::CLIENTS_CLIENT_ROOT_URL_INVALID_ID
                 | realm_errors::CLIENTS_CLIENT_ROOT_URL_MISSING_ID => {
-                    tracing::trace!("Setting 'root_url' for client 'spa' in realm '{}'", realm);
+                    tracing::trace!("Setting 'root_url' for client '{client_id}' in realm '{realm}'");
                     rep.root_url = Some(ctx.cfg().public_url().trim_end_matches('/').to_string());
                 }
                 realm_errors::CLIENTS_CLIENT_SERVICE_ACCOUNTS_ENABLED_ID => {
-                    tracing::trace!("Setting 'service_accounts_enabled' for client 'spa' in realm '{}'", realm);
+                    tracing::trace!("Setting 'service_accounts_enabled' for client '{client_id}' in realm '{realm}'");
                     rep.service_accounts_enabled = Some(false);
                 }
                 realm_errors::CLIENTS_CLIENT_STANDARD_FLOW_ENABLED_ID => {
-                    tracing::trace!("Setting 'standard_flow_enabled' for client 'spa' in realm '{}'", realm);
+                    tracing::trace!("Setting 'standard_flow_enabled' for client '{client_id}' in realm '{realm}'");
                     rep.standard_flow_enabled = Some(true);
                 }
                 realm_errors::CLIENTS_CLIENT_FRONTCHANNEL_LOGOUT_ENABLED_ID => {
-                    tracing::trace!("Setting 'front_channel_logout' for client 'spa' in realm '{}'", realm);
+                    tracing::trace!("Setting 'front_channel_logout' for client '{client_id}' in realm '{realm}'");
                     rep.frontchannel_logout = Some(false);
                 }
                 _ => tracing::warn!("Unknown client error id '{}'. No action taken.", e.id),
@@ -640,9 +642,7 @@ async fn update_client_settings(
         });
 
         tracing::info!(
-            "Updating the client 'spa' for realm '{}' with the following representation: {:?}",
-            realm,
-            rep
+            "Updating the client '{client_id}' for realm '{realm}' with the following representation: {rep:?}"
         );
         ctx.keycloak()
             .update_client(realm, rep.id.as_ref().unwrap(), rep.clone())
@@ -660,7 +660,7 @@ async fn update_client_settings(
                 ),
             ])),
             base_url: Some(ctx.cfg().public_url().trim_end_matches('/').to_string()),
-            client_id: Some("spa".to_string()),
+            client_id: Some(client_id.to_string()),
             consent_required: Some(false),
             direct_access_grants_enabled: Some(true),
             enabled: Some(true),
@@ -675,9 +675,7 @@ async fn update_client_settings(
         };
 
         tracing::info!(
-            "Could not find required client 'spa' for realm '{}'. Creating with the following representation: {:?}",
-            realm,
-            rep
+            "Could not find required client '{client_id}' for realm '{realm}'. Creating with the following representation: {rep:?}",
         );
         ctx.keycloak().create_client(realm, rep).await?;
     }

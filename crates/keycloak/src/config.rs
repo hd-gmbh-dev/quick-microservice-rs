@@ -21,6 +21,9 @@ impl<'a> ConfigBuilder<'a> {
         if cfg.realm.is_none() {
             cfg.realm = Some("rmp".into());
         }
+        if cfg.client_id.is_none() {
+            cfg.client_id = Some("spa".into());
+        }
         if cfg.username.is_none() {
             cfg.username = Some("admin".into());
         }
@@ -70,6 +73,7 @@ impl<'a> ConfigBuilder<'a> {
 #[derive(Clone, serde::Deserialize, Debug)]
 pub struct Config {
     realm: Option<Arc<str>>,
+    client_id: Option<Arc<str>>,
     username: Option<Arc<str>>,
     password: Option<Arc<str>>,
     theme: Option<Arc<str>>,
@@ -106,6 +110,10 @@ impl Config {
 
     pub fn realm(&self) -> &str {
         self.realm.as_deref().unwrap_or("rmp")
+    }
+
+    pub fn client_id(&self) -> &str {
+        self.client_id.as_deref().unwrap_or("spa")
     }
 
     pub fn theme(&self) -> &str {

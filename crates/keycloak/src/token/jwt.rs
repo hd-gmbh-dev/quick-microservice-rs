@@ -16,6 +16,7 @@ pub struct RealmAccess {
 #[derive(Serialize, Deserialize, Default)]
 pub struct PartialClaims {
     pub iss: String,
+    pub azp: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -105,9 +106,14 @@ pub struct Jwt {
 }
 
 impl Jwt {
-    pub fn new(alg: Algorithm, kid: String, public_key: &str) -> anyhow::Result<Self> {
+    pub fn new(
+        alg: Algorithm,
+        kid: String,
+        public_key: &str,
+        client_id: &str,
+    ) -> anyhow::Result<Self> {
         let mut validation = Validation::new(alg);
-        validation.set_audience(&["spa", "account"]);
+        validation.set_audience(&[client_id, "account"]);
         // needed workaround to validate logout tokens (they contain no exp field)
         let mut logout_validation = Validation::new(alg);
         logout_validation.validate_exp = false;

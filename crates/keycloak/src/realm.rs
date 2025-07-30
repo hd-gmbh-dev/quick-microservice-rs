@@ -32,14 +32,14 @@ where
     T: Fn(RealmRepresentation) -> RealmRepresentation,
 {
     let realm = keycloak.config().realm();
+    let client_id = keycloak.config().client_id();
     let url = APP_URL.as_str();
     let mut realm_representation = REALM_TEMPLATE.clone();
     realm_representation.realm = Some(realm.to_string());
-    if let Some(client) = realm_representation
-        .clients
-        .as_mut()
-        .and_then(|c| c.iter_mut().find(|c| c.client_id.as_deref() == Some("spa")))
-    {
+    if let Some(client) = realm_representation.clients.as_mut().and_then(|c| {
+        c.iter_mut()
+            .find(|c| c.client_id.as_deref() == Some(client_id))
+    }) {
         client.redirect_uris = Some(vec![format!(
             "{}*",
             if url.chars().filter(|c| c == &':').count() > 1 {
@@ -55,6 +55,7 @@ where
     let ctx = ValidationContext {
         config: &Config {
             realm,
+            client_id,
             keycloak: keycloak.config(),
             public_url: url,
         },
@@ -77,11 +78,13 @@ where
     P: AsRef<str> + std::fmt::Debug + std::marker::Copy + Clone,
 {
     let realm = keycloak.config().realm();
+    let client_id = keycloak.config().client_id();
     let url = APP_URL.as_str();
     let keycloak_config = keycloak.config();
     let ctx = ValidationContext {
         config: &Config {
             realm,
+            client_id,
             keycloak: keycloak_config,
             public_url: url,
         },
