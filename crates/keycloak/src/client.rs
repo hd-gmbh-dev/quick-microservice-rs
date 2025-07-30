@@ -940,6 +940,7 @@ impl Keycloak {
         &self,
         realm: &str,
         user_id: &str,
+        client_id: Option<String>,
         redirect_url: Option<String>,
     ) -> Result<(), KeycloakError> {
         self.inner
@@ -947,7 +948,7 @@ impl Keycloak {
             .realm_users_with_user_id_send_verify_email_put(
                 realm,
                 user_id,
-                None,
+                client_id,
                 None,
                 redirect_url,
             )
