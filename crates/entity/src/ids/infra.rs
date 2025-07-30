@@ -1116,7 +1116,11 @@ impl<const N: usize> Iterator for StringParser<'_, N> {
             return None;
         }
         let s = &self.s[self.start..self.end];
-        let result = i64::from_str_radix(s, 16).ok();
+        let result = if s.len() == 16 && s.chars().all(|c| matches!(c, 'f' | 'F')) {
+            Some(-1i64)
+        } else {
+            i64::from_str_radix(s, 16).ok()
+        };
         self.start = self.end;
         self.end = self.start + 1;
         self.count += 1;
@@ -1175,6 +1179,7 @@ mod tests {
 
     #[test]
     fn test_customer_id() {
+        let max_id = CustomerId::parse("VFFFFFFFFFFFFFFFFF").unwrap();
         let id1 = CustomerId::parse("V01").unwrap();
         let id2 = CustomerId::parse("V120").unwrap();
         let id3 = CustomerId::parse("V2500").unwrap();
@@ -1183,6 +1188,7 @@ mod tests {
         let id6 = CustomerId::parse("V5AF000F").unwrap();
         let id7 = CustomerId::parse("V6B5F000F").unwrap();
         let id8 = CustomerId::parse("VF7FFFFFFFFFFFFFFF").unwrap();
+        assert_eq!(CustomerId { cid: -1 }, max_id);
         assert_eq!(CustomerId { cid: 1 }, id1);
         assert_eq!(CustomerId { cid: 0x20 }, id2);
         assert_eq!(CustomerId { cid: 0x500 }, id3);
@@ -1206,7 +1212,6 @@ mod tests {
         assert_eq!(None, CustomerId::parse("VFCFFFFFFFFFFFFFFF").ok());
         assert_eq!(None, CustomerId::parse("VFDFFFFFFFFFFFFFFF").ok());
         assert_eq!(None, CustomerId::parse("VFEFFFFFFFFFFFFFFF").ok());
-        assert_eq!(None, CustomerId::parse("VFFFFFFFFFFFFFFFFF").ok());
         assert_eq!(None, CustomerId::parse("VVV").ok());
         assert_eq!(None, CustomerId::parse("V0ABC").ok());
         assert_eq!(id1.unzip(), 1);
@@ -1249,7 +1254,6 @@ mod tests {
         assert_eq!(None, CustomerResourceId::parse("UFCFFFFFFFFFFFFFFF6603f7b32b1753f84a719e01").ok());
         assert_eq!(None, CustomerResourceId::parse("UFDFFFFFFFFFFFFFFF6603f7b32b1753f84a719e02").ok());
         assert_eq!(None, CustomerResourceId::parse("UFEFFFFFFFFFFFFFFF6603f7b32b1753f84a719e03").ok());
-        assert_eq!(None, CustomerResourceId::parse("UFFFFFFFFFFFFFFFFF6603f7b32b1753f84a719e04").ok());
         assert_eq!(None, CustomerResourceId::parse("UVV6603f7b32b1753f84a719e04").ok());
         assert_eq!(None, CustomerResourceId::parse("U0ABC6603f7b32b1753f84a719e04").ok());
         assert_eq!(id1.root(), CustomerId { cid: 1 });
@@ -1259,6 +1263,7 @@ mod tests {
 
     #[test]
     fn test_organization_id() {
+        let max_id = OrganizationId::parse("TFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF").unwrap();
         let id1 = OrganizationId::parse("T0101").unwrap();
         let id2 = OrganizationId::parse("T120120").unwrap();
         let id3 = OrganizationId::parse("T25002500").unwrap();
@@ -1267,6 +1272,7 @@ mod tests {
         let id6 = OrganizationId::parse("T5AF000F5AF000F").unwrap();
         let id7 = OrganizationId::parse("T6B5F000F6B5F000F").unwrap();
         let id8 = OrganizationId::parse("TF7FFFFFFFFFFFFFFFF7FFFFFFFFFFFFFFF").unwrap();
+        assert_eq!(OrganizationId { cid: -1, oid: -1 }, max_id);
         assert_eq!(OrganizationId { cid: 1, oid: 1 }, id1);
         assert_eq!(OrganizationId { cid: 0x20, oid: 0x20 }, id2);
         assert_eq!(OrganizationId { cid: 0x500, oid: 0x500 }, id3);
@@ -1335,7 +1341,6 @@ mod tests {
         assert_eq!(None, OrganizationResourceId::parse("SFCFFFFFFFFFFFFFFFFCFFFFFFFFFFFFFFF6603f7b32b1753f84a719e01").ok());
         assert_eq!(None, OrganizationResourceId::parse("SFDFFFFFFFFFFFFFFFFDFFFFFFFFFFFFFFF6603f7b32b1753f84a719e02").ok());
         assert_eq!(None, OrganizationResourceId::parse("SFEFFFFFFFFFFFFFFFFEFFFFFFFFFFFFFFF6603f7b32b1753f84a719e03").ok());
-        assert_eq!(None, OrganizationResourceId::parse("SFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF6603f7b32b1753f84a719e04").ok());
         assert_eq!(None, OrganizationResourceId::parse("SVV6603f7b32b1753f84a719e04").ok());
         assert_eq!(None, OrganizationResourceId::parse("S0A0A0A0A0A0ABC6603f7b32b1753f84a719e04").ok());
         assert_eq!(id1.root(), CustomerId { cid: 1 });
@@ -1376,7 +1381,6 @@ mod tests {
         assert_eq!(None, InstitutionId::parse("RFCFFFFFFFFFFFFFFFCFFFFFFFFFFFFFFFCFFFFFFFFFFFFFFF").ok());
         assert_eq!(None, InstitutionId::parse("RFDFFFFFFFFFFFFFFFDFFFFFFFFFFFFFFFDFFFFFFFFFFFFFFF").ok());
         assert_eq!(None, InstitutionId::parse("RFEFFFFFFFFFFFFFFFEFFFFFFFFFFFFFFFEFFFFFFFFFFFFFFF").ok());
-        assert_eq!(None, InstitutionId::parse("RFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF").ok());
         assert_eq!(None, InstitutionId::parse("R0FF").ok());
         assert_eq!(None, InstitutionId::parse("RF0").ok());
         assert_eq!(id1.root(), CustomerId { cid: 1 });
@@ -1422,7 +1426,6 @@ mod tests {
         assert_eq!(None, InstitutionResourceId::parse("QFCFFFFFFFFFFFFFFFFCFFFFFFFFFFFFFFFCFFFFFFFFFFFFFFF6603f7b32b1753f84a719e01").ok());
         assert_eq!(None, InstitutionResourceId::parse("QFDFFFFFFFFFFFFFFFFDFFFFFFFFFFFFFFFDFFFFFFFFFFFFFFF6603f7b32b1753f84a719e02").ok());
         assert_eq!(None, InstitutionResourceId::parse("QFEFFFFFFFFFFFFFFFFEFFFFFFFFFFFFFFFEFFFFFFFFFFFFFFF6603f7b32b1753f84a719e03").ok());
-        assert_eq!(None, InstitutionResourceId::parse("QFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF6603f7b32b1753f84a719e04").ok());
         assert_eq!(None, InstitutionResourceId::parse("QVV6603f7b32b1753f84a719e04").ok());
         assert_eq!(None, InstitutionResourceId::parse("Q0A0A0A0A0A0ABC6603f7b32b1753f84a719e04").ok());
         assert_eq!(id1.root(), CustomerId { cid: 1 });
