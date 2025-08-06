@@ -1242,7 +1242,7 @@ impl Keycloak {
             ..Default::default()
         };
 
-        let realm = &self.inner.admin.realm(realm);
+        let realm = self.inner.admin.realm(realm);
         realm
             .identity_provider_instances_post(idp_representation.clone())
             .await?;
