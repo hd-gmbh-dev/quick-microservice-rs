@@ -134,23 +134,11 @@ impl Keycloak {
     ) -> Result<Vec<UserRepresentation>, KeycloakError> {
         self.inner
             .admin
-            .realm_users_get(
-                realm,
-                None,
-                None,
-                None,
-                None,
-                None,
-                offset,
-                None,
-                None,
-                None,
-                None,
-                page_size,
-                None,
-                search_query,
-                None,
-            )
+            .realm(realm)
+            .users_get()
+            .first(offset)
+            .max(page_size)
+            .search(search_query)
             .await
             .map_err(|e| {
                 tracing::error!("{e:#?}");
@@ -175,13 +163,14 @@ impl Keycloak {
     }
 
     pub async fn remove_realm(&self, realm: &str) -> Result<(), KeycloakError> {
-        self.inner.admin.realm_delete(realm).await.map(|_| ())
+        self.inner.admin.realm(realm).delete().await.map(|_| ())
     }
 
     pub async fn remove_group(&self, realm: &str, id: &str) -> Result<(), KeycloakError> {
         self.inner
             .admin
-            .realm_groups_with_group_id_delete(realm, id)
+            .realm(realm)
+            .groups_with_group_id_delete(id)
             .await
             .map(|_| ())
             .map_err(|e| {
@@ -194,7 +183,8 @@ impl Keycloak {
         let group = self
             .inner
             .admin
-            .realm_group_by_path_with_path_get(realm, path)
+            .realm(realm)
+            .group_by_path_with_path_get(path)
             .await
             .map_err(|e| {
                 tracing::error!("{e:#?}");
@@ -211,7 +201,8 @@ impl Keycloak {
     pub async fn remove_role(&self, realm: &str, role_name: &str) -> Result<(), KeycloakError> {
         self.inner
             .admin
-            .realm_roles_with_role_name_delete(realm, role_name)
+            .realm(realm)
+            .roles_with_role_name_delete(role_name)
             .await
             .map(|_| ())
             .map_err(|e| {
@@ -223,7 +214,8 @@ impl Keycloak {
     pub async fn remove_role_by_id(&self, realm: &str, role_id: &str) -> Result<(), KeycloakError> {
         self.inner
             .admin
-            .realm_roles_by_id_with_role_id_delete(realm, role_id)
+            .realm(realm)
+            .roles_by_id_with_role_id_delete(role_id)
             .await
             .map(|_| ())
             .map_err(|e| {
@@ -271,15 +263,10 @@ impl Keycloak {
             let result = self
                 .inner
                 .admin
-                .realm_clients_get(
-                    realm,
-                    None,
-                    Some(offset),
-                    Some(page_offset),
-                    None,
-                    None,
-                    None,
-                )
+                .realm(realm)
+                .clients_get()
+                .first(offset)
+                .max(page_offset)
                 .await
                 .map_err(|e| {
                     tracing::error!("{e:#?}");
@@ -295,7 +282,7 @@ impl Keycloak {
     }
 
     pub async fn realm_by_name(&self, realm: &str) -> Result<RealmRepresentation, KeycloakError> {
-        self.inner.admin.realm_get(realm).await.map_err(|e| {
+        self.inner.admin.realm(realm).get().await.map_err(|e| {
             tracing::error!("{e:#?}");
             e
         })
@@ -308,7 +295,8 @@ impl Keycloak {
     ) -> Result<(), KeycloakError> {
         self.inner
             .admin
-            .realm_put(realm, rep)
+            .realm(realm)
+            .put(rep)
             .await
             .map(|_| ())
             .map_err(|e| {
@@ -320,7 +308,9 @@ impl Keycloak {
     pub async fn roles(&self, realm: &str) -> Result<Vec<RoleRepresentation>, KeycloakError> {
         self.inner
             .admin
-            .realm_roles_get(realm, Some(true), None, None, None)
+            .realm(realm)
+            .roles_get()
+            .brief_representation(true)
             .await
             .map_err(|e| {
                 tracing::error!("{e:#?}");
@@ -336,7 +326,11 @@ impl Keycloak {
             let result = self
                 .inner
                 .admin
-                .realm_roles_get(realm, Some(true), Some(offset), Some(page_offset), None)
+                .realm(realm)
+                .roles_get()
+                .brief_representation(true)
+                .first(offset)
+                .max(page_offset)
                 .await
                 .map_err(|e| {
                     tracing::error!("{e:#?}");
@@ -358,7 +352,8 @@ impl Keycloak {
     ) -> Result<RoleRepresentation, KeycloakError> {
         self.inner
             .admin
-            .realm_roles_with_role_name_get(realm, role_name)
+            .realm(realm)
+            .roles_with_role_name_get(role_name)
             .await
     }
 
@@ -369,7 +364,8 @@ impl Keycloak {
     ) -> Result<Option<String>, KeycloakError> {
         self.inner
             .admin
-            .realm_roles_post(realm, rep)
+            .realm(realm)
+            .roles_post(rep)
             .await
             .map(|response| response.to_id().map(String::from))
             .map_err(|e| {
@@ -385,7 +381,8 @@ impl Keycloak {
     ) -> Result<Option<String>, KeycloakError> {
         self.inner
             .admin
-            .realm_groups_post(realm, rep)
+            .realm(realm)
+            .groups_post(rep)
             .await
             .map(|response| response.to_id().map(String::from))
             .map_err(|e| {
@@ -401,7 +398,8 @@ impl Keycloak {
     ) -> Result<GroupRepresentation, KeycloakError> {
         self.inner
             .admin
-            .realm_group_by_path_with_path_get(realm, path)
+            .realm(realm)
+            .group_by_path_with_path_get(path)
             .await
     }
 
@@ -414,15 +412,9 @@ impl Keycloak {
         let subgroups = self
             .inner
             .admin
-            .realm_groups_with_group_id_children_get(
-                realm,
-                group_id,
-                None,
-                None,
-                None,
-                Some(max),
-                None,
-            )
+            .realm(realm)
+            .groups_with_group_id_children_get(group_id)
+            .max(max)
             .await?;
 
         Ok(subgroups.into_iter().filter(|g| g.id.is_some()).collect())
@@ -435,7 +427,8 @@ impl Keycloak {
     ) -> Result<Vec<UserRepresentation>, KeycloakError> {
         self.inner
             .admin
-            .realm_roles_with_role_name_users_get(realm, role_name, None, None, None)
+            .realm(realm)
+            .roles_with_role_name_users_get(role_name)
             .await
             .map_err(|e| {
                 tracing::error!("{e:#?}");
@@ -451,7 +444,8 @@ impl Keycloak {
     ) -> Result<(), KeycloakError> {
         self.inner
             .admin
-            .realm_groups_with_group_id_children_post(realm, parent_id, rep)
+            .realm(realm)
+            .groups_with_group_id_children_post(parent_id, rep)
             .await
             .map_err(|e| {
                 tracing::error!("{e:#?}");
@@ -468,7 +462,8 @@ impl Keycloak {
     ) -> Result<Option<String>, KeycloakError> {
         self.inner
             .admin
-            .realm_groups_with_group_id_role_mappings_realm_post(realm, id, roles)
+            .realm(realm)
+            .groups_with_group_id_role_mappings_realm_post(id, roles)
             .await
             .map(|response| response.to_id().map(String::from))
             .map_err(|e| {
@@ -485,7 +480,9 @@ impl Keycloak {
         Ok(self
             .inner
             .admin
-            .realm_users_with_user_id_get(realm, id, Some(true))
+            .realm(realm)
+            .users_with_user_id_get(id)
+            .user_profile_metadata(true)
             .await
             .map_err(|e| {
                 tracing::error!("{e:#?}");
@@ -502,7 +499,8 @@ impl Keycloak {
         Ok(self
             .inner
             .admin
-            .realm_roles_with_role_name_users_get(realm, role_name, None, None, None)
+            .realm(realm)
+            .roles_with_role_name_users_get(role_name)
             .await
             .map_err(|e| {
                 tracing::error!("{e:#?}");
@@ -526,23 +524,11 @@ impl Keycloak {
         Ok(self
             .inner
             .admin
-            .realm_users_get(
-                realm,
-                Some(false),
-                None,
-                None,
-                None,
-                Some(true),
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-                Some(username),
-            )
+            .realm(realm)
+            .users_get()
+            .brief_representation(false)
+            .exact(true)
+            .username(username)
             .await
             .map_err(|e| {
                 tracing::error!("{e:#?}");
@@ -581,15 +567,11 @@ impl Keycloak {
         Ok(self
             .inner
             .admin
-            .realm_clients_get(
-                realm,
-                Some(self.config().client_id().to_owned()),
-                None,
-                None,
-                None,
-                Some(true),
-                Some(false),
-            )
+            .realm(realm)
+            .clients_get()
+            .client_id(self.config().client_id().to_owned())
+            .search(true)
+            .viewable_only(false)
             .await
             .map_err(|e| {
                 tracing::error!("{e:#?}");
@@ -606,15 +588,11 @@ impl Keycloak {
         Ok(self
             .inner
             .admin
-            .realm_clients_get(
-                realm,
-                Some(client_id.to_owned()),
-                None,
-                None,
-                None,
-                Some(true),
-                Some(false),
-            )
+            .realm(realm)
+            .clients_get()
+            .client_id(client_id.to_owned())
+            .search(true)
+            .viewable_only(false)
             .await
             .map_err(|e| {
                 tracing::error!("{e:#?}");
@@ -630,7 +608,8 @@ impl Keycloak {
     ) -> Result<UserRepresentation, KeycloakError> {
         self.inner
             .admin
-            .realm_clients_with_client_uuid_service_account_user_get(realm, client_uuid)
+            .realm(realm)
+            .clients_with_client_uuid_service_account_user_get(client_uuid)
             .await
             .map_err(|e| {
                 tracing::error!("{e:#?}");
@@ -645,7 +624,8 @@ impl Keycloak {
     ) -> Result<(), KeycloakError> {
         self.inner
             .admin
-            .realm_clients_post(realm, rep)
+            .realm(realm)
+            .clients_post(rep)
             .await
             .map_err(|e| {
                 tracing::error!("{e:#?}");
@@ -665,7 +645,8 @@ impl Keycloak {
             })?;
         self.inner
             .admin
-            .realm_clients_with_client_uuid_delete(realm, &client.id.unwrap())
+            .realm(realm)
+            .clients_with_client_uuid_delete(&client.id.unwrap())
             .await
             .map_err(|e| {
                 tracing::error!("{e:#?}");
@@ -681,7 +662,8 @@ impl Keycloak {
     ) -> Result<(), KeycloakError> {
         self.inner
             .admin
-            .realm_clients_with_client_uuid_delete(realm, client_uuid)
+            .realm(realm)
+            .clients_with_client_uuid_delete(client_uuid)
             .await
             .map_err(|e| {
                 tracing::error!("{e:#?}");
@@ -698,7 +680,8 @@ impl Keycloak {
     ) -> Result<(), KeycloakError> {
         self.inner
             .admin
-            .realm_clients_with_client_uuid_put(realm, id, rep)
+            .realm(realm)
+            .clients_with_client_uuid_put(id, rep)
             .await
             .map(|_| ())
             .map_err(|e| {
@@ -713,7 +696,8 @@ impl Keycloak {
     ) -> Result<Vec<ClientScopeRepresentation>, keycloak::KeycloakError> {
         self.inner
             .admin
-            .realm_client_scopes_get(realm)
+            .realm(realm)
+            .client_scopes_get()
             .await
             .map_err(|e| {
                 tracing::error!("{e:#?}");
@@ -729,8 +713,8 @@ impl Keycloak {
     ) -> Result<ProtocolMapperRepresentation, keycloak::KeycloakError> {
         self.inner
             .admin
-            .realm_client_scopes_with_client_scope_id_protocol_mappers_models_with_id_get(
-                realm,
+            .realm(realm)
+            .client_scopes_with_client_scope_id_protocol_mappers_models_with_id_get(
                 client_scope_id,
                 id,
             )
@@ -749,11 +733,8 @@ impl Keycloak {
     ) -> Result<Option<String>, keycloak::KeycloakError> {
         self.inner
             .admin
-            .realm_client_scopes_with_client_scope_id_protocol_mappers_models_post(
-                realm,
-                client_scope_id,
-                rep,
-            )
+            .realm(realm)
+            .client_scopes_with_client_scope_id_protocol_mappers_models_post(client_scope_id, rep)
             .await
             .map(|response| response.to_id().map(String::from))
             .map_err(|e| {
@@ -771,8 +752,8 @@ impl Keycloak {
     ) -> Result<(), keycloak::KeycloakError> {
         self.inner
             .admin
-            .realm_client_scopes_with_client_scope_id_protocol_mappers_models_with_id_put(
-                realm,
+            .realm(realm)
+            .client_scopes_with_client_scope_id_protocol_mappers_models_with_id_put(
                 client_scope_id,
                 id,
                 rep,
@@ -793,8 +774,8 @@ impl Keycloak {
     ) -> Result<(), keycloak::KeycloakError> {
         self.inner
             .admin
-            .realm_client_scopes_with_client_scope_id_protocol_mappers_models_with_id_delete(
-                realm,
+            .realm(realm)
+            .client_scopes_with_client_scope_id_protocol_mappers_models_with_id_delete(
                 client_scope_id,
                 id,
             )
@@ -813,7 +794,8 @@ impl Keycloak {
     ) -> Result<(), KeycloakError> {
         self.inner
             .admin
-            .realm_users_post(realm, user)
+            .realm(realm)
+            .users_post(user)
             .await
             .map_err(|e| {
                 tracing::error!("{e:#?}");
@@ -830,7 +812,8 @@ impl Keycloak {
     ) -> Result<(), KeycloakError> {
         self.inner
             .admin
-            .realm_users_with_user_id_reset_password_put(realm, user_id, credential)
+            .realm(realm)
+            .users_with_user_id_reset_password_put(user_id, credential)
             .await
             .map_err(|e| {
                 tracing::error!("{e:#?}");
@@ -847,7 +830,8 @@ impl Keycloak {
     ) -> Result<(), KeycloakError> {
         self.inner
             .admin
-            .realm_users_with_user_id_put(realm, user_id, user.to_owned())
+            .realm(realm)
+            .users_with_user_id_put(user_id, user.to_owned())
             .await
             .map_err(|e| {
                 tracing::error!("{e:#?}");
@@ -864,7 +848,8 @@ impl Keycloak {
     ) -> Result<(), KeycloakError> {
         self.inner
             .admin
-            .realm_users_with_user_id_groups_with_group_id_put(realm, user_id, group_id)
+            .realm(realm)
+            .users_with_user_id_groups_with_group_id_put(user_id, group_id)
             .await
             .map_err(|e| {
                 tracing::error!("{e:#?}");
@@ -881,7 +866,8 @@ impl Keycloak {
     ) -> Result<Option<String>, KeycloakError> {
         self.inner
             .admin
-            .realm_users_with_user_id_role_mappings_realm_post(realm, user_id, vec![role])
+            .realm(realm)
+            .users_with_user_id_role_mappings_realm_post(user_id, vec![role])
             .await
             .map(|response| response.to_id().map(String::from))
             .map_err(|e| {
@@ -898,7 +884,8 @@ impl Keycloak {
     ) -> Result<(), KeycloakError> {
         self.inner
             .admin
-            .realm_users_with_user_id_groups_with_group_id_delete(realm, user_id, group_id)
+            .realm(realm)
+            .users_with_user_id_groups_with_group_id_delete(user_id, group_id)
             .await
             .map_err(|e| {
                 tracing::error!("{e:#?}");
@@ -915,7 +902,8 @@ impl Keycloak {
     ) -> Result<(), KeycloakError> {
         self.inner
             .admin
-            .realm_users_with_user_id_role_mappings_realm_delete(realm, user_id, roles)
+            .realm(realm)
+            .users_with_user_id_role_mappings_realm_delete(user_id, roles)
             .await
             .map_err(|e| {
                 tracing::error!("{e:#?}");
@@ -927,7 +915,8 @@ impl Keycloak {
     pub async fn remove_user(&self, realm: &str, user_id: &str) -> Result<(), KeycloakError> {
         self.inner
             .admin
-            .realm_users_with_user_id_delete(realm, user_id)
+            .realm(realm)
+            .users_with_user_id_delete(user_id)
             .await
             .map_err(|e| {
                 tracing::error!("{e:#?}");
@@ -945,13 +934,10 @@ impl Keycloak {
     ) -> Result<(), KeycloakError> {
         self.inner
             .admin
-            .realm_users_with_user_id_send_verify_email_put(
-                realm,
-                user_id,
-                client_id,
-                None,
-                redirect_url,
-            )
+            .realm(realm)
+            .users_with_user_id_send_verify_email_put(user_id)
+            .client_id(client_id)
+            .redirect_uri(redirect_url)
             .await
             .map_err(|e| {
                 tracing::error!("{e:#?}");
@@ -969,14 +955,9 @@ impl Keycloak {
     ) -> Result<(), KeycloakError> {
         self.inner
             .admin
-            .realm_users_with_user_id_execute_actions_email_put(
-                realm,
-                user_id,
-                None,
-                None,
-                redirect_url,
-                body,
-            )
+            .realm(realm)
+            .users_with_user_id_execute_actions_email_put(user_id, body)
+            .redirect_uri(redirect_url)
             .await
             .map_err(|e| {
                 tracing::error!("{e:#?}");
@@ -1010,7 +991,11 @@ impl Keycloak {
         &self,
         realm: &str,
     ) -> Result<Vec<AuthenticationFlowRepresentation>, KeycloakError> {
-        self.inner.admin.realm_authentication_flows_get(realm).await
+        self.inner
+            .admin
+            .realm(realm)
+            .authentication_flows_get()
+            .await
     }
 
     pub async fn copy_authentication_flow(
@@ -1022,7 +1007,8 @@ impl Keycloak {
         let response = self
             .inner
             .admin
-            .realm_authentication_flows_with_flow_alias_copy_post(realm, flowalias, body)
+            .realm(realm)
+            .authentication_flows_with_flow_alias_copy_post(flowalias, body)
             .await;
         match response {
             Ok(_) => {
@@ -1044,7 +1030,8 @@ impl Keycloak {
         let result = self
             .inner
             .admin
-            .realm_authentication_flows_with_flow_alias_executions_get(realm, flowalias)
+            .realm(realm)
+            .authentication_flows_with_flow_alias_executions_get(flowalias)
             .await;
         match result {
             Ok(response) => {
@@ -1062,7 +1049,8 @@ impl Keycloak {
         let result = self
             .inner
             .admin
-            .realm_authentication_executions_with_execution_id_delete(realm, id)
+            .realm(realm)
+            .authentication_executions_with_execution_id_delete(id)
             .await;
         match result {
             Ok(_) => {
@@ -1085,7 +1073,8 @@ impl Keycloak {
         let response = self
             .inner
             .admin
-            .realm_authentication_flows_with_flow_alias_executions_flow_post(realm, flowalias, body)
+            .realm(realm)
+            .authentication_flows_with_flow_alias_executions_flow_post(flowalias, body)
             .await;
         match response {
             Ok(_) => {
@@ -1108,7 +1097,8 @@ impl Keycloak {
         let response = self
             .inner
             .admin
-            .realm_authentication_flows_with_flow_alias_executions_put(realm, flowalias, body)
+            .realm(realm)
+            .authentication_flows_with_flow_alias_executions_put(flowalias, body)
             .await;
         match response {
             Ok(_) => {
@@ -1131,9 +1121,8 @@ impl Keycloak {
         let response = self
             .inner
             .admin
-            .realm_authentication_flows_with_flow_alias_executions_execution_post(
-                realm, flowalias, body,
-            )
+            .realm(realm)
+            .authentication_flows_with_flow_alias_executions_execution_post(flowalias, body)
             .await;
         match response {
             Ok(_) => {
@@ -1155,11 +1144,8 @@ impl Keycloak {
     ) -> Result<(), KeycloakError> {
         self.inner
             .admin
-            .realm_authentication_executions_with_execution_id_config_post(
-                realm,
-                execution_id,
-                body,
-            )
+            .realm(realm)
+            .authentication_executions_with_execution_id_config_post(execution_id, body)
             .await?;
         Ok(())
     }
@@ -1171,7 +1157,8 @@ impl Keycloak {
     ) -> Result<IdentityProviderRepresentation, KeycloakError> {
         self.inner
             .admin
-            .realm_identity_provider_instances_with_alias_get(realm, alias)
+            .realm(realm)
+            .identity_provider_instances_with_alias_get(alias)
             .await
     }
 
@@ -1197,7 +1184,6 @@ impl Keycloak {
     where
         T: Fn(IdentityProviderRepresentation) -> IdentityProviderRepresentation,
     {
-        let admin = &self.inner.admin;
         let idp_config = [
             ("alias", alias),
             ("providerId", "saml"),
@@ -1212,8 +1198,11 @@ impl Keycloak {
         })
         .collect();
 
-        let imported_config = admin
-            .realm_identity_provider_import_config_post(realm, idp_config)
+        let imported_config = self
+            .inner
+            .admin
+            .realm(realm)
+            .identity_provider_import_config_post(idp_config)
             .await?;
         self.add_saml_identity_provider_from_config(
             realm,
@@ -1236,7 +1225,6 @@ impl Keycloak {
     where
         T: Fn(IdentityProviderRepresentation) -> IdentityProviderRepresentation,
     {
-        let admin = &self.inner.admin;
         if idp_config.get("nameIDPolicyFormat").map(|s| s.as_str())
             == Some("urn:oasis:names:tc:SAML:2.0:nameid-format:transient")
         {
@@ -1254,13 +1242,13 @@ impl Keycloak {
             ..Default::default()
         };
 
-        admin
-            .realm_identity_provider_instances_post(realm, idp_representation.clone())
+        let realm = &self.inner.admin.realm(realm);
+        realm
+            .identity_provider_instances_post(idp_representation.clone())
             .await?;
 
-        admin
-            .realm_identity_provider_instances_with_alias_put(
-                realm,
+        realm
+            .identity_provider_instances_with_alias_put(
                 alias,
                 idp_representation_transform(idp_representation),
             )
@@ -1276,7 +1264,8 @@ impl Keycloak {
     ) -> Result<Vec<IdentityProviderMapperRepresentation>, KeycloakError> {
         self.inner
             .admin
-            .realm_identity_provider_instances_with_alias_mappers_get(realm, alias)
+            .realm(realm)
+            .identity_provider_instances_with_alias_mappers_get(alias)
             .await
     }
 
@@ -1288,7 +1277,8 @@ impl Keycloak {
     ) -> Result<(), KeycloakError> {
         self.inner
             .admin
-            .realm_identity_provider_instances_with_alias_mappers_post(realm, alias, mapper)
+            .realm(realm)
+            .identity_provider_instances_with_alias_mappers_post(alias, mapper)
             .await?;
         Ok(())
     }
@@ -1299,12 +1289,9 @@ impl Keycloak {
     ) -> Result<Vec<ComponentRepresentation>, KeycloakError> {
         self.inner
             .admin
-            .realm_components_get(
-                realm,
-                None,
-                None,
-                Some("org.keycloak.keys.KeyProvider".into()),
-            )
+            .realm(realm)
+            .components_get()
+            .type_("org.keycloak.keys.KeyProvider".to_string())
             .await
     }
 
@@ -1316,7 +1303,8 @@ impl Keycloak {
         key_provider.provider_type = Some("org.keycloak.keys.KeyProvider".into());
         self.inner
             .admin
-            .realm_components_post(realm, key_provider)
+            .realm(realm)
+            .components_post(key_provider)
             .await?;
         Ok(())
     }
@@ -1324,7 +1312,8 @@ impl Keycloak {
     pub async fn delete_component(&self, realm: &str, id: &str) -> Result<(), KeycloakError> {
         self.inner
             .admin
-            .realm_components_with_id_delete(realm, id)
+            .realm(realm)
+            .components_with_id_delete(id)
             .await
             .map(|_| ())
     }
@@ -1337,7 +1326,8 @@ impl Keycloak {
     ) -> Result<(), KeycloakError> {
         self.inner
             .admin
-            .realm_components_with_id_put(realm, id, component)
+            .realm(realm)
+            .components_with_id_put(id, component)
             .await
             .map(|_| ())
     }
@@ -1349,7 +1339,9 @@ impl Keycloak {
     ) -> Result<Vec<keycloak::types::GroupRepresentation>, keycloak::KeycloakError> {
         self.inner
             .admin
-            .realm_users_with_user_id_groups_get(realm, user_id, Some(true), None, None, None)
+            .realm(realm)
+            .users_with_user_id_groups_get(user_id)
+            .brief_representation(true)
             .await
     }
 
@@ -1360,7 +1352,8 @@ impl Keycloak {
     ) -> Result<Vec<keycloak::types::RoleRepresentation>, keycloak::KeycloakError> {
         self.inner
             .admin
-            .realm_users_with_user_id_role_mappings_realm_get(realm, user_id)
+            .realm(realm)
+            .users_with_user_id_role_mappings_realm_get(user_id)
             .await
     }
 

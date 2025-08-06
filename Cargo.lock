@@ -1990,9 +1990,9 @@ dependencies = [
 
 [[package]]
 name = "keycloak"
-version = "26.2.300"
+version = "26.3.201"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d160feba07b6768057cb368e7275963630e8005f2d2271b5abe4ad4269519be5"
+checksum = "fd89562455baf967059ea00349d2c37e3f53544478f8d8fbffdd5ab57fbcddd6"
 dependencies = [
  "async-trait",
  "percent-encoding",
