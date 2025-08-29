@@ -1,4 +1,11 @@
-use std::{borrow::Cow, str::FromStr, sync::Arc};
+use std::{
+    borrow::Cow,
+    future::{Future, IntoFuture},
+    marker::PhantomData,
+    pin::Pin,
+    str::FromStr,
+    sync::Arc,
+};
 
 use async_graphql::{Description, InputValueError, InputValueResult, Scalar, ScalarType, Value};
 use chrono::{DateTime, Utc};
@@ -350,7 +357,7 @@ impl TryFrom<Option<ListFilter>> for PageInfo {
 }
 
 pub trait UpdateEntity<T: Clone> {
-    fn update_entity(self, entity: &T) -> Result<Cow<T>, EntityError>;
+    fn update_entity(self, entity: &T) -> Result<Cow<'_, T>, EntityError>;
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -411,6 +418,11 @@ where
     T: DeserializeOwned + Serialize + MongoCollection + Send + Sync + Unpin,
     ID: DeserializeOwned + Serialize + Send + Sync + Unpin,
 {
+    /// Query owned entities
+    pub fn query(db: &Database) -> Query<'_, T, ID> {
+        Query::new(db)
+    }
+
     pub async fn list(
         db: &Database,
         filter: impl ToMongoFilterMany,
@@ -601,13 +613,21 @@ where
         filter: Document,
         page_selector: impl TryInto<PageInfo, Error = EntityError>,
     ) -> Result<Page<Self>, EntityError> {
+        let page_info: PageInfo = page_selector.try_into()?;
+        Self::page_filter_sort(db, filter, None, page_info).await
+    }
+
+    pub async fn page_filter_sort(
+        db: &Database,
+        filter: Document,
+        sort: Option<Document>,
+        page_info: PageInfo,
+    ) -> Result<Page<Self>, EntityError> {
         let total = T::mongo_collection::<Self>(db)
             .find(filter.clone())
             .await?
             .count()
             .await;
-
-        let page_info: PageInfo = page_selector.try_into()?;
 
         let limit = page_info.limit;
 
@@ -627,6 +647,7 @@ where
             .with_options(
                 FindOptions::builder()
                     .limit(limit)
+                    .sort(sort)
                     .skip(page_info.skip)
                     .build(),
             )
@@ -640,6 +661,79 @@ where
                 limit,
             })
             .map_err(From::from)
+    }
+}
+
+/// Represents a query for a collection of entities.
+pub struct Query<'q, T, ID> {
+    db: &'q Database,
+    filter: Option<Document>,
+    page: Option<PageInfo>,
+    sort: Option<Document>,
+    marker: PhantomData<(T, ID)>,
+}
+
+impl<'q, T, ID> Query<'q, T, ID> {
+    fn new(db: &'q Database) -> Self {
+        Self {
+            db,
+            filter: None,
+            page: None,
+            sort: None,
+            marker: Default::default(),
+        }
+    }
+
+    pub fn filter_exact(mut self, filter: impl ToMongoFilterExact) -> Result<Self, EntityError> {
+        self.filter = Some(filter.to_mongo_filter_exact()?);
+        Ok(self)
+    }
+
+    pub fn filter_many(mut self, filter: impl ToMongoFilterMany) -> Self {
+        self.filter = filter.to_mongo_filter_many();
+        self
+    }
+
+    pub fn filter(mut self, filter: Document) -> Self {
+        self.filter = Some(filter);
+        self
+    }
+
+    pub fn page_selector(
+        mut self,
+        page_selector: impl TryInto<PageInfo, Error = EntityError>,
+    ) -> Result<Self, EntityError> {
+        self.page = Some(page_selector.try_into()?);
+        Ok(self)
+    }
+
+    pub fn page(mut self, page: PageInfo) -> Self {
+        self.page = Some(page);
+        self
+    }
+
+    pub fn sort(mut self, sort: impl Into<Option<Document>>) -> Self {
+        self.sort = sort.into();
+        self
+    }
+}
+
+impl<'q, T, ID> IntoFuture for Query<'q, T, ID>
+where
+    T: DeserializeOwned + Serialize + MongoCollection + Send + Sync + Unpin + 'q,
+    ID: DeserializeOwned + Serialize + Send + Sync + Unpin + 'q,
+{
+    type Output = Result<Page<EntityOwned<T, ID>>, EntityError>;
+
+    type IntoFuture = Pin<Box<dyn Future<Output = Self::Output> + Send + 'q>>;
+
+    fn into_future(self) -> Self::IntoFuture {
+        Box::pin(EntityOwned::<T, ID>::page_filter_sort(
+            self.db,
+            self.filter.unwrap_or_default(),
+            self.sort,
+            self.page.unwrap_or_default(),
+        ))
     }
 }
 
