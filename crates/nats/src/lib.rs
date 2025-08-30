@@ -435,8 +435,7 @@ impl LockManager {
             if !lock.jh.is_finished() {
                 lock.jh.abort();
                 let result = lock.jh.await;
-                if result.is_err() {
-                    let err = result.unwrap_err();
+                if let Err(err) = result {
                     if !err.is_cancelled() {
                         tracing::error!("{err:#?}");
                     }
