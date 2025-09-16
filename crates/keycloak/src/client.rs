@@ -950,6 +950,7 @@ impl Keycloak {
         &self,
         realm: &str,
         user_id: &str,
+        client_id: Option<String>,
         redirect_url: Option<String>,
         body: Vec<String>,
     ) -> Result<(), KeycloakError> {
@@ -957,6 +958,7 @@ impl Keycloak {
             .admin
             .realm(realm)
             .users_with_user_id_execute_actions_email_put(user_id, body)
+            .client_id(client_id)
             .redirect_uri(redirect_url)
             .await
             .map_err(|e| {
