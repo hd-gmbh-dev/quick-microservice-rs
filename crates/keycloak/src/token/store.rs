@@ -135,7 +135,10 @@ impl JwtStore {
         self.decode_custom(token).await
     }
 
-    pub async fn decode_custom<C: DeserializeOwned + Clone>(&self, token: &str) -> anyhow::Result<C> {
+    pub async fn decode_custom<C: DeserializeOwned + Clone>(
+        &self,
+        token: &str,
+    ) -> anyhow::Result<C> {
         let token_header = jsonwebtoken::decode_header(token)?;
         let kid = token_header
             .kid
