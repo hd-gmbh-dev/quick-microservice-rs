@@ -5,17 +5,17 @@ members = ["crates/*", "examples/*"]
 
 [workspace.package]
 edition = "2024"
-version = "0.0.62"
+version = "0.0.63"
 rust-version = "1.87.0"
 authors = ["Jürgen Seitz <juergen.seitz@h-d-gmbh.de>"]
 license = "MIT"
 repository = "https://github.com/hd-gmbh-dev/quick-microservice-rs"
 
 [workspace.dependencies]
-anyhow = "1.0.97"
+anyhow = "1.0.100"
 async-trait = "0.1.88"
-async-nats = "0.40.0"
-axum = "0.8.3"
+async-nats = "0.44.2"
+axum = "0.8.6"
 tynm = "0.2.0"
 base64 = "0.22.1"
 constcat = "0.6.0"
@@ -23,14 +23,14 @@ chrono = { version = "0.4.38", features = ["serde"] }
 futures = "0.3.31"
 tokio = { version = "1.44.2", features = ["full"] }
 tower-http = { version = "0.6.2", features = ["cors"] }
-thiserror = "2.0.12"
+thiserror = "2.0.17"
 itertools = "0.14.0"
 envy = "0.4.2"
 reqwest = { version = "0.12", default-features = false, features = ["json"] }
-jsonwebtoken = "9.3.0"
-serde = { version = "1.0.219", features = ["derive", "rc"] }
+jsonwebtoken = { version = "10.0.0", features = ["rust_crypto"] }
+serde = { version = "1.0.228", features = ["derive", "rc"] }
 serde_json = "1.0.140"
-keycloak = { version = "~26.3.202", default-features = false, features = [
+keycloak = { version = "~26.4.0", default-features = false, features = [
     "multipart",
     "resource-builder",
     "tag-authentication-management",
@@ -49,9 +49,9 @@ keycloak = { version = "~26.3.202", default-features = false, features = [
 mongodb = "3.2.3"
 lazy_static = "1.5.0"
 tracing = "0.1.40"
-strum = { version = "0.26", features = ["derive"] }
-redis = { version = "0.29.5", features = ["tokio-comp", "json"] }
-deadpool-redis = "0.20.0"
+strum = { version = "0.27.2", features = ["derive"] }
+redis = { version = "0.32.7", features = ["tokio-comp", "json"] }
+deadpool-redis = "0.22.0"
 uuid = { version = "1.16.0", features = ["v4", "v7"] }
 glob = "0.3.1"
 async-graphql-axum = "7.0.17"
@@ -61,7 +61,7 @@ sqlx = { version = "0.8", features = [
     "uuid",
     "time",
 ] }
-time = { version = "0.3.40", features = [
+time = { version = "0.3.44", features = [
     "formatting",
     "parsing",
     "macros",
@@ -76,30 +76,30 @@ async-graphql = { version = "7.0.17", features = [
     "graphiql",
     "time",
 ] }
-prometheus-client = "0.23.0"
+prometheus-client = "0.24.0"
 rdkafka = { version = "0.37" }
 
 hex = "0.4.3"
-serde_with = "3.11.0"
-sea-orm = { version = "1.1.7", default-features = false, features = [
+serde_with = "3.15.0"
+sea-orm = { version = "1.1.17", default-features = false, features = [
     "sqlx-postgres",
 ] }
 
-qm-entity = { path = "crates/entity", version = "0.0.62" }
-qm-entity-derive = { path = "crates/entity-derive", version = "0.0.62" }
-qm-server = { path = "crates/server", version = "0.0.62" }
-qm-mongodb = { path = "crates/mongodb", version = "0.0.62" }
-qm-pg = { path = "crates/pg", version = "0.0.62" }
-qm-redis = { path = "crates/redis", version = "0.0.62" }
-qm-s3 = { path = "crates/s3", version = "0.0.62" }
-qm-kafka = { path = "crates/kafka", version = "0.0.62" }
-qm-nats = { path = "crates/nats", version = "0.0.62" }
-qm-keycloak = { path = "crates/keycloak", version = "0.0.62" }
-qm-role = { path = "crates/role", version = "0.0.62" }
-qm-role-build = { path = "crates/role-build", version = "0.0.62" }
-qm-utils = { path = "crates/utils", version = "0.0.62" }
-qm-utils-derive = { path = "crates/utils-derive", version = "0.0.62" }
-qm = { path = ".", default-features = false, version = "0.0.62" }
+qm-entity = { path = "crates/entity", version = "0.0.63" }
+qm-entity-derive = { path = "crates/entity-derive", version = "0.0.63" }
+qm-server = { path = "crates/server", version = "0.0.63" }
+qm-mongodb = { path = "crates/mongodb", version = "0.0.63" }
+qm-pg = { path = "crates/pg", version = "0.0.63" }
+qm-redis = { path = "crates/redis", version = "0.0.63" }
+qm-s3 = { path = "crates/s3", version = "0.0.63" }
+qm-kafka = { path = "crates/kafka", version = "0.0.63" }
+qm-nats = { path = "crates/nats", version = "0.0.63" }
+qm-keycloak = { path = "crates/keycloak", version = "0.0.63" }
+qm-role = { path = "crates/role", version = "0.0.63" }
+qm-role-build = { path = "crates/role-build", version = "0.0.63" }
+qm-utils = { path = "crates/utils", version = "0.0.63" }
+qm-utils-derive = { path = "crates/utils-derive", version = "0.0.63" }
+qm = { path = ".", default-features = false, version = "0.0.63" }
 
 
 [package]

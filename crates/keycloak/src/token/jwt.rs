@@ -3,23 +3,23 @@ use std::{collections::HashSet, sync::Arc};
 use jsonwebtoken::{decode, Algorithm, DecodingKey, Validation};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ResourceAccess {
     pub account: RealmAccess,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RealmAccess {
     pub roles: Vec<Arc<str>>,
 }
 
-#[derive(Serialize, Deserialize, Default)]
+#[derive(Serialize, Clone, Deserialize, Default)]
 pub struct PartialClaims {
     pub iss: String,
     pub azp: String,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Claims {
     pub exp: i64,
     pub iat: i64,
@@ -86,7 +86,7 @@ impl Default for Claims {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LogoutClaims {
     pub iat: i64,
     pub jti: String,
@@ -142,7 +142,7 @@ impl Jwt {
         self.decode_custom(token)
     }
 
-    pub fn decode_custom<C: DeserializeOwned>(&self, token: &str) -> anyhow::Result<C> {
+    pub fn decode_custom<C: DeserializeOwned + Clone>(&self, token: &str) -> anyhow::Result<C> {
         let result = decode(token, &self.decoding_key, &self.validation)?;
         Ok(result.claims)
     }
@@ -151,7 +151,7 @@ impl Jwt {
         self.decode_logout_token_custom(token)
     }
 
-    pub fn decode_logout_token_custom<C: DeserializeOwned>(
+    pub fn decode_logout_token_custom<C: DeserializeOwned + Clone>(
         &self,
         token: &str,
     ) -> anyhow::Result<C> {

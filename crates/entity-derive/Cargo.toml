@@ -15,7 +15,7 @@ proc-macro = true
 
 [dependencies]
 Inflector = "0.11.4"
-darling = "0.20.1"
+darling = "0.21.3"
 proc-macro-crate = "3.1.0"
 proc-macro2 = "1.0.24"
 quote = "1.0.9"
@@ -25,5 +25,5 @@ syn = { version = "2.0", features = [
   "visit-mut",
   "visit",
 ] }
-strum = { version = "0.27.1", features = ["derive"] }
+strum = { version = "0.27.2", features = ["derive"] }
 lazy_static = "1.4.0"
