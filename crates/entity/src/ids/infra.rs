@@ -68,10 +68,8 @@ impl Encode<'_, Postgres> for InfraId {
     fn encode_by_ref(
         &self,
         buf: &mut PgArgumentBuffer,
-    ) -> Result<
-        sqlx::encode::IsNull,
-        Box<dyn std::error::Error + std::marker::Send + Sync + 'static>,
-    > {
+    ) -> Result<sqlx::encode::IsNull, Box<dyn std::error::Error + std::marker::Send + Sync + 'static>>
+    {
         buf.extend(&self.0.to_be_bytes());
 
         Ok(sqlx::encode::IsNull::No)

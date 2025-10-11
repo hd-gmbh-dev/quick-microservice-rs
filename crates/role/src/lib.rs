@@ -227,14 +227,14 @@ where
 }
 
 #[cfg(feature = "serde-str")]
-impl<R, P> serde_with::serde::Serialize for AccessOrRole<R, P>
+impl<R, P> serde::Serialize for AccessOrRole<R, P>
 where
     R: AsRef<str> + std::fmt::Debug + Clone + std::marker::Copy,
     P: AsRef<str> + std::fmt::Debug + Clone + std::marker::Copy,
 {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
-        S: serde_with::serde::Serializer,
+        S: serde::Serializer,
     {
         let value = match self {
             Self::Access(access) => access.to_string(),
