@@ -925,6 +925,23 @@ impl Keycloak {
         Ok(())
     }
 
+    pub async fn clear_brute_force_for_user(
+        &self,
+        realm: &str,
+        user_id: &str,
+    ) -> Result<(), KeycloakError> {
+        self.inner
+            .admin
+            .realm(realm)
+            .attack_detection_brute_force_users_with_user_id_delete(user_id)
+            .await
+            .map_err(|e| {
+                tracing::error!("{e:#?}");
+                e
+            })?;
+        Ok(())
+    }
+
     pub async fn send_verify_email_user(
         &self,
         realm: &str,
