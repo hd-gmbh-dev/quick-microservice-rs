@@ -947,17 +947,15 @@ impl Keycloak {
         realm: &str,
         user_id: &str,
     ) -> Result<bool, KeycloakError> {
-        let status = self
+        Ok(self
             .inner
             .admin
             .realm(realm)
             .attack_detection_brute_force_users_with_user_id_get(user_id)
-            .await?;
-
-        Ok(status
+            .await?
             .get("disabled")
-            .and_then(|value| value.as_bool())
-            .unwrap_or(false))
+            .and_then(Value::as_bool)
+            .unwrap_or_default())
     }
 
     pub async fn send_verify_email_user(
