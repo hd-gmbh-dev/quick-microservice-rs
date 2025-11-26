@@ -304,6 +304,11 @@ async fn update_realm_settings(
                 rep.registration_email_as_username = realm_template.registration_email_as_username;
             }
         }
+        realm_errors::REALM_EDIT_USERNAME_ALLOWED_MISMATCHED_ID => {
+            tracing::trace!("Setting 'editUsernameAllowed' for realm '{}'", realm);
+            let edit_username_allowed = ctx.cfg().keycloak().edit_username_allowed();
+            rep.edit_username_allowed = Some(edit_username_allowed);
+        }
         _ => tracing::warn!("Unknown realm error id '{}'. No action taken.", e.id),
     });
 

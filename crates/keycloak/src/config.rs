@@ -97,6 +97,7 @@ pub struct Config {
     authenticator_email_subject: Option<Arc<str>>,
     keystore_password: Option<Arc<str>>,
     duplicate_emails_allowed: Option<bool>,
+    edit_username_allowed: Option<bool>,
 }
 
 impl Config {
@@ -198,5 +199,9 @@ impl Config {
 
     pub fn duplicate_emails_allowed(&self) -> bool {
         self.duplicate_emails_allowed.unwrap_or_default()
+    }
+
+    pub fn edit_username_allowed(&self) -> bool {
+        self.edit_username_allowed.unwrap_or_default()
     }
 }
