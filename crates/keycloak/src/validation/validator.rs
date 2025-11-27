@@ -214,6 +214,16 @@ async fn check_realm_settings(
         );
     }
 
+    if rep.edit_username_allowed.unwrap_or_default()
+        != ctx.keycloak().config().edit_username_allowed()
+    {
+        add_error(
+            realm_errors::REALM_EDIT_USERNAME_ALLOWED_MISMATCHED_ID,
+            realm_errors::REALM_EDIT_USERNAME_ALLOWED_MISMATCHED_KEY,
+            errors,
+        );
+    }
+
     Ok(())
 }
 

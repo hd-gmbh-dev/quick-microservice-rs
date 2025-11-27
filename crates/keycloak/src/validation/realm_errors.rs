@@ -52,6 +52,8 @@ pub const REALM_SMTP_SERVER_SSL_MISMATCHED_ID: &str = "realm-smtp_server-ssl-mis
 pub const REALM_SMTP_SERVER_SSL_INVALID_ID: &str = "realm-smtp_server-ssl-invalid";
 pub const REALM_DUPLICATE_EMAILS_ALLOWED_MISMATCHED_ID: &str =
     "realm-duplicate_emails_allowed-mismatched";
+pub const REALM_EDIT_USERNAME_ALLOWED_MISMATCHED_ID: &str =
+    "realm-edit_username_allowed-mismatched";
 pub const CLIENTS_CLIENT_ATTRIBUTES_OAUTH2_DEVICE_AUTHORIZATION_GRANT_ENABLED_INVALID_ID: &str =
     "clients-client-attributes-oauth2_device_authorization_grant_enabled-invalid";
 pub const CLIENTS_CLIENT_ATTRIBUTES_OAUTH2_DEVICE_AUTHORIZATION_GRANT_ENABLED_MISSING_ID: &str =
@@ -143,6 +145,8 @@ pub const REALM_SMTP_SERVER_SSL_MISMATCHED_KEY: &str = "realm.smtp_server.ssl.mi
 pub const REALM_SMTP_SERVER_SSL_INVALID_KEY: &str = "realm.smtp_server.ssl.invalid";
 pub const REALM_DUPLICATE_EMAILS_ALLOWED_MISMATCHED_KEY: &str =
     "realm.duplicate_emails_allowed.mismatched";
+pub const REALM_EDIT_USERNAME_ALLOWED_MISMATCHED_KEY: &str =
+    "realm.edit_username_allowed.mismatched";
 pub const CLIENTS_CLIENT_ATTRIBUTES_OAUTH2_DEVICE_AUTHORIZATION_GRANT_ENABLED_INVALID_KEY: &str =
     "clients.client.attributes.oauth2_device_authorization_grant_enabled.invalid";
 pub const CLIENTS_CLIENT_ATTRIBUTES_OAUTH2_DEVICE_AUTHORIZATION_GRANT_ENABLED_MISSING_KEY: &str =
