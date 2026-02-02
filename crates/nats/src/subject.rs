@@ -26,6 +26,9 @@ pub enum Type {
     Send,
     Recv,
     Assign,
+    AssignRequest,
+    ReAssign,
+    AssignUpdate,
     Unassign,
     Activate,
     Deactivate,
@@ -189,6 +192,18 @@ where
 
     pub fn assign() -> Self {
         Self::factory(Type::Assign)
+    }
+
+    pub fn assign_request() -> Self {
+        Self::factory(Type::AssignRequest)
+    }
+
+    pub fn re_assign() -> Self {
+        Self::factory(Type::ReAssign)
+    }
+
+    pub fn assign_update() -> Self {
+        Self::factory(Type::AssignUpdate)
     }
 
     pub fn unassign() -> Self {
