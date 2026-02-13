@@ -6,7 +6,7 @@ members = ["crates/*", "examples/*"]
 [workspace.package]
 edition = "2024"
 version = "0.0.68"
-rust-version = "1.87.0"
+rust-version = "1.90.0"
 authors = ["Jürgen Seitz <juergen.seitz@h-d-gmbh.de>"]
 license = "MIT"
 repository = "https://github.com/hd-gmbh-dev/quick-microservice-rs"
