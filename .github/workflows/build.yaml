@@ -16,18 +16,18 @@ jobs:
   ci:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    - uses: dtolnay/rust-toolchain@1.87.0
-    - name: Check
-      run: |
-        rustup component add clippy
-        cargo clippy --no-deps
-    - name: Build
-      run: cargo build --release
-    - name: Test
-      run: cargo test --lib --bins && cargo test --workspace --lib --bins
-    - name: Test All Features
-      run: cargo test --lib --bins --all-features && cargo test --workspace --lib --bins --all-features
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.90.0
+      - name: Check
+        run: |
+          rustup component add clippy
+          cargo clippy --no-deps
+      - name: Build
+        run: cargo build --release
+      - name: Test
+        run: cargo test --lib --bins && cargo test --workspace --lib --bins
+      - name: Test All Features
+        run: cargo test --lib --bins --all-features && cargo test --workspace --lib --bins --all-features
   publish:
     if: startsWith( github.ref, 'refs/tags/v' )
     uses: ./.github/workflows/publish.yaml

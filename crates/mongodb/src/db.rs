@@ -55,7 +55,7 @@ impl DB {
         let admin = Client::with_options(client_options)?;
         let collections = RwLock::new(collections(&admin, cfg.database()).await?);
         if let (Some(username), Some(password)) = (cfg.username(), cfg.password()) {
-            let db_users = mongodb::bson::from_document::<DbUsers>(
+            let db_users = mongodb::bson::deserialize_from_document::<DbUsers>(
                 admin
                     .database(cfg.database())
                     .run_command(doc! {
@@ -235,7 +235,7 @@ where
     cursor
         .filter_map(|v| async {
             v.ok().and_then(|v| {
-                mongodb::bson::from_document::<T>(v)
+                mongodb::bson::deserialize_from_document::<T>(v)
                     .map_err(|e| {
                         tracing::error!("Error while parsing MongoDB document: {e:#?}");
                         e

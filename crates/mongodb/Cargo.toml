@@ -12,6 +12,7 @@ repository = "https://github.com/hd-gmbh-dev/quick-microservice-rs"
 
 [dependencies]
 anyhow.workspace = true
+bson = { workspace = true, features = ["chrono-0_4", "serde", "serde_json-1"] }
 envy.workspace = true
 futures.workspace = true
 tracing.workspace = true
