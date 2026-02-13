@@ -14,7 +14,7 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 use qm_mongodb::{
     bson::{
-        doc, oid::ObjectId, serde_helpers::chrono_datetime_as_bson_datetime, to_bson, Bson,
+        doc, oid::ObjectId, serde_helpers::datetime::FromChrono04DateTime, serialize_to_bson, Bson,
         Document, Uuid,
     },
     options::FindOptions,
@@ -585,7 +585,7 @@ where
                 modified: UserModification::now(user_id),
             };
             let result = T::mongo_collection::<SaveEntity<T>>(db)
-                .update_one(filter, doc!{ "$set": to_bson(&entity).map_err(|err| EntityError::Bson(err.to_string()))? })
+                .update_one(filter, doc!{ "$set": serialize_to_bson(&entity).map_err(|err| EntityError::Bson(err.to_string()))? })
                 .await?;
             if result.matched_count == 0 {
                 return Err(EntityError::NotFound);
@@ -765,7 +765,7 @@ impl Defaults {
 pub struct UserModification {
     #[serde(rename = "uid")]
     pub user_id: Uuid,
-    #[serde(with = "chrono_datetime_as_bson_datetime")]
+    #[serde(with = "FromChrono04DateTime")]
     pub at: DateTime<Utc>,
 }
 

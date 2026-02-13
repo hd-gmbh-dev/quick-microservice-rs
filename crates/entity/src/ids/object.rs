@@ -1,10 +1,82 @@
-use qm_mongodb::bson::oid::ObjectId;
+use std::ops::DerefMut;
+
+use async_graphql::{InputValueError, InputValueResult, Scalar, ScalarType, Value};
+use qm_mongodb::bson::{self, oid::ObjectId, Bson};
 
 use crate::ids::InfraContext;
 
 use super::{CustomerId, InstitutionId, OrganizationId};
 
-pub type ID = ObjectId;
+#[derive(
+    Debug,
+    Default,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize,
+)]
+#[serde(transparent)]
+pub struct ID(ObjectId);
+
+#[Scalar]
+impl ScalarType for ID {
+    fn parse(value: Value) -> InputValueResult<Self> {
+        match value {
+            Value::String(s) => Ok(ID(ObjectId::parse_str(s)?)),
+            Value::Object(o) => {
+                let json = Value::Object(o).into_json()?;
+                let bson: Bson = Bson::try_from(json)?;
+                bson.as_object_id()
+                    .map(ID)
+                    .ok_or_else(|| InputValueError::custom("could not parse the value as an ID"))
+            }
+            _ => Err(InputValueError::expected_type(value)),
+        }
+    }
+
+    fn to_value(&self) -> Value {
+        Value::String(self.0.to_string())
+    }
+}
+
+impl std::ops::Deref for ID {
+    type Target = ObjectId;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl std::ops::DerefMut for ID {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl std::str::FromStr for ID {
+    type Err = bson::error::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        ObjectId::from_str(s).map(ID)
+    }
+}
+
+impl From<ObjectId> for ID {
+    fn from(value: ObjectId) -> Self {
+        Self(value)
+    }
+}
+
+impl Into<Bson> for ID {
+    fn into(self) -> Bson {
+        self.0.into()
+    }
+}
 
 #[derive(
     Debug,
