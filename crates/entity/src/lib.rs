@@ -201,7 +201,7 @@ where
     pub async fn save(&self, mut value: T) -> qm_mongodb::error::Result<T> {
         let id: qm_mongodb::bson::Bson = self.as_ref().insert_one(&value).await?.inserted_id;
         if let qm_mongodb::bson::Bson::ObjectId(cid) = id {
-            *value.as_mut() = Some(cid);
+            *value.as_mut() = Some(cid.into());
         }
         Ok(value)
     }
