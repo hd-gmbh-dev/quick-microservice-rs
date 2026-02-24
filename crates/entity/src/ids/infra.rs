@@ -18,12 +18,19 @@ use sqlx::{postgres::PgArgumentBuffer, Encode, Postgres};
 
 use super::ID;
 
+/// Prefix for customer IDs.
 pub const CUSTOMER_ID_PREFIX: char = 'V';
+/// Prefix for customer resource IDs.
 pub const CUSTOMER_RESOURCE_ID_PREFIX: char = 'U';
+/// Prefix for organization IDs.
 pub const ORGANIZATION_ID_PREFIX: char = 'T';
+/// Prefix for organization resource IDs.
 pub const ORGANIZATION_RESOURCE_ID_PREFIX: char = 'S';
+/// Prefix for institution IDs.
 pub const INSTITUTION_ID_PREFIX: char = 'R';
+/// Prefix for institution resource IDs.
 pub const INSTITUTION_RESOURCE_ID_PREFIX: char = 'Q';
+/// Length of the ID component.
 pub const ID_LENGTH: usize = 24;
 
 #[derive(
@@ -41,6 +48,7 @@ pub const ID_LENGTH: usize = 24;
 )]
 #[repr(C)]
 #[serde(transparent)]
+/// Infrastructure ID wrapper around i64.
 pub struct InfraId(i64);
 impl AsRef<i64> for InfraId {
     fn as_ref(&self) -> &i64 {
@@ -76,13 +84,16 @@ impl Encode<'_, Postgres> for InfraId {
     }
 }
 
+/// Trait for types with a prefix character.
 trait Prefixed {
+    /// Prefix character.
     const PREFIX: char;
 }
 
 macro_rules! impl_id {
     ($t:ty, $p:expr) => {
         impl $t {
+            /// Parses a string into the ID type.
             pub fn parse(value: &str) -> anyhow::Result<Self> {
                 Self::from_str(value)
             }
@@ -248,6 +259,7 @@ impl CustomerId {
         StringWriter::from(self.cid).into_inner()
     }
 
+    /// Unzips the customer ID to get the underlying i64 value.
     pub fn unzip(&self) -> i64 {
         self.cid
     }
@@ -337,14 +349,17 @@ pub struct CustomerResourceId {
 }
 
 impl CustomerResourceId {
+    /// Returns the root customer ID.
     pub fn root(&self) -> CustomerId {
         CustomerId::from(self.cid)
     }
 
+    /// Returns the parent customer ID.
     pub fn parent(&self) -> CustomerId {
         CustomerId::from(self.cid)
     }
 
+    /// Unzips the resource ID to get the underlying (customer_id, resource_id) tuple.
     pub fn unzip(&self) -> (i64, ID) {
         (self.cid, self.id)
     }
@@ -423,14 +438,17 @@ pub struct OrganizationId {
 }
 
 impl OrganizationId {
+    /// Returns the organization ID component.
     pub fn id(&self) -> i64 {
         self.oid
     }
 
+    /// Returns the root customer ID.
     pub fn root(&self) -> CustomerId {
         CustomerId::from(self.cid)
     }
 
+    /// Returns the parent customer ID.
     pub fn parent(&self) -> CustomerId {
         CustomerId::from(self.cid)
     }
@@ -439,10 +457,12 @@ impl OrganizationId {
         StringWriter::from((self.cid, self.oid)).into_inner()
     }
 
+    /// Unzips the organization ID to get the underlying (customer_id, organization_id) tuple.
     pub fn unzip(&self) -> (i64, i64) {
         (self.cid, self.oid)
     }
 
+    /// Creates a resource ID for this organization.
     pub fn resource(&self, id: ID) -> OrganizationResourceId {
         OrganizationResourceId::from((self.cid, self.oid, id))
     }
@@ -535,18 +555,22 @@ pub struct OrganizationResourceId {
 }
 
 impl OrganizationResourceId {
+    /// Returns the root customer ID.
     pub fn root(&self) -> CustomerId {
         CustomerId::from(self.cid)
     }
 
+    /// Returns the parent organization ID.
     pub fn parent(&self) -> OrganizationId {
         OrganizationId::from((self.cid, self.oid))
     }
 
+    /// Returns the resource ID component.
     pub fn id(&self) -> &ID {
         &self.id
     }
 
+    /// Unzips the resource ID to get the underlying (customer_id, organization_id, resource_id) tuple.
     pub fn unzip(&self) -> (i64, i64, ID) {
         (self.cid, self.oid, self.id)
     }
@@ -624,20 +648,26 @@ impl_organization_resource_id_from_ty_tuple!(i8);
     async_graphql::Description,
 )]
 pub struct InstitutionId {
+    /// Customer ID.
     pub cid: i64,
+    /// Organization ID.
     pub oid: i64,
+    /// Institution ID.
     pub iid: i64,
 }
 
 impl InstitutionId {
+    /// Returns the institution ID component.
     pub fn id(&self) -> i64 {
         self.iid
     }
 
+    /// Returns the root customer ID.
     pub fn root(&self) -> CustomerId {
         CustomerId::from(self.cid)
     }
 
+    /// Returns the parent organization ID.
     pub fn parent(&self) -> OrganizationId {
         OrganizationId::from((self.cid, self.oid))
     }
@@ -646,13 +676,17 @@ impl InstitutionId {
         StringWriter::from((self.cid, self.oid, self.iid)).into_inner()
     }
 
+    /// Unzips the institution ID to get the underlying (customer_id, organization_id, institution_id) tuple.
     pub fn unzip(&self) -> (i64, i64, i64) {
         (self.cid, self.oid, self.iid)
     }
+
+    /// Untupes the institution ID to get the (customer_id, (organization_id, institution_id)) tuple.
     pub fn untuple(&self) -> (i64, (i64, i64)) {
         (self.cid, (self.oid, self.iid))
     }
 
+    /// Creates a resource ID for this institution.
     pub fn resource(&self, id: ID) -> InstitutionResourceId {
         InstitutionResourceId::from((self.cid, self.oid, self.iid, id))
     }
@@ -747,14 +781,17 @@ pub struct InstitutionResourceId {
 }
 
 impl InstitutionResourceId {
+    /// Returns the root customer ID.
     pub fn root(&self) -> CustomerId {
         CustomerId::from(self.cid)
     }
 
+    /// Returns the parent institution ID.
     pub fn parent(&self) -> InstitutionId {
         InstitutionId::from((self.cid, self.oid, self.iid))
     }
 
+    /// Unzips the resource ID to get the underlying (customer_id, organization_id, institution_id, resource_id) tuple.
     pub fn unzip(&self) -> (i64, i64, i64, ID) {
         (self.cid, self.oid, self.iid, self.id)
     }
@@ -797,18 +834,23 @@ impl_institution_resource_id_from_ty_tuple!(i16);
 impl_institution_resource_id_from_ty_tuple!(u8);
 impl_institution_resource_id_from_ty_tuple!(i8);
 
+/// Infrastructure context enum representing customer, organization, or institution.
 #[derive(Debug, Clone, Copy, OneofObject, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(
     feature = "serde-str",
     derive(serde_with::DeserializeFromStr, serde_with::SerializeDisplay)
 )]
 pub enum InfraContext {
+    /// Customer context.
     Customer(CustomerId),
+    /// Organization context.
     Organization(OrganizationId),
+    /// Institution context.
     Institution(InstitutionId),
 }
 
 impl InfraContext {
+    /// Returns the customer ID.
     pub fn customer_id(&self) -> InfraId {
         match self {
             InfraContext::Customer(b) => b.cid.into(),
@@ -817,6 +859,7 @@ impl InfraContext {
         }
     }
 
+    /// Returns the organization ID if present.
     pub fn organization_id(&self) -> Option<InfraId> {
         match self {
             InfraContext::Customer(_) => None,
@@ -825,6 +868,7 @@ impl InfraContext {
         }
     }
 
+    /// Returns the institution ID if present.
     pub fn institution_id(&self) -> Option<InfraId> {
         match self {
             InfraContext::Customer(_) => None,
@@ -833,6 +877,7 @@ impl InfraContext {
         }
     }
 
+    /// Returns true if this is a customer context.
     pub fn is_customer(&self) -> bool {
         match self {
             InfraContext::Customer(_) => true,
@@ -841,6 +886,7 @@ impl InfraContext {
         }
     }
 
+    /// Returns true if this is an organization context.
     pub fn is_organization(&self) -> bool {
         match self {
             InfraContext::Customer(_) => false,
@@ -849,6 +895,7 @@ impl InfraContext {
         }
     }
 
+    /// Returns true if this is an institution context.
     pub fn is_institution(&self) -> bool {
         match self {
             InfraContext::Customer(_) => false,
@@ -857,6 +904,7 @@ impl InfraContext {
         }
     }
 
+    /// Returns true if this context has the given customer.
     pub fn has_customer(&self, a: &CustomerId) -> bool {
         match self {
             InfraContext::Customer(b) => a.cid == b.cid,
@@ -864,6 +912,8 @@ impl InfraContext {
             InfraContext::Institution(b) => a.cid == b.cid,
         }
     }
+
+    /// Returns true if this context has the given organization.
     pub fn has_organization(&self, a: &OrganizationId) -> bool {
         match self {
             InfraContext::Customer(_) => false,
@@ -871,6 +921,8 @@ impl InfraContext {
             InfraContext::Institution(b) => a.cid == b.cid && a.oid == b.oid,
         }
     }
+
+    /// Returns true if this context has the given institution.
     pub fn has_institution(&self, a: &InstitutionId) -> bool {
         match self {
             InfraContext::Customer(_) => false,
@@ -879,6 +931,7 @@ impl InfraContext {
         }
     }
 
+    /// Returns the namespace string for this context.
     pub fn ns(&self) -> &'static str {
         match self {
             InfraContext::Customer(_) => "customer",
@@ -888,6 +941,7 @@ impl InfraContext {
     }
 
     // Call from user context
+    /// Combines this context with a query context.
     pub fn combine(self, query_context: Self) -> Self {
         match &self {
             InfraContext::Customer(v) => {
@@ -914,6 +968,7 @@ impl InfraContext {
         }
     }
 
+    /// Returns the ID for this context.
     pub fn id(&self) -> i64 {
         match self {
             InfraContext::Customer(customer_id) => customer_id.unzip(),
@@ -934,6 +989,7 @@ impl std::fmt::Display for InfraContext {
 }
 
 impl InfraContext {
+    /// Parses a string into an InfraContext.
     pub fn parse(s: &str) -> anyhow::Result<Self> {
         Self::from_str(s)
     }
