@@ -1,3 +1,5 @@
+#![deny(missing_docs)]
+
 //! Procedural macros for entity relationships.
 //!
 //! This crate provides procedural macros for generating many-to-many,
