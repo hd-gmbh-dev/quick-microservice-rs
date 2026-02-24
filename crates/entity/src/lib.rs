@@ -1,3 +1,49 @@
+//! Entity abstraction layer for quick-microservice.
+//!
+//! This crate provides common entity abstractions, utilities, and traits
+//! for building microservices with MongoDB and PostgreSQL.
+//!
+//! ## Features
+//!
+//! - **Permission Traits**: Define create/update/delete and list/view permissions
+//! - **Collection Helpers**: MongoDB collection wrappers with common operations
+//! - **ID Types**: Standardized ID types and conversions
+//! - **Error Handling**: Entity-specific error types and helpers
+//! - **GraphQL Integration**: Context extraction and error helpers
+//! - **Macros**: Error creation macros for entity operations
+//!
+//! ## Usage
+//!
+//! Define permissions on your entity types:
+//!
+//! \```ignore
+//! use qm_entity::{MutatePermissions, QueryPermissions};
+//!
+//! #[derive(Clone)]
+//! struct MyPermissions;
+//!
+//! impl MutatePermissions for MyPermissions {
+//!     fn create() -> Self { Self }
+//!     fn update() -> Self { Self }
+//!     fn delete() -> Self { Self }
+//! }
+//!
+//! impl QueryPermissions for MyPermissions {
+//!     fn list() -> Self { Self }
+//!     fn view() -> Self { Self }
+//! }
+//! \```
+//!
+//! Use Collection for MongoDB operations:
+//!
+//! \```ignore
+//! use qm_entity::Collection;
+//! use mongodb::bson::oid::ObjectId;
+//!
+//! let collection = Collection(my_mongodb_collection);
+//! let item = collection.by_id(&ObjectId::new()).await?;
+//! \```
+
 use async_graphql::{Context, ErrorExtensions, FieldResult};
 use error::EntityResult;
 use futures::stream::TryStreamExt;
@@ -20,17 +66,26 @@ pub mod list;
 pub mod model;
 pub mod owned;
 
+/// Trait for defining mutation permissions.
+///
+/// Implement this trait to define which roles can create, update, or delete entities.
 pub trait MutatePermissions {
     fn create() -> Self;
     fn update() -> Self;
     fn delete() -> Self;
 }
 
+/// Trait for defining query permissions.
+///
+/// Implement this trait to define which roles can list or view entities.
 pub trait QueryPermissions {
     fn list() -> Self;
     fn view() -> Self;
 }
 
+/// Create a conflict error (HTTP 409).
+///
+/// Use this for errors indicating resource conflicts (e.g., duplicate names).
 pub fn conflict<E>(err: E) -> async_graphql::Error
 where
     E: ErrorExtensions,
@@ -44,6 +99,9 @@ pub fn conflicting_name<T>(ty: &str, name: &str) -> Result<T, async_graphql::Err
     ))))
 }
 
+/// Create an unauthorized error (HTTP 401).
+///
+/// Use this for authentication/authorization errors.
 pub fn unauthorized<E>(err: E) -> async_graphql::Error
 where
     E: ErrorExtensions,
@@ -58,26 +116,35 @@ pub fn unauthorized_name<T>(ty: &str, name: &str) -> Result<T, async_graphql::Er
 }
 
 #[allow(async_fn_in_trait)]
+/// Trait for extracting types from GraphQL context.
+///
+/// Implement this on your user/session types to extract them from the GraphQL context.
 pub trait FromGraphQLContext: Sized {
     async fn from_graphql_context(ctx: &Context<'_>) -> FieldResult<Self>;
 }
 
+/// Trait for admin role detection.
 pub trait IsAdmin {
     fn is_admin(&self) -> bool {
         false
     }
 }
 
+/// Trait for support role detection.
 pub trait IsSupport {
     fn is_support(&self) -> bool {
         false
     }
 }
 
+/// Trait for access control.
 pub trait HasAccess {
     fn has_access(&self, a: &qm_role::Access) -> bool;
 }
 
+/// Trait for role-based access control.
+///
+/// Implement this trait to check if a user has a specific role with a permission scope.
 pub trait HasRole<R, P>
 where
     R: std::fmt::Debug + std::marker::Copy + Clone,
@@ -87,17 +154,25 @@ where
     fn has_role_object(&self, role: &qm_role::Role<R, P>) -> bool;
 }
 
+/// Trait for extracting user ID from session.
 pub trait UserId {
     fn user_id(&self) -> Option<&sqlx::types::Uuid>;
 }
+
+/// Trait for extracting session access permissions.
 pub trait SessionAccess {
     fn session_access(&self) -> Option<&qm_role::Access>;
 }
 
+/// Trait for converting types to numeric codes.
 pub trait AsNumber {
     fn as_number(&self) -> u32;
 }
 
+/// MongoDB collection wrapper with common CRUD operations.
+///
+/// Provides typed access to MongoDB collections with methods for
+/// finding, listing, saving, and removing documents.
 pub struct Collection<T>(pub qm_mongodb::Collection<T>)
 where
     T: Send + Sync;
@@ -207,6 +282,10 @@ where
     }
 }
 
+/// Trait for entity creation logic.
+///
+/// Implement this trait on your entity types to define creation logic
+/// that validates and creates entities based on user context.
 pub trait Create<T, C: UserId> {
     fn create(self, ctx: &C) -> EntityResult<T>;
 }
