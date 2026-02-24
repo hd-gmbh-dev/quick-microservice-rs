@@ -8,6 +8,9 @@ struct Inner {
     pool: PgPool,
 }
 
+/// PostgreSQL database connection wrapper.
+///
+/// Manages connection pool and provides access to sqlx and SeaORM connections.
 #[derive(Clone)]
 pub struct DB {
     inner: Arc<Inner>,
