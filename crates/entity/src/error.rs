@@ -79,9 +79,11 @@ pub enum EntityError {
     Bson(String),
 }
 
+/// Result type for entity operations.
 pub type EntityResult<T> = Result<T, EntityError>;
 
 impl EntityError {
+    /// Creates an unauthorized error for a user.
     pub fn unauthorized_user(user_id: Option<&Uuid>) -> Self {
         if let Some(user_id) = user_id {
             EntityError::Unauthorized(user_id.to_string())
@@ -90,6 +92,7 @@ impl EntityError {
         }
     }
 
+    /// Creates an unauthorized error from a context that implements UserId.
     pub fn unauthorized<T>(ctx: &T) -> Self
     where
         T: UserId,
@@ -101,10 +104,12 @@ impl EntityError {
         }
     }
 
+    /// Creates a name conflict error for the given type.
     pub fn name_conflict<T>(name: impl Into<String>) -> Self {
         Self::NameConflict(tynm::type_name::<T>(), name.into())
     }
 
+    /// Creates a fields conflict error.
     pub fn fields_conflict<T>(
         name: impl Into<String>,
         fields: impl Into<async_graphql::Value>,
@@ -112,22 +117,27 @@ impl EntityError {
         Self::FieldsConflict(tynm::type_name::<T>(), name.into(), fields.into())
     }
 
+    /// Creates a not found by ID error.
     pub fn not_found_by_id<T>(id: impl Into<String>) -> Self {
         Self::NotFoundById(tynm::type_name::<T>(), id.into())
     }
 
+    /// Creates a not found by field error.
     pub fn not_found_by_field<T>(field: impl Into<String>, value: impl Into<String>) -> Self {
         Self::NotFoundByField(tynm::type_name::<T>(), field.into(), value.into())
     }
 
+    /// Creates a bad request error.
     pub fn bad_request(err_type: impl Into<String>, err_msg: impl Into<String>) -> Self {
         Self::BadRequest(err_type.into(), err_msg.into())
     }
 
+    /// Creates a not allowed error.
     pub fn not_allowed(err_msg: impl Into<String>) -> Self {
         Self::NotAllowed(err_msg.into())
     }
 
+    /// Creates an internal server error.
     pub fn internal() -> Self {
         Self::Internal
     }

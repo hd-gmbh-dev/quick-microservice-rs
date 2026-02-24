@@ -1,3 +1,5 @@
+#![deny(missing_docs)]
+
 //! Entity abstraction layer for quick-microservice.
 //!
 //! This crate provides common entity abstractions, utilities, and traits
@@ -60,18 +62,26 @@ use crate::{
     model::{ListFilter, ListResult},
 };
 
+/// Error types and helpers.
 pub mod error;
+/// ID type definitions and conversions.
 pub mod ids;
+/// List filter and pagination utilities.
 pub mod list;
+/// Model types for entities.
 pub mod model;
+/// Owned resource types.
 pub mod owned;
 
 /// Trait for defining mutation permissions.
 ///
 /// Implement this trait to define which roles can create, update, or delete entities.
 pub trait MutatePermissions {
+    /// Permission for creating entities.
     fn create() -> Self;
+    /// Permission for updating entities.
     fn update() -> Self;
+    /// Permission for deleting entities.
     fn delete() -> Self;
 }
 
@@ -79,7 +89,9 @@ pub trait MutatePermissions {
 ///
 /// Implement this trait to define which roles can list or view entities.
 pub trait QueryPermissions {
+    /// Permission for listing entities.
     fn list() -> Self;
+    /// Permission for viewing entities.
     fn view() -> Self;
 }
 
@@ -93,6 +105,7 @@ where
     err.extend_with(|_err, e| e.set("code", 409))
 }
 
+/// Creates a conflict error for duplicate names.
 pub fn conflicting_name<T>(ty: &str, name: &str) -> Result<T, async_graphql::Error> {
     Err(conflict(async_graphql::Error::new(format!(
         "{ty} with the name '{name}' already exists."
@@ -109,6 +122,7 @@ where
     err.extend_with(|_err, e| e.set("code", 401))
 }
 
+/// Creates an unauthorized error for a named entity.
 pub fn unauthorized_name<T>(ty: &str, name: &str) -> Result<T, async_graphql::Error> {
     Err(unauthorized(async_graphql::Error::new(format!(
         "{ty} '{name}' nicht authorisiert."
@@ -120,11 +134,13 @@ pub fn unauthorized_name<T>(ty: &str, name: &str) -> Result<T, async_graphql::Er
 ///
 /// Implement this on your user/session types to extract them from the GraphQL context.
 pub trait FromGraphQLContext: Sized {
+    /// Extracts the type from the GraphQL context.
     async fn from_graphql_context(ctx: &Context<'_>) -> FieldResult<Self>;
 }
 
 /// Trait for admin role detection.
 pub trait IsAdmin {
+    /// Returns whether the user is an admin.
     fn is_admin(&self) -> bool {
         false
     }
@@ -132,6 +148,7 @@ pub trait IsAdmin {
 
 /// Trait for support role detection.
 pub trait IsSupport {
+    /// Returns whether the user is support.
     fn is_support(&self) -> bool {
         false
     }
@@ -139,6 +156,7 @@ pub trait IsSupport {
 
 /// Trait for access control.
 pub trait HasAccess {
+    /// Checks if the user has the given access.
     fn has_access(&self, a: &qm_role::Access) -> bool;
 }
 
@@ -150,22 +168,27 @@ where
     R: std::fmt::Debug + std::marker::Copy + Clone,
     P: std::fmt::Debug + std::marker::Copy + Clone,
 {
+    /// Checks if the user has the given role with the given permission.
     fn has_role(&self, r: &R, p: &P) -> bool;
+    /// Checks if the user has the given role object.
     fn has_role_object(&self, role: &qm_role::Role<R, P>) -> bool;
 }
 
 /// Trait for extracting user ID from session.
 pub trait UserId {
+    /// Returns the user ID if available.
     fn user_id(&self) -> Option<&sqlx::types::Uuid>;
 }
 
 /// Trait for extracting session access permissions.
 pub trait SessionAccess {
+    /// Returns the session access permissions if available.
     fn session_access(&self) -> Option<&qm_role::Access>;
 }
 
 /// Trait for converting types to numeric codes.
 pub trait AsNumber {
+    /// Returns the numeric code.
     fn as_number(&self) -> u32;
 }
 
@@ -176,6 +199,7 @@ pub trait AsNumber {
 pub struct Collection<T>(pub qm_mongodb::Collection<T>)
 where
     T: Send + Sync;
+
 impl<T> AsRef<qm_mongodb::Collection<T>> for Collection<T>
 where
     T: Send + Sync,
@@ -189,18 +213,22 @@ impl<T> Collection<T>
 where
     T: DeserializeOwned + Send + Sync + Unpin,
 {
+    /// Finds a document by its ID.
     pub async fn by_id(&self, id: &ObjectId) -> qm_mongodb::error::Result<Option<T>> {
         self.as_ref().find_one(doc! { "_id": id }).await
     }
 
+    /// Finds a document by its name field.
     pub async fn by_name(&self, name: &str) -> qm_mongodb::error::Result<Option<T>> {
         self.as_ref().find_one(doc! { "name": name }).await
     }
 
+    /// Finds a document by an arbitrary field and value.
     pub async fn by_field(&self, field: &str, value: &str) -> qm_mongodb::error::Result<Option<T>> {
         self.as_ref().find_one(doc! { field: value }).await
     }
 
+    /// Removes all documents matching string values in a field.
     pub async fn remove_all_by_strings(
         &self,
         field: &str,
@@ -211,6 +239,7 @@ where
             .await
     }
 
+    /// Removes all documents matching UUID values in a field.
     pub async fn remove_all_by_uuids(
         &self,
         field: &str,
@@ -221,6 +250,7 @@ where
             .await
     }
 
+    /// Finds a document with a customer ID filter.
     pub async fn by_field_with_customer_filter(
         &self,
         cid: &ObjectId,
@@ -235,6 +265,7 @@ where
             .await
     }
 
+    /// Lists documents with optional query and filter.
     pub async fn list(
         &self,
         query: Option<Document>,
@@ -273,6 +304,7 @@ impl<T> Collection<T>
 where
     T: Serialize + Send + Sync + Unpin + AsMut<Option<ID>>,
 {
+    /// Saves a document and returns it with the generated ID.
     pub async fn save(&self, mut value: T) -> qm_mongodb::error::Result<T> {
         let id: qm_mongodb::bson::Bson = self.as_ref().insert_one(&value).await?.inserted_id;
         if let qm_mongodb::bson::Bson::ObjectId(cid) = id {
@@ -287,6 +319,7 @@ where
 /// Implement this trait on your entity types to define creation logic
 /// that validates and creates entities based on user context.
 pub trait Create<T, C: UserId> {
+    /// Creates an entity with the given context.
     fn create(self, ctx: &C) -> EntityResult<T>;
 }
 
@@ -297,12 +330,15 @@ pub mod __private {
     pub use core::result::Result::Err;
 }
 
+/// Macro for creating entity errors.
 #[macro_export]
 macro_rules! err {
     ($($arg:tt)*) => {
         $crate::__private::Err($crate::__private::EntityError::$($arg)*)
     };
 }
+
+/// Macro for creating extended entity errors.
 #[macro_export]
 macro_rules! exerr {
     ($($arg:tt)*) => {
