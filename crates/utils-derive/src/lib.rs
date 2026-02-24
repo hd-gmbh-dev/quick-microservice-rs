@@ -1,3 +1,5 @@
+#![deny(missing_docs)]
+
 //! Procedural macros for utility functions.
 //!
 //! This crate provides procedural macros for generating utility code.
