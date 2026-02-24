@@ -19,12 +19,14 @@ use crate::session::{KeycloakSession, KeycloakSessionClient};
 
 pub use crate::config::Config as KeycloakConfig;
 
+/// Server information for Keycloak.
 #[derive(Debug, serde::Deserialize, serde::Serialize)]
 pub struct ServerInfo {
     #[serde(default)]
     pub realm: Option<String>,
 }
 
+/// Realm information for Keycloak including public key.
 #[derive(Debug, serde::Deserialize, serde::Serialize)]
 pub struct RealmInfo {
     #[serde(default)]
@@ -55,6 +57,9 @@ struct Inner {
     admin: KeycloakAdmin<KeycloakSession>,
 }
 
+/// Builder for creating Keycloak client instances.
+///
+/// Use this to create a Keycloak client with custom configuration.
 #[derive(Default)]
 pub struct KeycloakBuilder {
     no_refresh: bool,
@@ -99,6 +104,9 @@ impl KeycloakBuilder {
     }
 }
 
+/// Keycloak client for managing authentication and authorization.
+///
+/// Provides methods for realm, client, user, role, and token management.
 #[derive(Clone)]
 pub struct Keycloak {
     inner: Arc<Inner>,

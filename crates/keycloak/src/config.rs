@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+/// Builder for Keycloak configuration with custom prefix support.
 #[derive(Default)]
 pub struct ConfigBuilder<'a> {
     prefix: Option<&'a str>,
@@ -70,6 +71,7 @@ impl<'a> ConfigBuilder<'a> {
     }
 }
 
+/// Keycloak configuration loaded from environment variables.
 #[derive(Clone, serde::Deserialize, Debug)]
 pub struct Config {
     realm: Option<Arc<str>>,
