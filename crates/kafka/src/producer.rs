@@ -102,7 +102,7 @@ pub struct Event {
 }
 
 /// Internal producer state.
-struct Inner {
+pub struct Inner {
     config: Config,
     producer: FutureProducer,
 }
