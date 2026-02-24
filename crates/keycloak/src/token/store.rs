@@ -15,8 +15,11 @@ use super::{
     config::Config,
     jwt::{LogoutClaims, PartialClaims},
 };
+/// Trait for JWT configuration.
 pub trait JwtConfig {
+    /// Gets the address.
     fn address(&self) -> &str;
+    /// Gets the public URL.
     fn public_url(&self) -> &str;
 }
 
@@ -46,11 +49,13 @@ struct Inner {
 }
 
 #[derive(Clone)]
+/// JWT store for token decoding.
 pub struct JwtStore {
     inner: Arc<Inner>,
 }
 
 impl JwtStore {
+    /// Creates a new JWT store.
     pub fn new(config: &impl JwtConfig) -> Self {
         let client = reqwest::Client::new();
         let url = Arc::from(config.address());
@@ -65,6 +70,7 @@ impl JwtStore {
         }
     }
 
+    /// Gets realm info.
     pub async fn info(&self, realm: &str) -> anyhow::Result<RealmInfo> {
         let builder = self
             .inner
@@ -131,10 +137,12 @@ impl JwtStore {
         Err(anyhow::anyhow!("Invalid token"))
     }
 
+    /// Decodes a token to Claims.
     pub async fn decode(&self, token: &str) -> anyhow::Result<Claims> {
         self.decode_custom(token).await
     }
 
+    /// Decodes a token to custom claims.
     pub async fn decode_custom<C: DeserializeOwned + Clone>(
         &self,
         token: &str,
@@ -155,10 +163,12 @@ impl JwtStore {
         Ok(claims)
     }
 
+    /// Decodes a logout token.
     pub async fn decode_logout_token(&self, token: &str) -> anyhow::Result<LogoutClaims> {
         self.decode_logout_token_custom(token).await
     }
 
+    /// Decodes a logout token to custom claims.
     pub async fn decode_logout_token_custom<C: DeserializeOwned + Clone>(
         &self,
         token: &str,

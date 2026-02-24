@@ -11,7 +11,12 @@ pub enum KeycloakSessionError {
     /// Request failure.
     ReqwestFailure(Arc<reqwest::Error>),
     /// HTTP failure with status and text.
-    HttpFailure { status: u16, text: Arc<str> },
+    HttpFailure { 
+        /// HTTP status code.
+        status: u16, 
+        /// Response text.
+        text: Arc<str> 
+    },
     /// Decode failure.
     Decode(Arc<serde_json::Error>),
 }
@@ -158,11 +163,13 @@ struct KeycloakSessionClientInner {
 }
 
 #[derive(Clone)]
+/// Keycloak session client.
 pub struct KeycloakSessionClient {
     inner: Arc<KeycloakSessionClientInner>,
 }
 
 impl KeycloakSessionClient {
+    /// Creates a new KeycloakSessionClient.
     pub fn new<T>(url: T, realm: T, client_id: T) -> Self
     where
         T: Into<String>,
@@ -346,6 +353,7 @@ struct KeycloakSessionInner {
 }
 
 #[derive(Clone)]
+/// Keycloak session for user authentication.
 pub struct KeycloakSession {
     inner: Arc<KeycloakSessionInner>,
 }
@@ -357,6 +365,7 @@ impl Drop for KeycloakSession {
 }
 
 impl KeycloakSession {
+    /// Creates a new Keycloak session.
     pub async fn new(
         keycloak: KeycloakSessionClient,
         username: &str,
@@ -466,16 +475,19 @@ impl KeycloakSession {
         Ok(result)
     }
 
+    /// Stops the session.
     pub fn stop(&self) -> anyhow::Result<()> {
         tracing::debug!("stop session for {}", self.inner.username);
         self.inner.stop_tx.send(false)?;
         Ok(())
     }
 
+    /// Gets the access token.
     pub async fn access_token(&self) -> Arc<str> {
         self.inner.token.read().await.access_token.clone()
     }
 
+    /// Gets the token.
     pub async fn token(&self) -> Arc<str> {
         self.inner
             .token
@@ -502,6 +514,7 @@ struct KeycloakApiClientSessionInner {
 }
 
 #[derive(Clone)]
+/// Keycloak API client session for service accounts.
 pub struct KeycloakApiClientSession {
     inner: Arc<KeycloakApiClientSessionInner>,
 }
@@ -513,6 +526,7 @@ impl Drop for KeycloakApiClientSession {
 }
 
 impl KeycloakApiClientSession {
+    /// Creates a new KeycloakApiClientSession.
     pub async fn new(
         keycloak: KeycloakSessionClient,
         secret: &str,
@@ -612,16 +626,19 @@ impl KeycloakApiClientSession {
         Ok(result)
     }
 
+    /// Stops the session.
     pub fn stop(&self) -> anyhow::Result<()> {
         tracing::debug!("stop session for {}", self.inner.secret);
         self.inner.stop_tx.send(false)?;
         Ok(())
     }
 
+    /// Gets the access token.
     pub async fn access_token(&self) -> Arc<str> {
         self.inner.token.read().await.access_token.clone()
     }
 
+    /// Gets the token.
     pub async fn token(&self) -> Arc<str> {
         self.inner
             .token
