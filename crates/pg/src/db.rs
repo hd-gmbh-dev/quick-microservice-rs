@@ -8,12 +8,16 @@ struct Inner {
     pool: PgPool,
 }
 
+/// PostgreSQL database connection wrapper.
+///
+/// Manages connection pool and provides access to sqlx and SeaORM connections.
 #[derive(Clone)]
 pub struct DB {
     inner: Arc<Inner>,
 }
 
 impl DB {
+    /// Creates a new PostgreSQL database connection with the given config.
     pub async fn new(app_name: &str, cfg: &Config) -> anyhow::Result<Self> {
         if let Some(database) = cfg.database() {
             tracing::info!(
@@ -39,6 +43,7 @@ impl DB {
         })
     }
 
+    /// Creates a new PostgreSQL database connection with root credentials.
     pub async fn new_root(app_name: &str, cfg: &Config) -> anyhow::Result<Self> {
         if let Some(database) = cfg.root_database() {
             tracing::info!(
@@ -62,10 +67,12 @@ impl DB {
         })
     }
 
+    /// Returns a SeaORM database connection.
     pub fn database_connection(&self) -> sea_orm::DatabaseConnection {
         sea_orm::SqlxPostgresConnector::from_sqlx_postgres_pool(self.inner.pool.clone())
     }
 
+    /// Returns a reference to the sqlx connection pool.
     pub fn pool(&self) -> &PgPool {
         &self.inner.pool
     }
