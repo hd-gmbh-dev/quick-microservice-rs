@@ -11,11 +11,11 @@ pub enum KeycloakSessionError {
     /// Request failure.
     ReqwestFailure(Arc<reqwest::Error>),
     /// HTTP failure with status and text.
-    HttpFailure { 
+    HttpFailure {
         /// HTTP status code.
-        status: u16, 
+        status: u16,
         /// Response text.
-        text: Arc<str> 
+        text: Arc<str>,
     },
     /// Decode failure.
     Decode(Arc<serde_json::Error>),

@@ -21,7 +21,7 @@ pub mod error {
             /// Number of retry attempts made.
             retry_count: u32,
             /// Delay between retries in milliseconds.
-            retry_delay: u32
+            retry_delay: u32,
         },
     }
 }
