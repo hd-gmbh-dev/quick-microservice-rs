@@ -1,3 +1,5 @@
+#![deny(missing_docs)]
+
 //! NATS JetStream integration for building distributed microservices.
 //!
 //! This crate provides utilities for connecting to NATS with JetStream support,
@@ -76,6 +78,7 @@ use tokio::task::JoinHandle;
 
 pub use async_nats;
 
+/// Subject module for event subject path generation.
 pub mod subject;
 
 /// Configuration for NATS JetStream connection.
@@ -95,43 +98,56 @@ pub struct Config {
 }
 
 impl Config {
+    /// Creates a new Config from environment variables with default NATS_ prefix.
     pub fn new() -> envy::Result<Self> {
         ConfigBuilder::default().build()
     }
 
+    /// Creates a new ConfigBuilder for custom configuration.
     pub fn builder<'a>() -> ConfigBuilder<'a> {
         ConfigBuilder::default()
     }
 
+    /// Returns the NATS server address.
     pub fn address(&self) -> &str {
         self.address.as_deref().unwrap()
     }
 
+    /// Returns the NATS server port.
     pub fn port(&self) -> u16 {
         self.port.unwrap_or(3000)
     }
+
+    /// Returns the key-value bucket name for system locks.
     pub fn sys_locks(&self) -> &str {
         self.sys_locks.as_deref().unwrap_or("SYS_LOCKS")
     }
+
+    /// Returns the JetStream stream name for events.
     pub fn events_stream_name(&self) -> &str {
         self.events_stream_name.as_deref().unwrap_or("EVENTS")
     }
+
+    /// Returns the subject pattern for events stream.
     pub fn events_stream_subject(&self) -> &str {
         self.events_stream_subject.as_deref().unwrap_or("ev.>")
     }
 }
 
+/// Builder for creating Config with custom settings.
 #[derive(Default)]
 pub struct ConfigBuilder<'a> {
     prefix: Option<&'a str>,
 }
 
 impl<'a> ConfigBuilder<'a> {
+    /// Sets a custom environment variable prefix.
     pub fn with_prefix(mut self, prefix: &'a str) -> Self {
         self.prefix = Some(prefix);
         self
     }
 
+    /// Builds the Config from environment variables.
     pub fn build(self) -> envy::Result<Config> {
         let prefix = self.prefix.unwrap_or("NATS_");
         let mut cfg: Config = envy::prefixed(prefix).from_env()?;
@@ -145,6 +161,7 @@ impl<'a> ConfigBuilder<'a> {
     }
 }
 
+/// Internal state for the Nats client.
 pub struct Inner {
     client: Client,
     config: Config,
@@ -160,6 +177,7 @@ pub struct Nats {
 }
 
 impl Nats {
+    /// Creates a new Nats client and connects to the NATS server.
     pub async fn new(config: Config) -> Result<Self, ConnectError> {
         let client = async_nats::ConnectOptions::new()
             .max_reconnects(Some(1))
@@ -170,14 +188,17 @@ impl Nats {
         })
     }
 
+    /// Returns a reference to the underlying NATS client.
     pub fn client(&self) -> &Client {
         &self.inner.client
     }
 
+    /// Returns a reference to the configuration.
     pub fn config(&self) -> &Config {
         &self.inner.config
     }
 
+    /// Creates a new event publisher.
     pub async fn publisher(&self) -> Result<Publisher, CreateStreamError> {
         let ctx = jetstream::new(self.inner.client.clone());
         let p = Publisher { ctx };
@@ -185,6 +206,7 @@ impl Nats {
         Ok(p)
     }
 
+    /// Creates a durable pull consumer with the given name.
     pub async fn sys_consumer(&self, name: String) -> Result<PullConsumer, ConsumerError> {
         let ctx = jetstream::new(self.inner.client.clone());
         ctx.create_consumer_on_stream(
@@ -197,6 +219,7 @@ impl Nats {
         .await
     }
 
+    /// Creates a durable pull consumer with a filter subject.
     pub async fn sys_consumer_with_filter(
         &self,
         name: String,
@@ -214,6 +237,7 @@ impl Nats {
         .await
     }
 
+    /// Creates a durable pull consumer with multiple filter subjects.
     pub async fn sys_consumer_with_filters(
         &self,
         name: String,
@@ -231,6 +255,7 @@ impl Nats {
         .await
     }
 
+    /// Creates a temporary pull consumer with a filter subject.
     pub async fn tmp_sys_consumer_with_filter(
         &self,
         filter_subject: String,
@@ -247,11 +272,13 @@ impl Nats {
         .await
     }
 
+    /// Creates a distributed locks manager.
     pub async fn distributed_locks(&self) -> Result<DistributedLocks, DistributedLocksError> {
         let ctx = jetstream::new(self.inner.client.clone());
         DistributedLocks::new(ctx, &self.inner.config).await
     }
 
+    /// Creates a sequence manager.
     pub fn sequence_manager(&self) -> SequenceManager {
         let ctx = jetstream::new(self.inner.client.clone());
         SequenceManager { ctx }
@@ -263,6 +290,7 @@ impl Nats {
 /// Implement this trait on your event types to enable automatic
 /// subject path generation for event publishing.
 pub trait EventToSubject<M> {
+    /// Converts the event to a NATS subject.
     fn event_to_subject(&self) -> async_nats::Subject;
 }
 
@@ -292,6 +320,7 @@ impl Publisher {
         Ok(())
     }
 
+    /// Publishes an event to the given subject.
     pub async fn publish<S: ToSubject, P: ?Sized + serde::Serialize>(
         &self,
         subject: S,
@@ -303,6 +332,7 @@ impl Publisher {
         Ok(())
     }
 
+    /// Publishes an event using the subject derived from the event type.
     pub async fn publish_event<S, M, P>(&self, subject: &S, payload: &P) -> anyhow::Result<()>
     where
         S: ?Sized + EventToSubject<M>,
@@ -327,10 +357,13 @@ impl AsRef<Context> for Publisher {
 /// Error type for distributed lock operations.
 #[derive(thiserror::Error, Debug)]
 pub enum DistributedLocksError {
+    /// Error connecting to NATS.
     #[error(transparent)]
     Connect(#[from] async_nats::error::Error<ConnectErrorKind>),
+    /// Error creating a key-value store.
     #[error(transparent)]
     CreateKeyValue(#[from] async_nats::error::Error<CreateKeyValueErrorKind>),
+    /// Error accessing a key-value store.
     #[error(transparent)]
     KeyValue(#[from] async_nats::error::Error<KeyValueErrorKind>),
 }
@@ -391,6 +424,7 @@ impl DistributedLocks {
         Ok(true)
     }
 
+    /// Returns a lock manager for system locks.
     pub async fn sys_locks(&self) -> anyhow::Result<LockManager> {
         let kv = self.ctx.get_key_value(&self.sys_locks).await?;
         Ok(LockManager { kv: Arc::new(kv) })
@@ -400,12 +434,16 @@ impl DistributedLocks {
 /// Error type for lock manager operations.
 #[derive(thiserror::Error, Debug)]
 pub enum LockManagerError {
+    /// Error creating a key-value store.
     #[error(transparent)]
     CreateKeyValue(#[from] async_nats::error::Error<CreateKeyValueErrorKind>),
+    /// Error accessing a key-value store.
     #[error(transparent)]
     KeyValue(#[from] async_nats::error::Error<KeyValueErrorKind>),
+    /// Error watching key-value store changes.
     #[error(transparent)]
     Watch(#[from] async_nats::error::Error<kv::WatchErrorKind>),
+    /// Unable to acquire lock after exhausting retries.
     #[error("unable to lock resource after {0:?}")]
     OutOfRetries(std::time::Duration),
 }
@@ -413,14 +451,19 @@ pub enum LockManagerError {
 /// Error type for sequence manager operations.
 #[derive(thiserror::Error, Debug)]
 pub enum SequenceManagerError {
+    /// Error connecting to NATS.
     #[error(transparent)]
     Connect(#[from] async_nats::error::Error<ConnectErrorKind>),
+    /// Error creating a key-value store.
     #[error(transparent)]
     CreateKeyValue(#[from] async_nats::error::Error<CreateKeyValueErrorKind>),
+    /// Error accessing a key-value store.
     #[error(transparent)]
     KeyValue(#[from] async_nats::error::Error<KeyValueErrorKind>),
+    /// Error putting a value to the key-value store.
     #[error(transparent)]
     Put(#[from] async_nats::error::Error<async_nats::jetstream::kv::PutErrorKind>),
+    /// Error reading an entry from the key-value store.
     #[error(transparent)]
     Entry(#[from] async_nats::error::Error<async_nats::jetstream::kv::EntryErrorKind>),
 }
@@ -467,6 +510,7 @@ impl SequenceManager {
         Ok(self.ctx.get_key_value(bucket).await?)
     }
 
+    /// Gets the next sequence number for the given prefix, creating the bucket if needed.
     pub async fn next(&self, prefix: &str, id: i64) -> Result<i64, SequenceManagerError> {
         let bucket = format!("sm-{prefix}");
         if !self.exists(&bucket).await? {
@@ -485,6 +529,7 @@ impl SequenceManager {
         }
     }
 
+    /// Increments the sequence number for the given prefix.
     pub async fn increment(&self, prefix: &str, id: i64) -> Result<i64, SequenceManagerError> {
         let bucket = format!("sm-{prefix}");
         let store = self.get(&bucket).await?;
@@ -503,6 +548,10 @@ pub struct LockManager {
 }
 
 impl LockManager {
+    /// Runs the given future while holding a distributed lock.
+    ///
+    /// The lock is automatically acquired before the future runs and released
+    /// when the future completes or the holder crashes.
     pub async fn run_locked<N, O, F, E>(&self, name: N, f: F) -> Result<O, E>
     where
         N: Into<String>,
