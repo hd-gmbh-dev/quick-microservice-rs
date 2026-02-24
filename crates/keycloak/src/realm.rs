@@ -19,14 +19,17 @@ lazy_static::lazy_static! {
     static ref APP_URL: String = std::env::var("SERVER_APP_URL").unwrap_or_else(|_| "http://localhost:5173".to_string());
 }
 
+/// Returns the application URL.
 pub fn app_url() -> &'static str {
     APP_URL.as_str()
 }
 
+/// Creates a Keycloak realm.
 pub async fn create(keycloak: &Keycloak) -> anyhow::Result<()> {
     create_custom(keycloak, identity).await
 }
 
+/// Creates a Keycloak realm with a custom transform function.
 pub async fn create_custom<T>(keycloak: &Keycloak, realm_repr_transform: T) -> anyhow::Result<()>
 where
     T: Fn(RealmRepresentation) -> RealmRepresentation,
@@ -69,6 +72,7 @@ where
     Ok(())
 }
 
+/// Configures a realm with groups.
 pub async fn configure_realm<R, P>(
     keycloak: &Keycloak,
     groups: Vec<Group<R, P>>,
@@ -135,6 +139,7 @@ fn set_attributes(attributes: HashMap<&str, Option<String>>, u: &mut UserReprese
     }
 }
 
+/// Creates a Keycloak user.
 pub async fn create_keycloak_user(
     realm: &str,
     keycloak: &Keycloak,
@@ -217,6 +222,7 @@ pub async fn create_keycloak_user(
     Ok((k_user.unwrap(), exists))
 }
 
+/// Gets a Keycloak user by ID.
 pub async fn get_keycloak_user(
     realm: &str,
     keycloak: &Keycloak,
@@ -228,6 +234,7 @@ pub async fn get_keycloak_user(
         .ok_or(anyhow::format_err!("unable to get user from keycloak"))
 }
 
+/// Ensures roles exist in Keycloak.
 pub async fn ensure_roles(
     realm: &str,
     keycloak: &Keycloak,
@@ -268,6 +275,7 @@ pub async fn ensure_roles(
     Ok(roles)
 }
 
+/// Ensures groups exist in Keycloak.
 pub async fn ensure_groups<R, P>(
     realm: &str,
     keycloak: &Keycloak,
@@ -393,6 +401,7 @@ where
     Ok(groups)
 }
 
+/// Ensures group role mappings exist in Keycloak.
 pub async fn ensure_group_role_mappings<R, P>(
     realm: &str,
     keycloak: &Keycloak,
@@ -427,6 +436,7 @@ where
     Ok(())
 }
 
+/// Ensures groups with roles exist in Keycloak.
 pub async fn ensure_groups_with_roles<R, P>(
     realm: &str,
     keycloak: &Keycloak,
@@ -451,6 +461,7 @@ where
     Ok(groups)
 }
 
+/// Creates a user with groups in Keycloak.
 pub async fn create_user_with_groups(
     realm: &str,
     keycloak: &Keycloak,
@@ -486,6 +497,7 @@ pub async fn create_user_with_groups(
     Ok(user)
 }
 
+/// Ensures admin user exists in Keycloak.
 pub async fn ensure_admin_user<R, P>(
     realm: &str,
     keycloak: &Keycloak,

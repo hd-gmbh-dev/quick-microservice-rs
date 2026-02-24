@@ -13,6 +13,7 @@ use crate::validation::context::ValidationContext as Ctx;
 use crate::validation::model::RealmConfigErrorInput;
 use crate::validation::realm_errors;
 
+/// Updates realm settings for validation errors.
 pub async fn update_for_errors(
     ctx: &Ctx<'_>,
     errors: Vec<RealmConfigErrorInput>,
@@ -687,6 +688,7 @@ async fn update_client_settings(
     Ok(())
 }
 
+/// Gets SMTP server defaults from context.
 pub fn get_smtp_server_defaults(ctx: &Ctx<'_>) -> Option<HashMap<String, String>> {
     let mut defaults: HashMap<String, String> = HashMap::new();
 

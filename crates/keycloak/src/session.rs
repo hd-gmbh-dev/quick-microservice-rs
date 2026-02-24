@@ -5,10 +5,19 @@ use tokio::runtime::Builder;
 use tokio::sync::RwLock;
 use tokio::task::LocalSet;
 
+/// Errors for Keycloak session operations.
 #[derive(Debug, Clone)]
 pub enum KeycloakSessionError {
+    /// Request failure.
     ReqwestFailure(Arc<reqwest::Error>),
-    HttpFailure { status: u16, text: Arc<str> },
+    /// HTTP failure with status and text.
+    HttpFailure { 
+        /// HTTP status code.
+        status: u16, 
+        /// Response text.
+        text: Arc<str> 
+    },
+    /// Decode failure.
     Decode(Arc<serde_json::Error>),
 }
 
@@ -47,54 +56,66 @@ async fn error(response: reqwest::Response) -> Result<reqwest::Response, Keycloa
     Ok(response)
 }
 
+/// Parsed access token from Keycloak (equivalent to KeycloakAccessTokenResponse).
 #[derive(Debug, serde::Deserialize, serde::Serialize)]
 pub struct ParsedAccessToken {
+    /// Expiration time (unix seconds).
     exp: usize,
-    //:1677048774,
+    /// Issued at time (unix seconds).
     iat: usize,
-    //:1677048714,
-    // auth_time: usize, //:1677047319,
+    /// JWT ID.
     jti: Option<String>,
-    //:"48ef7bc9-1a42-4e4f-b136-5fd74d4d6033",
+    /// Issuer.
     iss: Option<String>,
-    //:"https://id.qm-example.local/realms/master",
+    /// Subject (user ID).
     sub: Option<String>,
-    //:"fe487690-8c65-4106-95a5-5b1dbb8e6bbd",
+    /// Token type.
     typ: Option<String>,
-    //:"Bearer",
+    /// Authorized party (client ID).
     azp: Option<String>,
-    //:"security-admin-console",
+    /// Nonce.
     nonce: Option<String>,
-    //:"86e7e8a2-5af5-4fed-80e7-1da412e51070",
+    /// Session state.
     session_state: Option<String>,
-    //:"cdfaa367-5c30-4142-b31a-f770073e2051",
+    /// Authentication context class reference.
     acr: Option<String>,
-    //:"0",
+    /// Allowed actions.
     allowed: Option<Vec<String>>,
-    //origins":["https://keycloak.qm-example.local"],
+    /// Scope.
     scope: Option<String>,
-    //:"openid profile email",
+    /// Session ID.
     sid: Option<String>,
-    //:"cdfaa367-5c30-4142-b31a-f770073e2051",
+    /// Whether email is verified.
     #[serde(default)]
     email_verified: bool,
-    //:false,
-    preferred_username: Option<String>, //:"admin"
+    /// Preferred username.
+    preferred_username: Option<String>,
 }
 
+/// Session token from Keycloak.
 #[derive(Debug, serde::Deserialize, serde::Serialize)]
 pub struct KeycloakSessionToken {
+    /// Access token.
     access_token: Arc<str>,
+    /// Time until expiration.
     expires_in: usize,
+    /// Not before policy.
     #[serde(rename = "not-before-policy")]
     not_before_policy: Option<usize>,
+    /// Time until refresh token expires.
     refresh_expires_in: Option<usize>,
+    /// Refresh token.
     refresh_token: Arc<str>,
+    /// Scope.
     scope: String,
+    /// Session state.
     session_state: Option<String>,
+    /// Token type.
     token_type: String,
+    /// Parsed access token.
     #[serde(skip)]
     parsed_access_token: Option<ParsedAccessToken>,
+    /// Client token (type + access_token).
     #[serde(skip)]
     client_token: Option<Arc<str>>,
 }
@@ -142,11 +163,13 @@ struct KeycloakSessionClientInner {
 }
 
 #[derive(Clone)]
+/// Keycloak session client.
 pub struct KeycloakSessionClient {
     inner: Arc<KeycloakSessionClientInner>,
 }
 
 impl KeycloakSessionClient {
+    /// Creates a new KeycloakSessionClient.
     pub fn new<T>(url: T, realm: T, client_id: T) -> Self
     where
         T: Into<String>,
@@ -330,6 +353,7 @@ struct KeycloakSessionInner {
 }
 
 #[derive(Clone)]
+/// Keycloak session for user authentication.
 pub struct KeycloakSession {
     inner: Arc<KeycloakSessionInner>,
 }
@@ -341,6 +365,7 @@ impl Drop for KeycloakSession {
 }
 
 impl KeycloakSession {
+    /// Creates a new Keycloak session.
     pub async fn new(
         keycloak: KeycloakSessionClient,
         username: &str,
@@ -450,16 +475,19 @@ impl KeycloakSession {
         Ok(result)
     }
 
+    /// Stops the session.
     pub fn stop(&self) -> anyhow::Result<()> {
         tracing::debug!("stop session for {}", self.inner.username);
         self.inner.stop_tx.send(false)?;
         Ok(())
     }
 
+    /// Gets the access token.
     pub async fn access_token(&self) -> Arc<str> {
         self.inner.token.read().await.access_token.clone()
     }
 
+    /// Gets the token.
     pub async fn token(&self) -> Arc<str> {
         self.inner
             .token
@@ -486,6 +514,7 @@ struct KeycloakApiClientSessionInner {
 }
 
 #[derive(Clone)]
+/// Keycloak API client session for service accounts.
 pub struct KeycloakApiClientSession {
     inner: Arc<KeycloakApiClientSessionInner>,
 }
@@ -497,6 +526,7 @@ impl Drop for KeycloakApiClientSession {
 }
 
 impl KeycloakApiClientSession {
+    /// Creates a new KeycloakApiClientSession.
     pub async fn new(
         keycloak: KeycloakSessionClient,
         secret: &str,
@@ -596,16 +626,19 @@ impl KeycloakApiClientSession {
         Ok(result)
     }
 
+    /// Stops the session.
     pub fn stop(&self) -> anyhow::Result<()> {
         tracing::debug!("stop session for {}", self.inner.secret);
         self.inner.stop_tx.send(false)?;
         Ok(())
     }
 
+    /// Gets the access token.
     pub async fn access_token(&self) -> Arc<str> {
         self.inner.token.read().await.access_token.clone()
     }
 
+    /// Gets the token.
     pub async fn token(&self) -> Arc<str> {
         self.inner
             .token

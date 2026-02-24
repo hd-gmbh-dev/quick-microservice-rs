@@ -1,16 +1,19 @@
 use std::sync::Arc;
 
+/// Builder for Keycloak configuration with custom prefix support.
 #[derive(Default)]
 pub struct ConfigBuilder<'a> {
     prefix: Option<&'a str>,
 }
 
 impl<'a> ConfigBuilder<'a> {
+    /// Sets a custom environment variable prefix.
     pub fn with_prefix(mut self, prefix: &'a str) -> Self {
         self.prefix = Some(prefix);
         self
     }
 
+    /// Builds the Config from environment variables.
     pub fn build(self) -> envy::Result<Config> {
         let mut cfg: Config = if let Some(prefix) = self.prefix {
             envy::prefixed(prefix)
@@ -70,6 +73,7 @@ impl<'a> ConfigBuilder<'a> {
     }
 }
 
+/// Keycloak configuration loaded from environment variables.
 #[derive(Clone, serde::Deserialize, Debug)]
 pub struct Config {
     realm: Option<Arc<str>>,
@@ -101,106 +105,134 @@ pub struct Config {
 }
 
 impl Config {
+    /// Creates a new Config from environment variables with default KEYCLOAK_ prefix.
     pub fn new() -> envy::Result<Self> {
         ConfigBuilder::default().build()
     }
 
+    /// Creates a new ConfigBuilder for custom configuration.
     pub fn builder<'a>() -> ConfigBuilder<'a> {
         ConfigBuilder::default()
     }
 
+    /// Returns the Keycloak realm name.
     pub fn realm(&self) -> &str {
         self.realm.as_deref().unwrap_or("rmp")
     }
 
+    /// Returns the OAuth client ID.
     pub fn client_id(&self) -> &str {
         self.client_id.as_deref().unwrap_or("spa")
     }
 
+    /// Returns the UI theme name.
     pub fn theme(&self) -> &str {
         self.theme.as_deref().unwrap_or("qm")
     }
 
+    /// Returns the email theme name.
     pub fn email_theme(&self) -> &str {
         self.email_theme.as_deref().unwrap_or("qm")
     }
 
+    /// Returns the admin username for realm operations.
     pub fn realm_admin_username(&self) -> &str {
         self.realm_admin_username.as_deref().unwrap_or("admin")
     }
+
+    /// Returns the admin password for realm operations.
     pub fn realm_admin_password(&self) -> &str {
         self.realm_admin_password.as_deref().unwrap_or("Admin123!")
     }
+
+    /// Returns the admin email for realm operations.
     pub fn realm_admin_email(&self) -> &str {
         self.realm_admin_email
             .as_deref()
             .unwrap_or("admin@test.local")
     }
 
+    /// Returns the Keycloak server address.
     pub fn address(&self) -> &str {
         self.address.as_deref().unwrap_or("http://127.0.0.1:42210")
     }
 
+    /// Returns the public-facing URL.
     pub fn public_url(&self) -> &str {
         self.public_url.as_deref().unwrap_or("http://127.0.0.1:80")
     }
 
+    /// Returns the admin username.
     pub fn username(&self) -> &str {
         self.username.as_deref().unwrap_or("admin")
     }
 
+    /// Returns the admin password.
     pub fn password(&self) -> &str {
         self.password.as_deref().unwrap_or("admin")
     }
 
+    /// Returns the SMTP reply-to display name.
     pub fn smtp_reply_to_display_name(&self) -> Option<&str> {
         self.smtp_reply_to_display_name.as_deref()
     }
 
+    /// Returns whether SMTP STARTTLS is enabled.
     pub fn smtp_starttls(&self) -> Option<&bool> {
         self.smtp_starttls.as_ref()
     }
 
+    /// Returns the SMTP port.
     pub fn smtp_port(&self) -> Option<&u16> {
         self.smtp_port.as_ref()
     }
 
+    /// Returns the SMTP host.
     pub fn smtp_host(&self) -> Option<&str> {
         self.smtp_host.as_deref()
     }
 
+    /// Returns the SMTP reply-to address.
     pub fn smtp_reply_to(&self) -> Option<&str> {
         self.smtp_reply_to.as_deref()
     }
 
+    /// Returns the SMTP from address.
     pub fn smtp_from(&self) -> Option<&str> {
         self.smtp_from.as_deref()
     }
 
+    /// Returns the SMTP from display name.
     pub fn smtp_from_display_name(&self) -> Option<&str> {
         self.smtp_from_display_name.as_deref()
     }
 
+    /// Returns whether SMTP SSL is enabled.
     pub fn smtp_ssl(&self) -> Option<&bool> {
         self.smtp_ssl.as_ref()
     }
 
+    /// Returns the browser authentication flow name.
     pub fn browser_flow(&self) -> &str {
         self.browser_flow.as_deref().unwrap_or("browser")
     }
 
+    /// Returns the authenticator email subject.
     pub fn authenticator_email_subject(&self) -> Option<&str> {
         self.authenticator_email_subject.as_deref()
     }
 
+    /// Returns the keystore password.
     pub fn keystore_password(&self) -> Option<&str> {
         self.keystore_password.as_deref()
     }
 
+    /// Returns whether duplicate emails are allowed.
     pub fn duplicate_emails_allowed(&self) -> bool {
         self.duplicate_emails_allowed.unwrap_or_default()
     }
 
+    /// Returns whether username editing is allowed.
     pub fn edit_username_allowed(&self) -> bool {
         self.edit_username_allowed.unwrap_or_default()
     }

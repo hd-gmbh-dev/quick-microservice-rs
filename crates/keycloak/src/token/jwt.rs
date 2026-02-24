@@ -3,54 +3,84 @@ use std::{collections::HashSet, sync::Arc};
 use jsonwebtoken::{decode, Algorithm, DecodingKey, Validation};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
+/// Resource access from JWT.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ResourceAccess {
+    /// Account access.
     pub account: RealmAccess,
 }
 
+/// Realm access from JWT.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RealmAccess {
+    /// Roles.
     pub roles: Vec<Arc<str>>,
 }
 
+/// Partial claims for JWT validation.
 #[derive(Serialize, Clone, Deserialize, Default)]
 pub struct PartialClaims {
+    /// Issuer.
     pub iss: String,
+    /// Authorized party.
     pub azp: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+/// Full claims from JWT.
 pub struct Claims {
+    /// Expiration time.
     pub exp: i64,
+    /// Issued at time.
     pub iat: i64,
+    /// Authentication time.
     pub auth_time: Option<i64>,
+    /// JWT ID.
     pub jti: String,
+    /// Issuer.
     pub iss: String,
+    /// Audience.
     pub aud: serde_json::Value,
+    /// Subject.
     pub sub: Arc<str>,
+    /// Token type.
     pub typ: String,
+    /// Authorized party.
     pub azp: String,
+    /// Authentication context class reference.
     pub acr: String,
+    /// Allowed origins.
     #[serde(rename = "allowed-origins")]
     pub allowed_origins: Option<Vec<Arc<str>>>,
+    /// Realm access.
     pub realm_access: RealmAccess,
+    /// Resource access.
     pub resource_access: ResourceAccess,
+    /// Scope.
     #[serde(default)]
     pub scope: String,
+    /// Session ID.
     #[serde(default)]
     pub sid: String,
+    /// Email verified.
     #[serde(default)]
     pub email_verified: bool,
+    /// Name.
     #[serde(default)]
     pub name: String,
+    /// Preferred username.
     #[serde(default)]
     pub preferred_username: String,
+    /// Given name.
     #[serde(default)]
     pub given_name: String,
+    /// Family name.
     #[serde(default)]
     pub family_name: String,
+    /// Email.
     #[serde(default)]
     pub email: String,
+    /// Whether this is an API test.
     #[serde(skip)]
     pub is_api_test: bool,
 }
@@ -86,19 +116,29 @@ impl Default for Claims {
     }
 }
 
+/// Claims from logout token.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LogoutClaims {
+    /// Issued at.
     pub iat: i64,
+    /// JWT ID.
     pub jti: String,
+    /// Issuer.
     pub iss: String,
+    /// Audience.
     pub aud: serde_json::Value,
+    /// Subject.
     pub sub: String,
+    /// Token type.
     pub typ: String,
+    /// Session ID.
     pub sid: String,
 }
 
+/// JWT token holder.
 #[derive(Clone)]
 pub struct Jwt {
+    /// Key ID.
     pub kid: String,
     validation: Validation,
     logout_validation: Validation,
@@ -106,6 +146,7 @@ pub struct Jwt {
 }
 
 impl Jwt {
+    /// Creates a new JWT.
     pub fn new(
         alg: Algorithm,
         kid: String,
@@ -138,19 +179,23 @@ impl Jwt {
         })
     }
 
+    /// Decodes a token to Claims.
     pub fn decode(&self, token: &str) -> anyhow::Result<Claims> {
         self.decode_custom(token)
     }
 
+    /// Decodes a token to custom claims.
     pub fn decode_custom<C: DeserializeOwned + Clone>(&self, token: &str) -> anyhow::Result<C> {
         let result = decode(token, &self.decoding_key, &self.validation)?;
         Ok(result.claims)
     }
 
+    /// Decodes a logout token.
     pub fn decode_logout_token(&self, token: &str) -> anyhow::Result<LogoutClaims> {
         self.decode_logout_token_custom(token)
     }
 
+    /// Decodes a logout token to custom claims.
     pub fn decode_logout_token_custom<C: DeserializeOwned + Clone>(
         &self,
         token: &str,

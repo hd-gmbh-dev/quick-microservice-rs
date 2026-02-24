@@ -5,6 +5,7 @@ use crate::validation::model::RealmConfigError;
 use crate::validation::realm_errors;
 use crate::{ClientRepresentation, RealmRepresentation};
 
+/// Validates a realm configuration.
 pub async fn validate_realm(ctx: &Ctx<'_>) -> anyhow::Result<Option<Vec<RealmConfigError>>> {
     let mut errors = vec![];
     let realm = ctx.cfg().realm();
