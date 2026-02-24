@@ -1,3 +1,5 @@
+#![deny(missing_docs)]
+
 //! PostgreSQL connection and utilities.
 //!
 //! This crate provides PostgreSQL connection management with automatic database
