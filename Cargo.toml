@@ -6,7 +6,7 @@ members = ["crates/*", "examples/*"]
 [workspace.package]
 edition = "2024"
 version = "0.0.69"
-rust-version = "1.88.0"
+rust-version = "1.90.0"
 authors = ["Jürgen Seitz <juergen.seitz@h-d-gmbh.de>"]
 license = "MIT"
 repository = "https://github.com/hd-gmbh-dev/quick-microservice-rs"
@@ -108,7 +108,7 @@ qm = { path = ".", default-features = false, version = "0.0.69" }
 name = "qm"
 description = "Utilities for quick microservices in Rust"
 edition = "2024"
-rust-version = "1.87.0"
+rust-version = "1.90.0"
 version.workspace = true
 authors = ["Jürgen Seitz <juergen.seitz@h-d-gmbh.de>"]
 license = "MIT"

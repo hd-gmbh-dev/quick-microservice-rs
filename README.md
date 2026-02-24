@@ -22,7 +22,7 @@
 
 ## Requirements
 
-- Rust 1.88.0+
+- Rust 1.90.0+
 
 ## Feature flags
 
