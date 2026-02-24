@@ -20,6 +20,10 @@
 
 ---
 
+## Requirements
+
+- Rust 1.88.0+
+
 ## Feature flags
 
 ### default
