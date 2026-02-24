@@ -42,6 +42,9 @@ pub struct DbUsers {
     users: Vec<DbUser>,
 }
 
+/// MongoDB database connection wrapper.
+///
+/// Manages connections, collections, sharding, and provides database operations.
 #[derive(Clone)]
 pub struct DB {
     inner: Arc<Inner>,
@@ -228,6 +231,10 @@ impl DB {
     }
 }
 
+/// Parse a MongoDB cursor into a vector of deserialized documents.
+///
+/// Converts a MongoDB cursor into a `Vec` of deserialized type `T`.
+/// Failed deserialization is logged but skipped.
 pub async fn parse_vec<T>(cursor: mongodb::Cursor<Document>) -> Vec<T>
 where
     T: serde::de::DeserializeOwned,
@@ -247,6 +254,9 @@ where
         .await
 }
 
+/// Create options for upsert (insert or update) operations.
+///
+/// Returns `FindOneAndUpdateOptions` with `upsert` set to `true`.
 pub fn insert_always_opts() -> Option<FindOneAndUpdateOptions> {
     let mut opts = FindOneAndUpdateOptions::default();
     opts.upsert = Some(true);
