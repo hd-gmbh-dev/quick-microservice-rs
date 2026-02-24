@@ -1,3 +1,50 @@
+//! Role builder from markdown tables.
+//!
+//! This crate provides utilities to generate Rust code for role-based access control (RBAC)
+//! from markdown tables defined in documentation. It parses markdown files containing user
+//! groups and role mappings, then generates Rust code that can be used in your application.
+//!
+//! ## Input Format
+//!
+//! The input markdown file should contain two tables:
+//!
+//! 1. **User Groups Table** - defines available user groups and their paths
+//! 2. **Role Mappings Table** - maps user groups to roles
+//!
+//! ### Example Input
+//!
+//! \`\`\`markdown
+//! # User Groups `user_groups`
+//!
+//! | Name                  | Path                  | Display Name         | Allowed Types |
+//! | --------------------- | --------------------- | -------------------- | ------------- |
+//! | Admin                 | /administration_owner | Admin                | none          |
+//! | CustomerOwner         | /customer_owner       | Owner of Customer    | none          |
+//!
+//! # Role Mappings `roles`
+//!
+//! | Roles           | Admin   | InstitutionOwner | Reader |
+//! | --------------- | ------- | ---------------- | ------ |
+//! | administration  | x       |                  |        |
+//! | user:list       |         | x                |        |
+//! \`\`\`
+//!
+//! ## Usage
+//!
+//! ```ignore
+//! use qm_role_build::generate;
+//!
+//! fn main() -> anyhow::Result<()> {
+//!     generate("path/to/roles.md")?;
+//!     Ok(())
+//! }
+//! ```
+//!
+//! ## Output
+//!
+//! The generated code creates a `RoleMapping` struct containing the user group
+//! to roles mapping that can be used for authorization decisions.
+
 use std::path::{Path, PathBuf};
 
 mod model;
@@ -5,6 +52,12 @@ mod parser;
 mod reader;
 mod writer;
 
+/// Generate role mapping code from a markdown file.
+///
+/// Reads the markdown file at the given path, parses the user groups and role
+/// mappings, and writes the generated Rust code to `OUT_DIR`.
+///
+/// The output filename is derived from the input filename with the `.rs` extension.
 pub fn generate(input_file_path: &Path) -> anyhow::Result<()> {
     let out = input_file_path.with_extension("rs");
     let file_name = out
@@ -21,6 +74,10 @@ pub fn generate(input_file_path: &Path) -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Generate role mapping code to a custom writer.
+///
+/// Similar to [`generate`], but writes to a provided writer instead of `OUT_DIR`.
+/// This is useful for testing or capturing the generated output in memory.
 pub fn generate_to_writer<W: std::io::Write>(
     input_file_path: &Path,
     writer: W,
