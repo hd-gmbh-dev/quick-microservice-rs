@@ -6,6 +6,9 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::config::Config;
 
+/// Event namespace for categorizing events.
+///
+/// Used to organize events by domain area (e.g., customer, organization, user).
 pub enum EventNs {
     Customer,
     Organization,
@@ -52,6 +55,9 @@ impl FromStr for EventNs {
     }
 }
 
+/// Type of event being produced.
+///
+/// Represents CRUD operations and other event actions.
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub enum EventType {
     Upload,
@@ -65,6 +71,7 @@ pub enum EventType {
     Link,
 }
 
+/// A Kafka event with type and payload information.
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct Event {
     pub event: EventType,
@@ -78,6 +85,7 @@ pub struct Inner {
     producer: FutureProducer,
 }
 
+/// Builder for creating Producer instances.
 #[derive(Default)]
 pub struct ProducerBuilder {
     env_prefix: Option<&'static str>,
@@ -106,6 +114,10 @@ impl ProducerBuilder {
     }
 }
 
+/// Kafka producer for creating events.
+///
+/// Provides methods for producing structured events to Kafka topics
+/// with support for different event types and namespaces.
 #[derive(Clone)]
 pub struct Producer {
     inner: Arc<Inner>,

@@ -1,6 +1,7 @@
 use serde::Deserialize;
 use std::sync::Arc;
 
+/// Kafka configuration loaded from environment variables.
 #[derive(Deserialize)]
 pub struct Config {
     host: Option<Arc<str>>,
@@ -34,6 +35,7 @@ impl Config {
     }
 }
 
+/// Builder for Kafka configuration with custom prefix support.
 #[derive(Default)]
 pub struct ConfigBuilder<'a> {
     prefix: Option<&'a str>,

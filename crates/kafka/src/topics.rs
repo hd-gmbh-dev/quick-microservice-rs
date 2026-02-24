@@ -10,6 +10,10 @@ use rdkafka::ClientConfig;
 
 use crate::config::Config as KafkaConfig;
 
+/// Kafka admin client for topic and consumer group management.
+///
+/// Provides methods for creating, deleting, and managing Kafka topics
+/// and consumer groups.
 pub struct Client {
     inner: AdminClient<DefaultClientContext>,
 }
