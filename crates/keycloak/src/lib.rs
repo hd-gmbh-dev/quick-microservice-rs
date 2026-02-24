@@ -1,3 +1,5 @@
+#![deny(missing_docs)]
+
 //! Keycloak integration for authentication and authorization.
 //!
 //! This crate provides utilities for managing Keycloak realms, clients, users,
