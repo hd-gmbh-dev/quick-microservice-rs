@@ -1,3 +1,5 @@
+#![deny(missing_docs)]
+
 //! MongoDB connection and utilities.
 //!
 //! This crate provides MongoDB connection management with automatic user creation,
