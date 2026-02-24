@@ -1,3 +1,5 @@
+#![deny(missing_docs)]
+
 //! Kafka producer and topic management utilities.
 //!
 //! This crate provides utilities for producing events to Kafka topics and
@@ -38,6 +40,9 @@
 //! | `KAFKA_TOPIC_MUTATION_EVENTS` | Mutation events topic | `qm_mutation_events` |
 //! | `KAFKA_CONSUMER_GROUP_MUTATION_EVENTS_PREFIX` | Consumer group prefix | `qm_consumer_group` |
 
+/// Configuration module.
 pub mod config;
+/// Producer module for creating Kafka events.
 pub mod producer;
+/// Topics module for managing Kafka topics.
 pub mod topics;
