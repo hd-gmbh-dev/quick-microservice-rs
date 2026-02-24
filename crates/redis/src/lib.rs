@@ -1,3 +1,5 @@
+#![deny(missing_docs)]
+
 //! Redis connection, caching, and work queue utilities.
 //!
 //! This crate provides Redis connection management with connection pooling,
@@ -42,7 +44,9 @@ use redis::RedisError;
 use redis::ToRedisArgs;
 use std::sync::Arc;
 mod config;
+/// Distributed locking utilities.
 pub mod lock;
+/// Work queue implementation.
 pub mod work_queue;
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
@@ -68,10 +72,13 @@ use crate::lock::Lock;
 /// Error type for cache operations.
 #[derive(Debug, thiserror::Error)]
 pub enum CacheError {
+    /// Connection pool error.
     #[error(transparent)]
     Pool(#[from] PoolError),
+    /// Redis error.
     #[error(transparent)]
     Redis(#[from] RedisError),
+    /// Fetch operation failed.
     #[error("failed to fetch: {0}")]
     Failure(String),
 }
@@ -111,6 +118,7 @@ where
     }
 }
 
+/// Internal state for Redis connection.
 pub struct Inner {
     config: RedisConfig,
     client: redis::Client,
@@ -130,6 +138,7 @@ impl AsRef<deadpool_redis::Pool> for Redis {
 }
 
 impl Redis {
+    /// Creates a new Redis connection from environment variables.
     pub fn new() -> anyhow::Result<Self> {
         let config = RedisConfig::builder().build()?;
         let client = redis::Client::open(config.address())?;
@@ -144,28 +153,34 @@ impl Redis {
         })
     }
 
+    /// Returns a reference to the Redis configuration.
     pub fn config(&self) -> &RedisConfig {
         &self.inner.config
     }
 
+    /// Returns a reference to the Redis client.
     pub fn client(&self) -> &redis::Client {
         &self.inner.client
     }
 
+    /// Returns a clone of the connection pool.
     pub fn pool(&self) -> Arc<deadpool_redis::Pool> {
         Arc::new(self.inner.pool.clone())
     }
 
+    /// Acquires a connection from the pool.
     pub async fn connect(&self) -> Result<deadpool_redis::Connection, deadpool_redis::PoolError> {
         self.inner.pool.get().await
     }
 
+    /// Clears all data from the Redis database.
     pub async fn cleanup(&self) -> anyhow::Result<()> {
         let mut con = self.connect().await?;
         let _: redis::Value = redis::cmd("FLUSHALL").query_async(&mut con).await?;
         Ok(())
     }
 
+    /// Acquires a distributed lock with the given parameters.
     pub async fn lock(
         &self,
         key: &str,
@@ -177,6 +192,7 @@ impl Redis {
         lock::lock(&mut con, key, ttl, retry_count, retry_delay).await
     }
 
+    /// Releases a distributed lock.
     pub async fn unlock(&self, key: &str, lock_id: &str) -> Result<i64, lock::Error> {
         let mut con = self.connect().await?;
         lock::unlock(&mut con, key, lock_id).await
@@ -206,6 +222,7 @@ where
     result
 }
 
+/// Macro to implement AsRef<Redis> for a storage type.
 #[macro_export]
 macro_rules! redis {
     ($storage:ty) => {
@@ -217,19 +234,26 @@ macro_rules! redis {
     };
 }
 
+/// Type for running worker futures.
 pub type RunningWorkers =
     FuturesUnordered<Pin<Box<dyn Future<Output = String> + Send + Sync + 'static>>>;
 
+/// Type for executable item futures.
 pub type ExecItemFuture = Pin<Box<dyn Future<Output = anyhow::Result<()>> + Send + 'static>>;
 
+/// Context passed to worker functions.
 pub struct WorkerContext<Ctx>
 where
     Ctx: Clone + Send + Sync + 'static,
 {
     ctx: Ctx,
+    /// The worker ID.
     pub worker_id: usize,
+    /// The work queue.
     pub queue: Arc<WorkQueue>,
+    /// The Redis client.
     pub client: Arc<redis::Client>,
+    /// The current work item.
     pub item: Item,
 }
 
@@ -237,9 +261,12 @@ impl<Ctx> WorkerContext<Ctx>
 where
     Ctx: Clone + Send + Sync + 'static,
 {
+    /// Returns a reference to the context.
     pub fn ctx(&self) -> &Ctx {
         &self.ctx
     }
+
+    /// Marks the current item as completed.
     pub async fn complete(&self) -> anyhow::Result<()> {
         let mut con = self.client.get_multiplexed_async_connection().await?;
         self.queue.complete(&mut con, &self.item).await?;
@@ -258,12 +285,14 @@ async fn add(
     instances.write().await.as_mut().unwrap().push(fut);
 }
 
+/// Trait for implementing worker logic.
 #[async_trait::async_trait]
 pub trait Work<Ctx, T>: Send + Sync
 where
     Ctx: Clone + Send + Sync + 'static,
     T: DeserializeOwned + Send + Sync,
 {
+    /// Runs the worker logic for a given item.
     async fn run(&self, ctx: WorkerContext<Ctx>, item: T) -> anyhow::Result<()>;
 }
 
@@ -365,11 +394,13 @@ pub struct Workers {
 }
 
 impl Workers {
+    /// Creates a new Workers instance from a Redis config.
     pub fn new(config: &RedisConfig) -> RedisResult<Self> {
         let client = Arc::new(redis::Client::open(config.address())?);
         Ok(Self::new_with_client(client))
     }
 
+    /// Creates a new Workers instance with an existing Redis client.
     pub fn new_with_client(client: Arc<redis::Client>) -> Self {
         Self {
             inner: Arc::new(WorkerInner {
@@ -380,6 +411,7 @@ impl Workers {
         }
     }
 
+    /// Starts the workers with the given context and async worker.
     pub async fn start<Ctx, T>(&self, ctx: Ctx, worker: AsyncWorker<Ctx, T>) -> anyhow::Result<()>
     where
         Ctx: Clone + Send + Sync + 'static,
@@ -460,6 +492,7 @@ impl Workers {
         Ok(())
     }
 
+    /// Terminates all workers gracefully.
     pub async fn terminate(&self) -> anyhow::Result<()> {
         if !self.inner.is_running.load(Ordering::SeqCst) {
             anyhow::bail!("Workers already terminated");
@@ -482,6 +515,7 @@ pub struct Producer {
 }
 
 impl Producer {
+    /// Creates a new Producer from a Redis config and prefix.
     pub fn new<S>(config: &RedisConfig, prefix: S) -> anyhow::Result<Self>
     where
         S: Into<String>,
@@ -491,6 +525,7 @@ impl Producer {
         Ok(Self::new_with_client(redis, prefix))
     }
 
+    /// Creates a new Producer with an existing connection pool and prefix.
     pub fn new_with_client<S>(client: Arc<deadpool_redis::Pool>, prefix: S) -> Self
     where
         S: Into<String>,
@@ -499,6 +534,7 @@ impl Producer {
         Self { client, queue }
     }
 
+    /// Adds an item using an existing connection.
     pub async fn add_item_with_connection<C, T>(&self, db: &mut C, data: &T) -> anyhow::Result<()>
     where
         C: AsyncCommands,
@@ -509,6 +545,7 @@ impl Producer {
         Ok(())
     }
 
+    /// Adds an item to the queue.
     pub async fn add_item<T>(&self, data: &T) -> anyhow::Result<()>
     where
         T: Serialize,
@@ -543,6 +580,7 @@ where
     Ctx: Clone + Send + Sync + 'static,
     T: DeserializeOwned + Send + Sync,
 {
+    /// Creates a new AsyncWorker with the given prefix.
     pub fn new<S>(prefix: S) -> Self
     where
         S: Into<String>,
@@ -560,21 +598,25 @@ where
         }
     }
 
+    /// Sets the timeout for worker tasks.
     pub fn with_timeout(mut self, timeout: u64) -> Self {
         self.timeout = timeout;
         self
     }
 
+    /// Sets the lease duration for queue items.
     pub fn with_lease_duration(mut self, lease_duration: u64) -> Self {
         self.lease_duration = lease_duration;
         self
     }
 
+    /// Sets the number of worker threads.
     pub fn with_num_workers(mut self, num_workers: usize) -> Self {
         self.num_workers = num_workers;
         self
     }
 
+    /// Creates a Producer for adding items to the queue.
     pub fn producer(&self, client: Arc<deadpool_redis::Pool>) -> Producer {
         Producer {
             client,
@@ -582,6 +624,7 @@ where
         }
     }
 
+    /// Recovers pending items from a previous run.
     pub async fn recover<C: AsyncCommands>(&self, db: &mut C) -> anyhow::Result<()> {
         let l = lock::lock(db, &self.recovery_key, 3600, 36, 100).await?;
         self.recovery_queue.recover(db).await?;
@@ -589,6 +632,7 @@ where
         Ok(())
     }
 
+    /// Sets the work function and returns self.
     pub fn run(mut self, work: impl Work<Ctx, T> + 'static) -> Self {
         self.work = Some(Box::new(work));
         self
