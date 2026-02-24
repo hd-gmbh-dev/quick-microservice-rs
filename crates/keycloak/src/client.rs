@@ -1318,6 +1318,21 @@ impl Keycloak {
         Ok(())
     }
 
+    pub async fn update_identity_provider_mapper(
+        &self,
+        realm: &str,
+        alias: &str,
+        mapper_id: &str,
+        mapper: IdentityProviderMapperRepresentation,
+    ) -> Result<(), KeycloakError> {
+        self.inner
+            .admin
+            .realm(realm)
+            .identity_provider_instances_with_alias_mappers_with_id_put(alias, mapper_id, mapper)
+            .await?;
+        Ok(())
+    }
+
     pub async fn find_key_providers(
         &self,
         realm: &str,
