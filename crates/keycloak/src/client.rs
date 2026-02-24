@@ -22,6 +22,7 @@ pub use crate::config::Config as KeycloakConfig;
 /// Server information for Keycloak.
 #[derive(Debug, serde::Deserialize, serde::Serialize)]
 pub struct ServerInfo {
+    /// Realm name.
     #[serde(default)]
     pub realm: Option<String>,
 }
@@ -29,8 +30,10 @@ pub struct ServerInfo {
 /// Realm information for Keycloak including public key.
 #[derive(Debug, serde::Deserialize, serde::Serialize)]
 pub struct RealmInfo {
+    /// Realm name.
     #[serde(default)]
     pub realm: Option<String>,
+    /// Public key for the realm.
     #[serde(default)]
     pub public_key: Option<String>,
 }
@@ -67,16 +70,19 @@ pub struct KeycloakBuilder {
 }
 
 impl KeycloakBuilder {
+    /// Disables token refresh.
     pub fn with_no_refresh(mut self) -> Self {
         self.no_refresh = true;
         self
     }
 
+    /// Sets environment variable prefix for configuration.
     pub fn with_env_prefix(mut self, prefix: &'static str) -> Self {
         self.env_prefix = Some(prefix);
         self
     }
 
+    /// Builds the Keycloak client.
     pub async fn build(self) -> anyhow::Result<Keycloak> {
         let mut config_builder = KeycloakConfig::builder();
         if let Some(prefix) = self.env_prefix {
@@ -113,26 +119,32 @@ pub struct Keycloak {
 }
 
 impl Keycloak {
+    /// Creates a new KeycloakBuilder.
     pub fn builder() -> KeycloakBuilder {
         KeycloakBuilder::default()
     }
 
+    /// Returns the HTTP client.
     pub fn http_client(&self) -> &reqwest::Client {
         &self.inner.client
     }
 
+    /// Creates a new Keycloak instance with default configuration.
     pub async fn new() -> anyhow::Result<Self> {
         KeycloakBuilder::default().build().await
     }
 
+    /// Returns the public URL.
     pub fn public_url(&self) -> &str {
         self.inner.config.public_url()
     }
 
+    /// Returns the Keycloak configuration.
     pub fn config(&self) -> &KeycloakConfig {
         &self.inner.config
     }
 
+    /// Gets users in a realm.
     pub async fn users(
         &self,
         realm: &str,
@@ -154,6 +166,7 @@ impl Keycloak {
             })
     }
 
+    /// Creates a new realm.
     pub async fn create_realm(
         &self,
         realm_representation: RealmRepresentation,
@@ -170,10 +183,12 @@ impl Keycloak {
         Ok(())
     }
 
+    /// Removes a realm by name.
     pub async fn remove_realm(&self, realm: &str) -> Result<(), KeycloakError> {
         self.inner.admin.realm(realm).delete().await.map(|_| ())
     }
 
+    /// Removes a group by ID.
     pub async fn remove_group(&self, realm: &str, id: &str) -> Result<(), KeycloakError> {
         self.inner
             .admin
@@ -187,6 +202,7 @@ impl Keycloak {
             })
     }
 
+    /// Removes a group by path.
     pub async fn remove_group_by_path(&self, realm: &str, path: &str) -> Result<(), KeycloakError> {
         let group = self
             .inner
@@ -206,6 +222,7 @@ impl Keycloak {
             })
     }
 
+    /// Removes a role by name.
     pub async fn remove_role(&self, realm: &str, role_name: &str) -> Result<(), KeycloakError> {
         self.inner
             .admin
@@ -219,6 +236,7 @@ impl Keycloak {
             })
     }
 
+    /// Removes a role by ID.
     pub async fn remove_role_by_id(&self, realm: &str, role_id: &str) -> Result<(), KeycloakError> {
         self.inner
             .admin
@@ -232,6 +250,7 @@ impl Keycloak {
             })
     }
 
+    /// Gets all realms.
     pub async fn realms(&self) -> Result<Vec<String>, KeycloakError> {
         let builder = self
             .inner
@@ -263,6 +282,7 @@ impl Keycloak {
             .collect())
     }
 
+    /// Gets all clients in a realm.
     pub async fn clients(&self, realm: &str) -> Result<Vec<ClientRepresentation>, KeycloakError> {
         let page_offset = 1000;
         let mut offset = 0;
@@ -289,6 +309,7 @@ impl Keycloak {
         Ok(clients)
     }
 
+    /// Gets a realm by name.
     pub async fn realm_by_name(&self, realm: &str) -> Result<RealmRepresentation, KeycloakError> {
         self.inner.admin.realm(realm).get().await.map_err(|e| {
             tracing::error!("{e:#?}");
@@ -296,6 +317,7 @@ impl Keycloak {
         })
     }
 
+    /// Updates a realm by name.
     pub async fn update_realm_by_name(
         &self,
         realm: &str,
@@ -313,6 +335,7 @@ impl Keycloak {
             })
     }
 
+    /// Gets all roles in a realm.
     pub async fn roles(&self, realm: &str) -> Result<Vec<RoleRepresentation>, KeycloakError> {
         self.inner
             .admin
@@ -326,6 +349,7 @@ impl Keycloak {
             })
     }
 
+    /// Gets all roles in a realm (paginated).
     pub async fn all_roles(&self, realm: &str) -> Result<Vec<RoleRepresentation>, KeycloakError> {
         let page_offset = 1000;
         let mut offset = 0;
@@ -353,6 +377,7 @@ impl Keycloak {
         Ok(roles)
     }
 
+    /// Gets a realm role by name.
     pub async fn realm_role_by_name(
         &self,
         realm: &str,
@@ -365,6 +390,7 @@ impl Keycloak {
             .await
     }
 
+    /// Creates a new role.
     pub async fn create_role(
         &self,
         realm: &str,
@@ -382,6 +408,7 @@ impl Keycloak {
             })
     }
 
+    /// Creates a new group.
     pub async fn create_group(
         &self,
         realm: &str,
@@ -399,6 +426,7 @@ impl Keycloak {
             })
     }
 
+    /// Gets a group by its path.
     pub async fn group_by_path(
         &self,
         realm: &str,
@@ -411,6 +439,7 @@ impl Keycloak {
             .await
     }
 
+    /// Gets a group and its children by ID.
     pub async fn group_by_id_with_children(
         &self,
         realm: &str,
@@ -428,6 +457,7 @@ impl Keycloak {
         Ok(subgroups.into_iter().filter(|g| g.id.is_some()).collect())
     }
 
+    /// Gets members of a role.
     pub async fn role_members(
         &self,
         realm: &str,
@@ -444,6 +474,7 @@ impl Keycloak {
             })
     }
 
+    /// Creates a sub-group with a specific ID.
     pub async fn create_sub_group_with_id(
         &self,
         realm: &str,
@@ -462,6 +493,7 @@ impl Keycloak {
         Ok(())
     }
 
+    /// Creates realm role mappings for a group.
     pub async fn create_realm_role_mappings_by_group_id(
         &self,
         realm: &str,
@@ -480,6 +512,7 @@ impl Keycloak {
             })
     }
 
+    /// Gets a user by ID.
     pub async fn user_by_id(
         &self,
         realm: &str,
@@ -499,6 +532,7 @@ impl Keycloak {
             .ok())
     }
 
+    /// Gets a user by role.
     pub async fn user_by_role(
         &self,
         realm: &str,
@@ -524,6 +558,7 @@ impl Keycloak {
             }))
     }
 
+    /// Gets a user by username.
     pub async fn user_by_username(
         &self,
         realm: &str,
@@ -552,6 +587,7 @@ impl Keycloak {
             }))
     }
 
+    /// Gets realm information.
     pub async fn info(&self, realm: &str) -> Result<RealmInfo, KeycloakError> {
         let builder = self
             .inner
@@ -568,6 +604,7 @@ impl Keycloak {
             .await?)
     }
 
+    /// Gets a client by client_id.
     pub async fn get_client(
         &self,
         realm: &str,
@@ -588,6 +625,7 @@ impl Keycloak {
             .pop())
     }
 
+    /// Gets a client by ID.
     pub async fn get_client_by_id(
         &self,
         realm: &str,
@@ -609,6 +647,7 @@ impl Keycloak {
             .pop())
     }
 
+    /// Gets a client's service account user.
     pub async fn get_client_service_account(
         &self,
         realm: &str,
@@ -625,6 +664,7 @@ impl Keycloak {
             })
     }
 
+    /// Creates a new client.
     pub async fn create_client(
         &self,
         realm: &str,
@@ -642,6 +682,7 @@ impl Keycloak {
         Ok(())
     }
 
+    /// Removes a client by client_id.
     pub async fn remove_client(&self, realm: &str, client_id: &str) -> Result<(), KeycloakError> {
         let client = self
             .get_client_by_id(realm, client_id)
@@ -663,6 +704,7 @@ impl Keycloak {
         Ok(())
     }
 
+    /// Removes a client by UUID.
     pub async fn remove_client_with_uuid(
         &self,
         realm: &str,
@@ -680,6 +722,7 @@ impl Keycloak {
         Ok(())
     }
 
+    /// Updates a client.
     pub async fn update_client(
         &self,
         realm: &str,
@@ -698,6 +741,7 @@ impl Keycloak {
             })
     }
 
+    /// Gets client scopes.
     pub async fn get_client_scopes(
         &self,
         realm: &str,
@@ -713,6 +757,7 @@ impl Keycloak {
             })
     }
 
+    /// Gets a client scope protocol mapper.
     pub async fn get_client_scope_protocol_mapper(
         &self,
         realm: &str,
@@ -733,6 +778,7 @@ impl Keycloak {
             })
     }
 
+    /// Creates a client scope protocol mapper.
     pub async fn create_client_scope_protocol_mapper(
         &self,
         realm: &str,
@@ -751,6 +797,7 @@ impl Keycloak {
             })
     }
 
+    /// Updates a client scope protocol mapper.
     pub async fn update_client_scope_protocol_mapper(
         &self,
         realm: &str,
@@ -774,6 +821,7 @@ impl Keycloak {
             })
     }
 
+    /// Removes a client scope protocol mapper.
     pub async fn remove_client_scope_protocol_mapper(
         &self,
         realm: &str,
@@ -795,6 +843,7 @@ impl Keycloak {
             })
     }
 
+    /// Creates a new user.
     pub async fn create_user(
         &self,
         realm: &str,
@@ -812,6 +861,7 @@ impl Keycloak {
         Ok(())
     }
 
+    /// Updates a user's password.
     pub async fn update_password(
         &self,
         realm: &str,
@@ -830,6 +880,7 @@ impl Keycloak {
         Ok(())
     }
 
+    /// Updates a user.
     pub async fn update_user(
         &self,
         realm: &str,
@@ -848,6 +899,7 @@ impl Keycloak {
         Ok(())
     }
 
+    /// Adds a user to a group.
     pub async fn add_user_to_group(
         &self,
         realm: &str,
@@ -866,6 +918,7 @@ impl Keycloak {
         Ok(())
     }
 
+    /// Adds a role to a user.
     pub async fn add_user_role(
         &self,
         realm: &str,
@@ -884,6 +937,7 @@ impl Keycloak {
             })
     }
 
+    /// Removes a user from a group.
     pub async fn remove_user_from_group(
         &self,
         realm: &str,
@@ -902,6 +956,7 @@ impl Keycloak {
         Ok(())
     }
 
+    /// Removes roles from a user.
     pub async fn remove_user_from_roles(
         &self,
         realm: &str,
@@ -920,6 +975,7 @@ impl Keycloak {
         Ok(())
     }
 
+    /// Removes a user.
     pub async fn remove_user(&self, realm: &str, user_id: &str) -> Result<(), KeycloakError> {
         self.inner
             .admin
@@ -933,6 +989,7 @@ impl Keycloak {
         Ok(())
     }
 
+    /// Removes brute force status for a user.
     pub async fn remove_brute_force_for_user(
         &self,
         realm: &str,
@@ -950,6 +1007,7 @@ impl Keycloak {
         Ok(())
     }
 
+    /// Gets brute force status for a user.
     pub async fn get_brute_force_status_for_user(
         &self,
         realm: &str,
@@ -966,6 +1024,7 @@ impl Keycloak {
             .unwrap_or_default())
     }
 
+    /// Sends a verification email to a user.
     pub async fn send_verify_email_user(
         &self,
         realm: &str,
@@ -987,6 +1046,7 @@ impl Keycloak {
         Ok(())
     }
 
+    /// Sends a custom email to a user.
     pub async fn send_custom_email_user(
         &self,
         realm: &str,
@@ -1009,6 +1069,7 @@ impl Keycloak {
         Ok(())
     }
 
+    /// Gets an error message from a KeycloakError.
     pub fn error_message<'e>(&self, err: &'e KeycloakError) -> Cow<'e, str> {
         match err {
             KeycloakError::ReqwestFailure(err) => Cow::Owned(err.to_string()),
@@ -1030,6 +1091,7 @@ impl Keycloak {
         }
     }
 
+    /// Gets authentication flows.
     pub async fn get_authentication_flows(
         &self,
         realm: &str,
@@ -1041,6 +1103,7 @@ impl Keycloak {
             .await
     }
 
+    /// Copies an authentication flow.
     pub async fn copy_authentication_flow(
         &self,
         realm: &str,
@@ -1065,6 +1128,7 @@ impl Keycloak {
         }
     }
 
+    /// Gets flow executions.
     pub async fn get_flow_executions(
         &self,
         realm: &str,
@@ -1088,6 +1152,7 @@ impl Keycloak {
         }
     }
 
+    /// Removes an execution.
     pub async fn remove_execution(&self, realm: &str, id: &str) -> Result<(), KeycloakError> {
         let result = self
             .inner
@@ -1107,6 +1172,7 @@ impl Keycloak {
         }
     }
 
+    /// Creates a subflow.
     pub async fn create_subflow(
         &self,
         realm: &str,
@@ -1131,6 +1197,7 @@ impl Keycloak {
         }
     }
 
+    /// Modifies a flow execution.
     pub async fn modify_flow_execution(
         &self,
         realm: &str,
@@ -1155,6 +1222,7 @@ impl Keycloak {
         }
     }
 
+    /// Creates a flow execution.
     pub async fn create_flow_execution(
         &self,
         realm: &str,
@@ -1179,6 +1247,7 @@ impl Keycloak {
         }
     }
 
+    /// Adds an authenticator config.
     pub async fn add_authenticator_config(
         &self,
         realm: &str,
@@ -1193,6 +1262,7 @@ impl Keycloak {
         Ok(())
     }
 
+    /// Finds an identity provider.
     pub async fn find_identity_provider(
         &self,
         realm: &str,
@@ -1205,6 +1275,7 @@ impl Keycloak {
             .await
     }
 
+    /// Adds a SAML identity provider.
     pub async fn add_saml_identity_provider(
         &self,
         realm: &str,
@@ -1216,6 +1287,7 @@ impl Keycloak {
             .await
     }
 
+    /// Adds a custom SAML identity provider.
     pub async fn add_saml_identity_provider_custom<T>(
         &self,
         realm: &str,
@@ -1257,6 +1329,7 @@ impl Keycloak {
         .await
     }
 
+    /// Adds a SAML identity provider from config.
     pub async fn add_saml_identity_provider_from_config<T>(
         &self,
         realm: &str,
@@ -1300,6 +1373,7 @@ impl Keycloak {
         Ok(())
     }
 
+    /// Finds identity provider mappers.
     pub async fn find_identity_provider_mappers(
         &self,
         realm: &str,
@@ -1312,6 +1386,7 @@ impl Keycloak {
             .await
     }
 
+    /// Adds an identity provider mapper.
     pub async fn add_identity_provider_mapper(
         &self,
         realm: &str,
@@ -1326,6 +1401,7 @@ impl Keycloak {
         Ok(())
     }
 
+    /// Updates an identity provider mapper.
     pub async fn update_identity_provider_mapper(
         &self,
         realm: &str,
@@ -1341,6 +1417,7 @@ impl Keycloak {
         Ok(())
     }
 
+    /// Finds key providers.
     pub async fn find_key_providers(
         &self,
         realm: &str,
@@ -1353,6 +1430,7 @@ impl Keycloak {
             .await
     }
 
+    /// Adds a key provider.
     pub async fn add_key_provider(
         &self,
         realm: &str,
@@ -1367,6 +1445,7 @@ impl Keycloak {
         Ok(())
     }
 
+    /// Deletes a component.
     pub async fn delete_component(&self, realm: &str, id: &str) -> Result<(), KeycloakError> {
         self.inner
             .admin
@@ -1376,6 +1455,7 @@ impl Keycloak {
             .map(|_| ())
     }
 
+    /// Modifies a component.
     pub async fn modify_component(
         &self,
         realm: &str,
@@ -1390,6 +1470,7 @@ impl Keycloak {
             .map(|_| ())
     }
 
+    /// Gets user groups.
     pub async fn user_groups(
         &self,
         realm: &str,
@@ -1403,6 +1484,7 @@ impl Keycloak {
             .await
     }
 
+    /// Gets user roles.
     pub async fn user_roles(
         &self,
         realm: &str,
@@ -1415,6 +1497,7 @@ impl Keycloak {
             .await
     }
 
+    /// Imports identity provider config.
     pub async fn identity_provider_import_config(
         &self,
         realm: &str,
@@ -1427,6 +1510,7 @@ impl Keycloak {
             .await
     }
 
+    /// Imports SAML identity provider config.
     pub async fn identity_provider_import_saml_config(
         &self,
         realm: &str,
@@ -1437,6 +1521,7 @@ impl Keycloak {
     }
 }
 
+/// Sets up IDP signature and encryption settings.
 pub fn idp_signature_and_encryption(
     mut idp: IdentityProviderRepresentation,
     principal_attribute: &str,

@@ -5,10 +5,14 @@ use tokio::runtime::Builder;
 use tokio::sync::RwLock;
 use tokio::task::LocalSet;
 
+/// Errors for Keycloak session operations.
 #[derive(Debug, Clone)]
 pub enum KeycloakSessionError {
+    /// Request failure.
     ReqwestFailure(Arc<reqwest::Error>),
+    /// HTTP failure with status and text.
     HttpFailure { status: u16, text: Arc<str> },
+    /// Decode failure.
     Decode(Arc<serde_json::Error>),
 }
 
@@ -47,54 +51,66 @@ async fn error(response: reqwest::Response) -> Result<reqwest::Response, Keycloa
     Ok(response)
 }
 
+/// Parsed access token from Keycloak.
 #[derive(Debug, serde::Deserialize, serde::Serialize)]
 pub struct ParsedAccessToken {
+    /// Expiration time.
     exp: usize,
-    //:1677048774,
+    /// Issued at time.
     iat: usize,
-    //:1677048714,
-    // auth_time: usize, //:1677047319,
+    /// JWT ID.
     jti: Option<String>,
-    //:"48ef7bc9-1a42-4e4f-b136-5fd74d4d6033",
+    /// Issuer.
     iss: Option<String>,
-    //:"https://id.qm-example.local/realms/master",
+    /// Subject (user ID).
     sub: Option<String>,
-    //:"fe487690-8c65-4106-95a5-5b1dbb8e6bbd",
+    /// Token type.
     typ: Option<String>,
-    //:"Bearer",
+    /// Authorized party (client ID).
     azp: Option<String>,
-    //:"security-admin-console",
+    /// Nonce.
     nonce: Option<String>,
-    //:"86e7e8a2-5af5-4fed-80e7-1da412e51070",
+    /// Session state.
     session_state: Option<String>,
-    //:"cdfaa367-5c30-4142-b31a-f770073e2051",
+    /// Authentication context class reference.
     acr: Option<String>,
-    //:"0",
+    /// Allowed actions.
     allowed: Option<Vec<String>>,
-    //origins":["https://keycloak.qm-example.local"],
+    /// Scope.
     scope: Option<String>,
-    //:"openid profile email",
+    /// Session ID.
     sid: Option<String>,
-    //:"cdfaa367-5c30-4142-b31a-f770073e2051",
+    /// Whether email is verified.
     #[serde(default)]
     email_verified: bool,
-    //:false,
-    preferred_username: Option<String>, //:"admin"
+    /// Preferred username.
+    preferred_username: Option<String>,
 }
 
+/// Session token from Keycloak.
 #[derive(Debug, serde::Deserialize, serde::Serialize)]
 pub struct KeycloakSessionToken {
+    /// Access token.
     access_token: Arc<str>,
+    /// Time until expiration.
     expires_in: usize,
+    /// Not before policy.
     #[serde(rename = "not-before-policy")]
     not_before_policy: Option<usize>,
+    /// Time until refresh token expires.
     refresh_expires_in: Option<usize>,
+    /// Refresh token.
     refresh_token: Arc<str>,
+    /// Scope.
     scope: String,
+    /// Session state.
     session_state: Option<String>,
+    /// Token type.
     token_type: String,
+    /// Parsed access token.
     #[serde(skip)]
     parsed_access_token: Option<ParsedAccessToken>,
+    /// Client token (type + access_token).
     #[serde(skip)]
     client_token: Option<Arc<str>>,
 }

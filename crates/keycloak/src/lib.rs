@@ -50,15 +50,22 @@
 //! Default username/password: `admin`/`Admin123`
 mod client;
 
+/// Session management.
 pub mod session;
 pub use client::*;
+/// Configuration for keycloak.
 pub mod config;
+/// Realm management.
 pub mod realm;
+/// Schema definitions.
 pub mod schema;
+/// Token handling.
 pub mod token;
+/// Validation utilities.
 pub mod validation;
 pub use token::store::JwtStore;
 
+/// Macro to implement AsRef<Keycloak> for storage types.
 #[macro_export]
 macro_rules! keycloak {
     ($storage:ty) => {
