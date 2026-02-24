@@ -1,3 +1,53 @@
+//! NATS JetStream integration for building distributed microservices.
+//!
+//! This crate provides utilities for connecting to NATS with JetStream support,
+//! enabling event-driven architectures with distributed locking and sequencing capabilities.
+//!
+//! ## Features
+//!
+//! - **Event Publishing**: Stream events to NATS JetStream with structured subject paths
+//! - **Distributed Locks**: Acquire and manage distributed locks across services
+//! - **Sequence Generation**: Generate unique, monotonically increasing sequences
+//! - **System Consumers**: Create durable pull consumers for event processing
+//! - **Configuration**: Environment-based configuration with sensible defaults
+//!
+//! ## Quick Start
+//!
+//! ```ignore
+//! use qm_nats::{Config, Nats};
+//!
+//! #[tokio::main]
+//! async fn main() -> anyhow::Result<()> {
+//!     let config = Config::new()?;
+//!     let nats = Nats::new(config).await?;
+//!
+//!     // Create a publisher
+//!     let publisher = nats.publisher().await?;
+//!     publisher.publish("subject.here", &"hello").await?;
+//!
+//!     // Or use distributed locks
+//!     let locks = nats.distributed_locks().await?;
+//!     let lock_manager = locks.sys_locks().await?;
+//!     let result = lock_manager.run_locked("my-resource", async {
+//!         // Critical section
+//!         Ok::<_, std::convert::Infalloid>(42)
+//!     }).await?;
+//!
+//!     Ok(())
+//! }
+//! ```
+//!
+//! ## Environment Variables
+//!
+//! | Variable | Description | Default |
+//! |----------|-------------|---------|
+//! | `NATS_HOST` | NATS server host | `127.0.0.1` |
+//! | `NATS_PORT` | NATS server port | `4222` |
+//! | `NATS_APP_NAME` | Application name | `edd-service-rs` |
+//! | `NATS_SYS_LOCKS` | Key-value bucket for locks | `SYS_LOCKS` |
+//! | `NATS_EVENTS_STREAM_NAME` | JetStream stream for events | `EVENTS` |
+//! | `NATS_EVENTS_STREAM_SUBJECT` | Subject pattern for events | `ev.>` |
+
 use std::{
     collections::HashSet,
     error::Error,
@@ -28,6 +78,10 @@ pub use async_nats;
 
 pub mod subject;
 
+/// Configuration for NATS JetStream connection.
+///
+/// Loads configuration from environment variables with sensible defaults.
+/// See module-level documentation for available environment variables.
 #[derive(Clone, serde::Deserialize)]
 pub struct Config {
     app_name: Option<String>,
@@ -96,6 +150,10 @@ pub struct Inner {
     config: Config,
 }
 
+/// NATS JetStream client wrapper.
+///
+/// Provides high-level access to NATS JetStream features including
+/// event publishing, distributed locking, and sequence management.
 #[derive(Clone)]
 pub struct Nats {
     inner: Arc<Inner>,
@@ -200,10 +258,18 @@ impl Nats {
     }
 }
 
+/// Trait for converting events to NATS subjects.
+///
+/// Implement this trait on your event types to enable automatic
+/// subject path generation for event publishing.
 pub trait EventToSubject<M> {
     fn event_to_subject(&self) -> async_nats::Subject;
 }
 
+/// Event publisher for NATS JetStream.
+///
+/// Manages the events stream and provides methods to publish events
+/// with structured subject paths.
 pub struct Publisher {
     ctx: Context,
 }
@@ -258,6 +324,7 @@ impl AsRef<Context> for Publisher {
     }
 }
 
+/// Error type for distributed lock operations.
 #[derive(thiserror::Error, Debug)]
 pub enum DistributedLocksError {
     #[error(transparent)]
@@ -268,6 +335,9 @@ pub enum DistributedLocksError {
     KeyValue(#[from] async_nats::error::Error<KeyValueErrorKind>),
 }
 
+/// Distributed locks manager.
+///
+/// Manages a key-value store for distributed locking across services.
 #[derive(Clone)]
 pub struct DistributedLocks {
     ctx: Context,
@@ -327,6 +397,7 @@ impl DistributedLocks {
     }
 }
 
+/// Error type for lock manager operations.
 #[derive(thiserror::Error, Debug)]
 pub enum LockManagerError {
     #[error(transparent)]
@@ -339,6 +410,7 @@ pub enum LockManagerError {
     OutOfRetries(std::time::Duration),
 }
 
+/// Error type for sequence manager operations.
 #[derive(thiserror::Error, Debug)]
 pub enum SequenceManagerError {
     #[error(transparent)]
@@ -353,6 +425,10 @@ pub enum SequenceManagerError {
     Entry(#[from] async_nats::error::Error<async_nats::jetstream::kv::EntryErrorKind>),
 }
 
+/// Sequence manager for generating unique, monotonically increasing IDs.
+///
+/// Uses NATS JetStream key-value stores to maintain sequence counters
+/// that can be used across distributed services.
 pub struct SequenceManager {
     ctx: Context,
 }
@@ -417,6 +493,11 @@ impl SequenceManager {
     }
 }
 
+/// Lock manager for acquiring and managing distributed locks.
+///
+/// Provides automatic lock acquisition and release with retry logic.
+/// Locks are automatically refreshed and released when the critical
+/// section completes or the lock holder crashes.
 pub struct LockManager {
     kv: Arc<Store>,
 }
@@ -527,12 +608,19 @@ impl LockManager {
     }
 }
 
+/// State of a distributed lock.
 #[derive(Debug, PartialEq, Eq)]
 pub enum LockState {
+    /// Lock is being acquired.
     Registering,
+    /// Lock has been acquired.
     Registered,
 }
 
+/// A distributed lock handle.
+///
+/// Represents an acquired lock. The lock is automatically released
+/// when the handle is dropped or the holder crashes.
 #[derive(Debug)]
 pub struct Lock {
     name: String,
