@@ -1,41 +1,66 @@
 use async_graphql::{Enum, OutputType, SimpleObject};
 use strum::{AsRefStr, EnumString};
 
+/// Operation type for events.
 #[derive(Default, Debug, EnumString, AsRefStr, Clone, Copy, PartialEq, Eq, Enum)]
 #[strum(serialize_all = "lowercase")]
 pub enum Op {
+    /// Request operation.
     #[default]
     Req,
+    /// Response operation.
     Res,
+    /// Mutation operation.
     Mut,
 }
 
+/// Event type.
 #[derive(Default, Debug, EnumString, AsRefStr, Clone, Copy, PartialEq, Eq, Enum)]
 #[strum(serialize_all = "lowercase")]
 pub enum Type {
+    /// Unknown type.
     #[default]
     Unknown,
+    /// Create event.
     Create,
+    /// Renew event.
     Renew,
+    /// Update event.
     Update,
+    /// Delete event.
     Delete,
+    /// Download event.
     Download,
+    /// Upload event.
     Upload,
+    /// Import event.
     Import,
+    /// Export event.
     Export,
+    /// Send event.
     Send,
+    /// Receive event.
     Recv,
+    /// Assign event.
     Assign,
+    /// Assign request event.
     AssignRequest,
+    /// Reassign event.
     ReAssign,
+    /// Assign update event.
     AssignUpdate,
+    /// Unassign event.
     Unassign,
+    /// Activate event.
     Activate,
+    /// Deactivate event.
     Deactivate,
 }
 
+/// Constant for no value.
 pub const NONE: &str = "_";
 
+/// Generic event structure for NATS subjects.
 #[derive(Default, Debug, Clone, SimpleObject)]
 pub struct Event<V, P, C>
 where
@@ -43,17 +68,27 @@ where
     P: Clone + OutputType,
     C: Clone + OutputType,
 {
+    /// Event version.
     pub version: V,
+    /// Operation type.
     pub op: Op,
+    /// Event type.
     pub ty: Type,
+    /// Parent context.
     pub parent_ctx: P,
+    /// Context type.
     pub ctx_type: C,
+    /// Context string.
     pub ctx: Option<String>,
+    /// Request ID.
     pub request_id: Option<String>,
+    /// Actor who triggered the event.
     pub actor: Option<String>,
+    /// Whether this is an error event.
     pub error: bool,
 }
 
+/// Format an event as a NATS subject string.
 fn format<V, P, C>(ev: &Event<V, P, C>, resource_name: impl std::fmt::Display) -> String
 where
     V: AsRef<str> + Clone + OutputType,
@@ -85,14 +120,19 @@ where
     )
 }
 
+/// Trait for types that have a resource name.
 pub trait ResourceName {
+    /// Get the resource name.
     fn name(&self) -> &str;
 }
 
+/// Trait for types with a static resource name.
 pub trait StaticResourceName {
+    /// Get the static resource name.
     fn name() -> &'static str;
 }
 
+/// A Subject with an event and extra data.
 #[derive(Debug, Clone)]
 pub struct Subject<V, P, C, E>(pub Event<V, P, C>, pub E)
 where
@@ -106,42 +146,52 @@ where
     C: OutputType + Default + AsRef<str> + Copy,
     E: OutputType + Default,
 {
+    /// Get the version.
     pub fn version(&self) -> V {
         self.0.version
     }
 
+    /// Get the operation.
     pub fn op(&self) -> Op {
         self.0.op
     }
 
+    /// Get the type.
     pub fn ty(&self) -> Type {
         self.0.ty
     }
 
+    /// Get the parent context.
     pub fn parent_ctx(&self) -> P {
         self.0.parent_ctx
     }
 
+    /// Get the context type.
     pub fn ctx_type(&self) -> C {
         self.0.ctx_type
     }
 
+    /// Get the context.
     pub fn ctx(&self) -> Option<&str> {
         self.0.ctx.as_deref()
     }
 
+    /// Get the request ID.
     pub fn request_id(&self) -> Option<&str> {
         self.0.request_id.as_deref()
     }
 
+    /// Get the actor.
     pub fn actor(&self) -> Option<&str> {
         self.0.actor.as_deref()
     }
 
+    /// Check if this is an error.
     pub fn error(&self) -> bool {
         self.0.error
     }
 
+    /// Create a factory for the given type.
     fn factory(ty: Type) -> Self {
         let ev = Event {
             ty,
@@ -150,131 +200,161 @@ where
         Self(ev, E::default())
     }
 
+    /// Create a create subject.
     pub fn create() -> Self {
         Self::factory(Type::Create)
     }
 
+    /// Create a renew subject.
     pub fn renew() -> Self {
         Self::factory(Type::Renew)
     }
 
+    /// Create an update subject.
     pub fn update() -> Self {
         Self::factory(Type::Update)
     }
 
+    /// Create a delete subject.
     pub fn delete() -> Self {
         Self::factory(Type::Delete)
     }
 
+    /// Create a download subject.
     pub fn download() -> Self {
         Self::factory(Type::Download)
     }
 
+    /// Create an upload subject.
     pub fn upload() -> Self {
         Self::factory(Type::Upload)
     }
 
+    /// Create an import subject.
     pub fn import() -> Self {
         Self::factory(Type::Import)
     }
 
+    /// Create an export subject.
     pub fn export() -> Self {
         Self::factory(Type::Export)
     }
 
+    /// Create a send subject.
     pub fn send() -> Self {
         Self::factory(Type::Send)
     }
 
+    /// Create a recv subject.
     pub fn recv() -> Self {
         Self::factory(Type::Recv)
     }
 
+    /// Create an assign subject.
     pub fn assign() -> Self {
         Self::factory(Type::Assign)
     }
 
+    /// Create an assign_request subject.
     pub fn assign_request() -> Self {
         Self::factory(Type::AssignRequest)
     }
 
+    /// Create a re_assign subject.
     pub fn re_assign() -> Self {
         Self::factory(Type::ReAssign)
     }
 
+    /// Create an assign_update subject.
     pub fn assign_update() -> Self {
         Self::factory(Type::AssignUpdate)
     }
 
+    /// Create an unassign subject.
     pub fn unassign() -> Self {
         Self::factory(Type::Unassign)
     }
 
+    /// Create an activate subject.
     pub fn activate() -> Self {
         Self::factory(Type::Activate)
     }
 
+    /// Create a deactivate subject.
     pub fn deactivate() -> Self {
         Self::factory(Type::Deactivate)
     }
 
+    /// Convert to a mutation operation.
     pub fn into_mut(mut self) -> Self {
         self.0.op = Op::Mut;
         self
     }
 
+    /// Convert to a response operation.
     pub fn into_response(mut self) -> Self {
         self.0.op = Op::Res;
         self
     }
 
+    /// Convert to a success response.
     pub fn into_success(mut self) -> Self {
         self = self.into_response();
         self.0.error = false;
         self
     }
 
+    /// Convert to an error response.
     pub fn into_error(mut self) -> Self {
         self = self.into_response();
         self.0.error = true;
         self
     }
 
+    /// Attach a resource to the subject.
+    /// Attaches a resource to the subject.
     pub fn with_resource(mut self, resource: E) -> Self {
         self.1 = resource;
         self
     }
 
+    /// Sets the event type.
     pub fn with_type(mut self, ty: Type) -> Self {
         self.0.ty = ty;
         self
     }
 
+    /// Sets the parent context.
     pub fn with_parent_ctx<T: Into<P>>(mut self, ctx: T) -> Self {
         self.0.parent_ctx = ctx.into();
         self
     }
 
+    /// Sets the context type.
     pub fn with_ctx_type(mut self, ctx_type: C) -> Self {
         self.0.ctx_type = ctx_type;
         self
     }
 
+    /// Sets the context string.
     pub fn with_ctx<S: Into<String>>(mut self, ctx: S) -> Self {
         self.0.ctx = Some(ctx.into());
         self
     }
 
+    /// Sets the request ID.
     pub fn with_request_id<S: Into<String>>(mut self, request_id: S) -> Self {
         self.0.request_id = Some(request_id.into());
         self
     }
 
+    /// Sets the actor who triggered the event.
     pub fn with_actor<S: Into<String>>(mut self, actor: S) -> Self {
         self.0.actor = Some(actor.into());
         self
     }
 
+    /// Sets the version.
     pub fn with_version(mut self, version: V) -> Self {
         self.0.version = version;
         self
@@ -288,11 +368,13 @@ where
     C: Clone + OutputType + std::fmt::Debug + AsRef<str>,
     E: std::fmt::Debug + ResourceName,
 {
+    /// Returns the NATS subject for this event.
     pub fn resource(&self) -> async_nats::Subject {
         format(&self.0, self.1.name()).into()
     }
 }
 
+/// Marker type for Resource.
 pub struct Resource;
 use crate::EventToSubject;
 
