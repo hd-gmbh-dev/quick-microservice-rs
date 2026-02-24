@@ -16,6 +16,7 @@ use crate::ids::InstitutionResourceId;
 use crate::ids::OrganizationId;
 use crate::ids::OrganizationResourceId;
 
+/// GraphQL scalar type for InfraContext.
 #[cfg_attr(
     feature = "serde-str",
     derive(serde::Deserialize, serde::Serialize),
@@ -49,6 +50,7 @@ impl ScalarType for InfraContextId {
     }
 }
 
+/// Macro to implement GraphQL scalar type for ID types.
 #[macro_export]
 macro_rules! impl_id_scalar {
     ($t:ty) => {
@@ -79,24 +81,36 @@ impl_id_scalar!(OrganizationResourceId);
 impl_id_scalar!(InstitutionId);
 impl_id_scalar!(InstitutionResourceId);
 
+/// GraphQL input type for customer or organization ID.
 #[derive(OneofObject)]
 pub enum CustomerOrOrganization {
+    /// Customer ID.
     Customer(CustomerId),
+    /// Organization ID.
     Organization(OrganizationId),
 }
 
+/// GraphQL input type for organization or institution ID.
 #[derive(OneofObject, serde::Serialize, serde::Deserialize)]
 #[serde(tag = "t", content = "c")]
 pub enum OrganizationOrInstitution {
+    /// Organization ID.
     Organization(OrganizationId),
+    /// Institution ID.
     Institution(InstitutionId),
 }
 
+/// Collection of customer IDs.
 pub type CustomerIds = Arc<[CustomerId]>;
+/// Collection of customer resource IDs.
 pub type CustomerResourceIds = Arc<[CustomerResourceId]>;
+/// Collection of organization IDs.
 pub type OrganizationIds = Arc<[OrganizationId]>;
+/// Collection of organization resource IDs.
 pub type OrganizationResourceIds = Arc<[OrganizationResourceId]>;
+/// Collection of institution IDs.
 pub type InstitutionIds = Arc<[InstitutionId]>;
+/// Collection of institution resource IDs.
 pub type InstitutionResourceIds = Arc<[InstitutionResourceId]>;
 
 #[cfg(test)]

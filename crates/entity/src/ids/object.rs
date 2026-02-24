@@ -19,6 +19,7 @@ use super::{CustomerId, InstitutionId, OrganizationId};
     serde::Deserialize,
 )]
 #[serde(transparent)]
+/// MongoDB ObjectId wrapper for GraphQL ID type.
 pub struct ID(ObjectId);
 
 #[Scalar]
@@ -89,11 +90,15 @@ impl Into<Bson> for ID {
     serde::Serialize,
     serde::Deserialize,
 )]
+/// Owner identifier that can represent a customer, organization, or institution.
 pub struct OwnerId {
+    /// Customer ID.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cid: Option<i64>,
+    /// Organization ID.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub oid: Option<i64>,
+    /// Institution ID.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub iid: Option<i64>,
 }
@@ -166,16 +171,19 @@ impl<'a> TryFrom<&'a OwnerId> for InfraContext {
 
 #[derive(Default, serde::Deserialize, serde::Serialize, Debug, Clone)]
 #[serde(transparent)]
+/// Owner wrapper type.
 pub struct Owner {
     #[serde(skip_serializing_if = "Owner::is_none")]
     o: OwnerType,
 }
 
 impl Owner {
+    /// Creates a new Owner from an OwnerType.
     pub fn new(o: OwnerType) -> Self {
         Self { o }
     }
 
+    /// Returns the OwnerId if present.
     pub fn as_owner_id(&self) -> Option<&OwnerId> {
         self.o.as_owner_id()
     }
@@ -187,21 +195,28 @@ impl From<InfraContext> for Owner {
     }
 }
 
+/// Owner type enumeration.
 #[derive(Default, serde::Deserialize, serde::Serialize, Debug, Clone)]
 #[serde(tag = "ty", content = "id")]
 pub enum OwnerType {
+    /// No owner.
     #[default]
     None,
+    /// Customer owner.
     Customer(OwnerId),
+    /// Organization owner.
     Organization(OwnerId),
+    /// Institution owner.
     Institution(OwnerId),
 }
 
 impl OwnerType {
+    /// Returns true if this is None.
     pub fn is_none(&self) -> bool {
         matches!(self, Self::None)
     }
 
+    /// Returns the OwnerId if present.
     pub fn as_owner_id(&self) -> Option<&OwnerId> {
         match self {
             OwnerType::None => None,

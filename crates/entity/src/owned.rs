@@ -114,7 +114,9 @@ impl From<Id> for GraphQLId {
     }
 }
 
+/// Trait for converting to a MongoDB filter for many documents.
 pub trait ToMongoFilterMany {
+    /// Converts to a MongoDB filter document.
     fn to_mongo_filter_many(&self) -> Option<Document>;
 }
 
@@ -178,7 +180,9 @@ impl ToMongoFilterMany for OrganizationOrInstitution {
     }
 }
 
+/// Trait for converting to a MongoDB filter for one document.
 pub trait ToMongoFilterOne {
+    /// Converts to a MongoDB filter document.
     fn to_mongo_filter_one(&self) -> Document;
 }
 
@@ -244,10 +248,13 @@ impl ToMongoFilterOne for OrganizationOrInstitution {
     }
 }
 
+/// Trait for converting to an exact MongoDB filter.
 pub trait ToMongoFilterExact {
+    /// Converts to an exact MongoDB filter.
     fn to_mongo_filter_exact(&self) -> Result<Document, EntityError>;
 }
 
+/// Filter for multiple resources.
 pub struct ResourcesFilter<'a, I>(pub &'a [I])
 where
     I: ToMongoFilterOne;
@@ -269,18 +276,25 @@ where
     }
 }
 
+/// Trait for converting to MongoDB ObjectId.
 pub trait AsMongoId {
+    /// Returns the MongoDB ObjectId.
     fn as_mongo_id(&self) -> ObjectId;
 }
 
+/// Trait for creating from MongoDB Bson.
 pub trait FromMongoId: Sized {
+    /// Creates from a MongoDB Bson value.
     fn from_mongo_id(old_id: Self, bson: Bson) -> Option<Self>;
 }
 
+/// Trait for checking if this is a MongoDB insert operation.
 pub trait IsMongoInsert {
+    /// Returns true if this is an insert operation.
     fn is_mongo_insert(&self) -> bool;
 }
 
+/// Generic entity wrapper.
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Entity<T> {
     id: ID,
@@ -290,11 +304,16 @@ pub struct Entity<T> {
     defaults: Defaults,
 }
 
+/// Pagination result.
 #[derive(Debug, Default, Deserialize, Serialize)]
 pub struct Page<I> {
+    /// Items in the page.
     pub items: Vec<I>,
+    /// Number of items skipped.
     pub skip: u64,
+    /// Page limit.
     pub limit: Option<i64>,
+    /// Total items count.
     pub total: usize,
 }
 
@@ -329,8 +348,11 @@ impl<I> Page<I> {
 }
 
 #[derive(Default)]
+/// Pagination info for queries.
 pub struct PageInfo {
+    /// Number of items to skip.
     skip: Option<u64>,
+    /// Maximum items to return.
     limit: Option<i64>,
 }
 
@@ -356,17 +378,24 @@ impl TryFrom<Option<ListFilter>> for PageInfo {
     }
 }
 
+/// Trait for updating entity fields.
 pub trait UpdateEntity<T: Clone> {
+    /// Updates the entity with new fields.
     fn update_entity(self, entity: &T) -> Result<Cow<'_, T>, EntityError>;
 }
 
+/// Owned entity with ID and owner.
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct EntityOwned<T, ID = Id> {
+    /// The entity ID.
     #[serde(rename = "_id")]
     pub id: ID,
+    /// Owner information.
     pub owner: Arc<OwnerId>,
+    /// Entity fields.
     #[serde(flatten)]
     pub fields: T,
+    /// Default values.
     #[serde(flatten)]
     pub defaults: Arc<Defaults>,
 }
@@ -375,6 +404,7 @@ impl<T> EntityOwned<T>
 where
     T: DeserializeOwned + Serialize + MongoCollection + Send + Sync + Unpin,
 {
+    /// Creates a new entity.
     pub async fn create(
         db: &Database,
         owner: impl Into<OwnerId>,
@@ -418,11 +448,12 @@ where
     T: DeserializeOwned + Serialize + MongoCollection + Send + Sync + Unpin,
     ID: DeserializeOwned + Serialize + Send + Sync + Unpin,
 {
-    /// Query owned entities
+    /// Query owned entities.
     pub fn query(db: &Database) -> Query<'_, T, ID> {
         Query::new(db)
     }
 
+    /// Lists entities matching the filter.
     pub async fn list(
         db: &Database,
         filter: impl ToMongoFilterMany,
@@ -435,6 +466,7 @@ where
             .map_err(From::from)
     }
 
+    /// Returns a paginated list of entities.
     pub async fn page(
         db: &Database,
         filter: impl ToMongoFilterMany,
@@ -448,6 +480,7 @@ where
         .await
     }
 
+    /// Lists entities with exact filter matching.
     pub async fn list_exact(
         db: &Database,
         filter: impl ToMongoFilterExact,
@@ -460,6 +493,7 @@ where
             .map_err(From::from)
     }
 
+    /// Returns a paginated list with exact filter matching.
     pub async fn page_exact(
         db: &Database,
         filter: impl ToMongoFilterExact,
@@ -468,6 +502,7 @@ where
         Self::page_filter(db, filter.to_mongo_filter_exact()?, page_selector).await
     }
 
+    /// Gets an entity by ID.
     pub async fn by_id(
         db: &Database,
         id: impl ToMongoFilterOne,
@@ -478,6 +513,7 @@ where
             .map_err(From::from)
     }
 
+    /// Updates an entity.
     pub async fn update(
         db: &Database,
         context: impl ToMongoFilterOne,
@@ -508,6 +544,7 @@ where
         Ok(entity)
     }
 
+    /// Saves an entity (insert or update).
     pub async fn save<C>(
         db: &Database,
         context: C,
@@ -540,6 +577,7 @@ where
         Ok(result.modified_count > 0 || result.upserted_id.is_some())
     }
 
+    /// Saves an entity with a specific ID.
     pub async fn save_with_id<C, I>(
         db: &Database,
         context: C,
@@ -598,6 +636,7 @@ where
         })
     }
 
+    /// Removes entities by ID.
     pub async fn remove<I>(db: &Database, ids: I) -> Result<i32, EntityError>
     where
         I: ToMongoFilterExact,
@@ -608,6 +647,7 @@ where
         Ok(result.deleted_count as i32)
     }
 
+    /// Returns a paginated list of entities with the given filter.
     pub async fn page_filter(
         db: &Database,
         filter: Document,
@@ -617,6 +657,7 @@ where
         Self::page_filter_sort(db, filter, None, page_info).await
     }
 
+    /// Returns a paginated list with sorting.
     pub async fn page_filter_sort(
         db: &Database,
         filter: Document,
@@ -674,7 +715,8 @@ pub struct Query<'q, T, ID> {
 }
 
 impl<'q, T, ID> Query<'q, T, ID> {
-    fn new(db: &'q Database) -> Self {
+    /// Creates a new query.
+    pub fn new(db: &'q Database) -> Self {
         Self {
             db,
             filter: None,
@@ -684,21 +726,25 @@ impl<'q, T, ID> Query<'q, T, ID> {
         }
     }
 
+    /// Adds an exact filter to the query.
     pub fn filter_exact(mut self, filter: impl ToMongoFilterExact) -> Result<Self, EntityError> {
         self.filter = Some(filter.to_mongo_filter_exact()?);
         Ok(self)
     }
 
+    /// Adds a "many" filter to the query.
     pub fn filter_many(mut self, filter: impl ToMongoFilterMany) -> Self {
         self.filter = filter.to_mongo_filter_many();
         self
     }
 
+    /// Adds a document filter to the query.
     pub fn filter(mut self, filter: Document) -> Self {
         self.filter = Some(filter);
         self
     }
 
+    /// Adds a page selector to the query.
     pub fn page_selector(
         mut self,
         page_selector: impl TryInto<PageInfo, Error = EntityError>,
@@ -707,11 +753,13 @@ impl<'q, T, ID> Query<'q, T, ID> {
         Ok(self)
     }
 
+    /// Adds a page to the query.
     pub fn page(mut self, page: PageInfo) -> Self {
         self.page = Some(page);
         self
     }
 
+    /// Adds sorting to the query.
     pub fn sort(mut self, sort: impl Into<Option<Document>>) -> Self {
         self.sort = sort.into();
         self
@@ -737,13 +785,17 @@ where
     }
 }
 
+/// Default values for entity creation and modification.
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Defaults {
+    /// Creation timestamp and user.
     pub created: UserModification,
+    /// Last modification timestamp and user.
     pub modified: UserModification,
 }
 
 impl Defaults {
+    /// Creates new defaults with the given user ID.
     pub fn now(user_id: Uuid) -> Self {
         let modify = UserModification::now(user_id);
         Self {
@@ -752,6 +804,7 @@ impl Defaults {
         }
     }
 
+    /// Updates the modification time with the given user ID.
     pub fn update_by(&self, user_id: Uuid) -> Self {
         let modified = UserModification::now(user_id);
         Self {
@@ -761,15 +814,19 @@ impl Defaults {
     }
 }
 
+/// User modification tracking.
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct UserModification {
+    /// User ID.
     #[serde(rename = "uid")]
     pub user_id: Uuid,
+    /// Timestamp of modification.
     #[serde(with = "FromChrono04DateTime")]
     pub at: DateTime<Utc>,
 }
 
 impl UserModification {
+    /// Creates a new modification with the current time.
     pub fn now(user_id: Uuid) -> Self {
         Self {
             user_id,
@@ -778,25 +835,32 @@ impl UserModification {
     }
 }
 
+/// Trait for entity field types.
 pub trait EntityField {
+    /// The field type.
     type Field<T: Serialize + DeserializeOwned>: Serialize + DeserializeOwned;
 }
 
+/// Optional field marker.
 #[derive(Default, Clone, PartialEq, Debug)]
 pub struct Optional;
 impl EntityField for Optional {
     type Field<T: Serialize + DeserializeOwned> = Option<T>;
 }
 
+/// Required field marker.
 #[derive(Default, Clone, PartialEq, Debug)]
 pub struct Required;
 impl EntityField for Required {
     type Field<T: Serialize + DeserializeOwned> = T;
 }
 
+/// Trait for MongoDB collection access.
 pub trait MongoCollection {
+    /// Collection name.
     const COLLECTION: &'static str;
 
+    /// Gets the MongoDB collection.
     fn mongo_collection<T>(db: &Database) -> Collection<T>
     where
         T: Send + Sync,

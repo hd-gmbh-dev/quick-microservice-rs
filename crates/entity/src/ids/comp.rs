@@ -1,4 +1,6 @@
+/// Trait for comparing two values for partial equality.
 pub trait PartialEqual<'a, R> {
+    /// Compares two values for equality.
     fn partial_equal(&'a self, r: &'a R) -> bool;
 }
 

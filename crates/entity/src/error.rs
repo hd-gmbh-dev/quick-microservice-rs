@@ -4,6 +4,7 @@ use qm_keycloak::KeycloakError;
 use sqlx::types::Uuid;
 use thiserror::Error;
 
+/// Errors that can occur during entity operations.
 #[derive(Debug, Error)]
 #[non_exhaustive]
 pub enum EntityError {
@@ -34,6 +35,7 @@ pub enum EntityError {
     /// A unexpected error occured.
     #[error(transparent)]
     UnexpectedError(#[from] anyhow::Error),
+    /// Serialization/deserialization error.
     #[error(transparent)]
     SerdeJson(#[from] serde_json::Error),
     /// Conflicting error, because resource already exists.
@@ -48,10 +50,13 @@ pub enum EntityError {
     /// Forbidden because of missing session.
     #[error("forbidden")]
     Forbidden,
+    /// Internal server error.
     #[error("internal server error")]
     Internal,
+    /// Resource not found.
     #[error("not found")]
     NotFound,
+    /// Required fields are missing.
     #[error("Required fields are missing")]
     RequiredFields,
     /// Unauthorized user.
@@ -69,12 +74,16 @@ pub enum EntityError {
     /// bad request.
     #[error("{1}")]
     BadRequest(String, String),
+    /// No id field in inserted entity.
     #[error("No id field in inserted entity")]
     NoId,
+    /// Query document cannot be empty.
     #[error("Query document cannot be empty")]
     NotEmpty,
+    /// List of ids only allowed with same owner.
     #[error("List of ids only allowed with same owner")]
     NotSameOwner,
+    /// Bson could not be serialized.
     #[error("Bson could not be serialized: {0}")]
     Bson(String),
 }
