@@ -56,12 +56,12 @@ async fn error(response: reqwest::Response) -> Result<reqwest::Response, Keycloa
     Ok(response)
 }
 
-/// Parsed access token from Keycloak.
+/// Parsed access token from Keycloak (equivalent to KeycloakAccessTokenResponse).
 #[derive(Debug, serde::Deserialize, serde::Serialize)]
 pub struct ParsedAccessToken {
-    /// Expiration time.
+    /// Expiration time (unix seconds).
     exp: usize,
-    /// Issued at time.
+    /// Issued at time (unix seconds).
     iat: usize,
     /// JWT ID.
     jti: Option<String>,

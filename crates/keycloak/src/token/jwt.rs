@@ -11,7 +11,7 @@ pub struct ResourceAccess {
 }
 
 /// Realm access from JWT.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct RealmAccess {
     /// Roles.
     pub roles: Vec<Arc<str>>,
