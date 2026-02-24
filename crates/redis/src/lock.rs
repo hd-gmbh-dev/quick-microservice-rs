@@ -1,3 +1,5 @@
+#![deny(missing_docs)]
+
 use redis::AsyncCommands;
 use redis::RedisError;
 use redis::SetOptions;
@@ -5,24 +7,40 @@ use redis::Value as RedisValue;
 use tokio::time::{sleep, Duration};
 use uuid::Uuid;
 
+/// Error reasons for lock acquisition.
 pub mod error {
+    /// Reasons why a lock cannot be acquired.
     #[derive(thiserror::Error, Clone, Debug, PartialEq)]
     pub enum CanNotGetLockReason {
+        /// Lock is currently held by another process.
         #[error("lock is busy")]
         LockIsBussy,
+        /// Lock is still busy after exhausting retries.
         #[error("lock is still busy with count: {retry_count} and delay {retry_delay}")]
-        LockIsStillBusy { retry_count: u32, retry_delay: u32 },
+        LockIsStillBusy {
+            /// Number of retry attempts made.
+            retry_count: u32,
+            /// Delay between retries in milliseconds.
+            retry_delay: u32
+        },
     }
 }
 
+/// Error type for lock operations.
 #[derive(thiserror::Error, Clone, Debug, PartialEq)]
 pub enum Error {
+    /// Connection pool error.
     #[error("pool error {0}")]
     PoolError(String),
+    /// Redis error.
     #[error("redis error {0}")]
     RedisError(String),
+    /// Could not acquire lock.
     #[error("{0}")]
-    CanNotGetLock(error::CanNotGetLockReason),
+    CanNotGetLock(
+        /// The reason why the lock could not be acquired.
+        error::CanNotGetLockReason,
+    ),
 }
 
 impl From<RedisError> for Error {
@@ -45,11 +63,14 @@ const UNLOCK_SCRIPT: &str = r#"
   end
 "#;
 
+/// A distributed lock handle.
 #[derive(Debug)]
 pub struct Lock {
+    /// Unique ID of the lock.
     pub id: String,
 }
 
+/// Attempts to acquire a lock without retries.
 pub async fn try_lock<C: AsyncCommands, T: AsRef<str>>(
     db: &mut C,
     key: T,
@@ -60,12 +81,6 @@ pub async fn try_lock<C: AsyncCommands, T: AsRef<str>>(
         .with_expiration(redis::SetExpiry::PX(ttl as u64))
         .conditional_set(redis::ExistenceCheck::NX);
     let result = db.set_options(key.as_ref(), &id, options).await?;
-    // let result = redis::Script::new(LOCK_SCRIPT)
-    //     .arg(key.as_ref())
-    //     .arg(&id)
-    //     .arg(ttl)
-    //     .invoke_async(db)
-    //     .await?;
 
     match result {
         RedisValue::Okay => Ok(Lock { id }),
@@ -75,6 +90,7 @@ pub async fn try_lock<C: AsyncCommands, T: AsRef<str>>(
     }
 }
 
+/// Acquires a distributed lock with retries.
 pub async fn lock<C: AsyncCommands, T>(
     db: &mut C,
     key: T,
@@ -106,6 +122,7 @@ where
     ))
 }
 
+/// Releases a distributed lock.
 pub async fn unlock<C: AsyncCommands, K, V>(db: &mut C, key: K, lock_id: V) -> Result<i64, Error>
 where
     K: AsRef<str>,
