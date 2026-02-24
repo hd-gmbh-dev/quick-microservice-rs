@@ -1,3 +1,5 @@
+#![deny(missing_docs)]
+
 //! Utility functions and macros.
 //!
 //! This crate provides common utility functions and macros used across
