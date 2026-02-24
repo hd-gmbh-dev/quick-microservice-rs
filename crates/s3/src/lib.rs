@@ -1,3 +1,5 @@
+#![deny(missing_docs)]
+
 //! S3 helper functions.
 //!
 //! This crate provides utilities for interacting with Amazon S3-compatible
@@ -23,6 +25,7 @@
 //! }
 //! \```
 
+/// Adds two numbers together.
 pub fn add(left: usize, right: usize) -> usize {
     left + right
 }
