@@ -1,3 +1,5 @@
+#![deny(missing_docs)]
+
 //! Role builder from markdown tables.
 //!
 //! This crate provides utilities to generate Rust code for role-based access control (RBAC)
