@@ -63,7 +63,11 @@ Uses the crate [`mongodb`](https://crates.io/crates/mongodb).
 
 ### nats
 
-`todo!()`
+Provides an easy way to configure and set up a connection to a NATS server with JetStream support.
+Configuration can be done with environment variables. The default prefix is `NATS_`.
+Uses the crate [`async-nats`](https://crates.io/crates/async-nats).
+
+Also provides opinionated utilities for distributed locking, sequence generation, and event publishing.
 
 ### pg
 
@@ -82,15 +86,19 @@ Also provides helper to handle worker queues and locking with Redis mechanisms.
 
 ### role
 
-`todo!()`
+Provides an opinionated way to handle role-based access control (RBAC) in microservices.
+Defines roles, permissions, and access control structures with support for authentication containers.
 
 ### role-build
 
-`todo!()`
+Provides utilities to generate Rust code for role-based access control from markdown tables.
+Parses markdown files containing user groups and role mappings to generate type-safe role code.
 
 ### s3
 
-`todo!()`
+Provides utilities for interacting with Amazon S3-compatible object storage services.
+Configuration can be done with environment variables. The default prefix is `S3_`.
+Uses the crate [`aws-sdk-s3`](https://crates.io/crates/aws-sdk-s3).
 
 ### server
 
@@ -104,4 +112,5 @@ Because the use of the handler is optional, the dependency is **not** automatica
 
 ### utils
 
-`todo!()`
+Provides common utility functions and macros used across the quick-microservice ecosystem.
+Currently re-exports the [`qm_utils_derive`](https://crates.io/crates/qm-utils-derive) crate's `CheapClone` derive macro.
