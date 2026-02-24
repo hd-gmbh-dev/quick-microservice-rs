@@ -12,22 +12,27 @@ pub struct Config {
 }
 
 impl Config {
+    /// Creates a new Config from environment variables with default SERVER_ prefix.
     pub fn new() -> envy::Result<Self> {
         ConfigBuilder::default().build()
     }
 
+    /// Creates a new ConfigBuilder for custom configuration.
     pub fn builder<'a>() -> ConfigBuilder<'a> {
         ConfigBuilder::default()
     }
 
+    /// Returns the application name.
     pub fn app_name(&self) -> &str {
         self.app_name.as_deref().unwrap()
     }
 
+    /// Returns the server address.
     pub fn address(&self) -> &str {
         self.address.as_deref().unwrap()
     }
 
+    /// Returns the server port.
     pub fn port(&self) -> u16 {
         self.port.unwrap_or(3000)
     }
@@ -40,11 +45,13 @@ pub struct ConfigBuilder<'a> {
 }
 
 impl<'a> ConfigBuilder<'a> {
+    /// Sets a custom environment variable prefix.
     pub fn with_prefix(mut self, prefix: &'a str) -> Self {
         self.prefix = Some(prefix);
         self
     }
 
+    /// Builds the Config from environment variables.
     pub fn build(self) -> envy::Result<Config> {
         let prefix = self.prefix.unwrap_or("SERVER_");
         let mut cfg: Config = envy::prefixed(prefix).from_env()?;

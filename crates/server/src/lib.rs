@@ -1,3 +1,5 @@
+#![deny(missing_docs)]
+
 //! Server configuration and utilities.
 //!
 //! This crate provides server configuration and GraphQL handler utilities
