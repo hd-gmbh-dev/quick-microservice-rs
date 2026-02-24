@@ -11,7 +11,7 @@ pub struct ResourceAccess {
 }
 
 /// Realm access from JWT.
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RealmAccess {
     /// Roles.
     pub roles: Vec<Arc<str>>,
@@ -78,6 +78,7 @@ pub struct Claims {
     #[serde(default)]
     pub family_name: String,
     /// Email.
+    #[serde(default)]
     pub email: String,
     /// Whether this is an API test.
     #[serde(skip)]
