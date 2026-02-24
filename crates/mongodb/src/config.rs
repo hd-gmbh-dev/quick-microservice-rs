@@ -1,6 +1,7 @@
 use serde::Deserialize;
 use std::sync::Arc;
 
+/// MongoDB connection configuration.
 #[derive(Deserialize)]
 pub struct Config {
     host: Option<Arc<str>>,
@@ -19,54 +20,66 @@ pub struct Config {
 }
 
 impl Config {
+    /// Creates a new Config from environment variables with default MONGODB_ prefix.
     pub fn new() -> envy::Result<Self> {
         ConfigBuilder::default().build()
     }
 
+    /// Creates a new ConfigBuilder for custom configuration.
     pub fn builder<'a>() -> ConfigBuilder<'a> {
         ConfigBuilder::default()
     }
 
+    /// Returns the database username, if set.
     pub fn username(&self) -> Option<&str> {
         self.username.as_deref()
     }
 
+    /// Returns the database password, if set.
     pub fn password(&self) -> Option<&str> {
         self.password.as_deref()
     }
 
+    /// Returns the MongoDB connection address.
     pub fn address(&self) -> &str {
         self.address.as_deref().unwrap()
     }
 
+    /// Returns the MongoDB admin connection address.
     pub fn root_address(&self) -> &str {
         self.root_address.as_deref().unwrap()
     }
 
+    /// Returns whether sharding is enabled.
     pub fn sharded(&self) -> bool {
         self.sharded.unwrap_or(false)
     }
 
+    /// Returns the database name.
     pub fn database(&self) -> &str {
         self.database.as_deref().unwrap()
     }
 
+    /// Returns the admin database name.
     pub fn root_database(&self) -> &str {
         self.root_database.as_deref().unwrap()
     }
 }
 
+/// Builder for MongoDB configuration with custom prefix support.
 #[derive(Default)]
 pub struct ConfigBuilder<'a> {
     prefix: Option<&'a str>,
 }
 
 impl<'a> ConfigBuilder<'a> {
+    /// Sets a custom environment variable prefix.
     pub fn with_prefix(mut self, prefix: &'a str) -> Self {
         self.prefix = Some(prefix);
         self
     }
 
+    /// Builds the Config from environment variables.
     pub fn build(self) -> envy::Result<Config> {
         let mut cfg: Config = if let Some(prefix) = self.prefix {
             envy::prefixed(prefix)

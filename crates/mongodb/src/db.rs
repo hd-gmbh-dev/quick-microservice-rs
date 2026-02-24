@@ -42,12 +42,16 @@ pub struct DbUsers {
     users: Vec<DbUser>,
 }
 
+/// MongoDB database connection wrapper.
+///
+/// Manages connections, collections, sharding, and provides database operations.
 #[derive(Clone)]
 pub struct DB {
     inner: Arc<Inner>,
 }
 
 impl DB {
+    /// Creates a new MongoDB database connection.
     pub async fn new(app_name: &str, cfg: &MongoDbConfig) -> mongodb::error::Result<Self> {
         tracing::info!("'{app_name}' -> connects to mongodb '{}'", cfg.database());
         let mut client_options = ClientOptions::parse(cfg.root_address()).await?;
@@ -115,26 +119,32 @@ impl DB {
         Ok(db)
     }
 
+    /// Returns whether sharding is enabled.
     pub fn is_sharded(&self) -> bool {
         self.inner.is_sharded
     }
 
+    /// Creates a new client session.
     pub async fn session(&self) -> mongodb::error::Result<ClientSession> {
         self.inner.client.start_session().await
     }
 
+    /// Returns a reference to the database.
     pub fn get(&self) -> Database {
         self.inner.client.database(&self.inner.db_name)
     }
 
+    /// Returns a reference to the admin database.
     pub fn get_admin(&self) -> Database {
         self.inner.admin.database(&self.inner.admin_db_name)
     }
 
+    /// Returns the database name.
     pub fn db_name(&self) -> &str {
         &self.inner.db_name
     }
 
+    /// Sets up the database (enables sharding if configured).
     pub async fn setup(&self, cfg: &MongoDbConfig) -> mongodb::error::Result<()> {
         if self.is_sharded() {
             self.get_admin()
@@ -149,16 +159,19 @@ impl DB {
         Ok(())
     }
 
+    /// Returns a list of collections in the database.
     pub async fn collections(&self) -> Arc<[Arc<str>]> {
         self.inner.collections.read().await.clone()
     }
 
+    /// Updates the cached list of collections.
     pub async fn update_collections(&self) -> mongodb::error::Result<()> {
         *self.inner.collections.write().await =
             collections(&self.inner.client, self.db_name()).await?;
         Ok(())
     }
 
+    /// Ensures a collection exists with sharding enabled.
     pub async fn ensure_collection_with_sharding(
         &self,
         collections: &[String],
@@ -183,6 +196,7 @@ impl DB {
         Ok(())
     }
 
+    /// Ensures a collection exists with indexes.
     pub async fn ensure_collection_with_indexes(
         &self,
         collections: &[String],
@@ -207,6 +221,7 @@ impl DB {
         Ok(false)
     }
 
+    /// Deletes all documents from all collections (except api_jwt_secrets).
     pub async fn cleanup(&self) -> mongodb::error::Result<()> {
         for collection in self
             .inner
@@ -228,6 +243,10 @@ impl DB {
     }
 }
 
+/// Parse a MongoDB cursor into a vector of deserialized documents.
+///
+/// Converts a MongoDB cursor into a `Vec` of deserialized type `T`.
+/// Failed deserialization is logged but skipped.
 pub async fn parse_vec<T>(cursor: mongodb::Cursor<Document>) -> Vec<T>
 where
     T: serde::de::DeserializeOwned,
@@ -247,12 +266,16 @@ where
         .await
 }
 
+/// Create options for upsert (insert or update) operations.
+///
+/// Returns `FindOneAndUpdateOptions` with `upsert` set to `true`.
 pub fn insert_always_opts() -> Option<FindOneAndUpdateOptions> {
     let mut opts = FindOneAndUpdateOptions::default();
     opts.upsert = Some(true);
     Some(opts)
 }
 
+/// Macro to implement AsRef<qm::mongodb::DB> for a storage type.
 #[macro_export]
 macro_rules! db {
     ($storage:ty) => {
