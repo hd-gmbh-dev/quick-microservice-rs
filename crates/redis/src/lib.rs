@@ -1,3 +1,39 @@
+//! Redis connection, caching, and work queue utilities.
+//!
+//! This crate provides Redis connection management with connection pooling,
+//! distributed locking, caching with JSON serialization, and async work queues.
+//!
+//! ## Features
+//!
+//! - **Connection Pooling**: Deadpool-based connection pooling
+//! - **Distributed Locks**: Acquire and manage distributed locks
+//! - **JSON Caching**: Cache JSON-serializable types with automatic serialization
+//! - **Work Queues**: Async worker queues for background job processing
+//! - **Configuration**: Environment-based configuration with prefix support
+//!
+//! ## Usage
+//!
+//! \```ignore
+//! use qm_redis::{Redis, RedisConfig};
+//!
+//! #[tokio::main]
+//! async fn main() -> anyhow::Result<()> {
+//!     let redis = Redis::new()?;
+//!     let mut con = redis.connect().await?;
+//!     Ok(())
+//! }
+//! \```
+//!
+//! ## Environment Variables
+//!
+//! | Variable | Description | Default |
+//! |----------|-------------|---------|
+//! | `REDIS_HOST` | Redis host | `127.0.0.1` |
+//! | `REDIS_PORT` | Redis port | `6379` |
+//! | `REDIS_DB` | Redis database number | `0` |
+//! | `REDIS_USERNAME` | Redis username | (none) |
+//! | `REDIS_PASSWORD` | Redis password | (none) |
+
 pub use deadpool_redis::redis;
 use deadpool_redis::PoolError;
 use deadpool_redis::Runtime;
@@ -29,6 +65,7 @@ use work_queue::WorkQueue;
 pub use crate::config::Config as RedisConfig;
 use crate::lock::Lock;
 
+/// Error type for cache operations.
 #[derive(Debug, thiserror::Error)]
 pub enum CacheError {
     #[error(transparent)]
@@ -39,6 +76,9 @@ pub enum CacheError {
     Failure(String),
 }
 
+/// JSON wrapper for Redis serialization.
+///
+/// Automatically serializes to/from JSON when storing/retrieving from Redis.
 #[derive(serde::Serialize, serde::Deserialize)]
 pub struct Json<T>(T);
 
@@ -77,6 +117,7 @@ pub struct Inner {
     pool: deadpool_redis::Pool,
 }
 
+/// Redis connection wrapper with connection pooling.
 #[derive(Clone)]
 pub struct Redis {
     inner: Arc<Inner>,
@@ -315,6 +356,9 @@ struct WorkerInner {
     is_running: Arc<AtomicBool>,
 }
 
+/// Worker pool for background job processing.
+///
+/// Manages multiple async workers that process jobs from Redis queues.
 #[derive(Clone)]
 pub struct Workers {
     inner: Arc<WorkerInner>,
@@ -429,6 +473,9 @@ impl Workers {
     }
 }
 
+/// Producer for adding jobs to a work queue.
+///
+/// Use this to enqueue work items that will be processed by workers.
 pub struct Producer {
     client: Arc<deadpool_redis::Pool>,
     queue: WorkQueue,
@@ -473,6 +520,10 @@ impl Producer {
     }
 }
 
+/// Async worker for processing jobs from a queue.
+///
+/// Configurable with timeout, lease duration, and number of workers.
+/// Use [`AsyncWorker::new`] to create, then configure and call [`AsyncWorker::run`].
 pub struct AsyncWorker<Ctx, T>
 where
     Ctx: Clone + Send + Sync + 'static,
