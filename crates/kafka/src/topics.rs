@@ -10,11 +10,16 @@ use rdkafka::ClientConfig;
 
 use crate::config::Config as KafkaConfig;
 
+/// Kafka admin client for topic and consumer group management.
+///
+/// Provides methods for creating, deleting, and managing Kafka topics
+/// and consumer groups.
 pub struct Client {
     inner: AdminClient<DefaultClientContext>,
 }
 
 impl Client {
+    /// Creates a new Kafka admin client.
     pub fn new(cfg: &KafkaConfig) -> anyhow::Result<Self> {
         let mut config = ClientConfig::new();
         config.set("bootstrap.servers", cfg.address());
@@ -22,10 +27,12 @@ impl Client {
         Ok(Self { inner })
     }
 
+    /// Returns a reference to the admin client.
     pub fn admin(&self) -> &AdminClient<DefaultClientContext> {
         &self.inner
     }
 
+    /// Creates a new topic with default configuration.
     pub async fn create_topic(&self, topic_name: &str) -> anyhow::Result<()> {
         self.inner
             .create_topics(
@@ -41,6 +48,7 @@ impl Client {
         Ok(())
     }
 
+    /// Creates a new topic with custom configuration.
     pub async fn create_topic_with_config(
         &self,
         topic_name: &str,
@@ -60,6 +68,7 @@ impl Client {
         Ok(())
     }
 
+    /// Deletes a topic.
     pub async fn delete_topic(&self, topic_name: &str) -> anyhow::Result<()> {
         self.inner
             .delete_topics(&[topic_name], &AdminOptions::default())
@@ -67,14 +76,17 @@ impl Client {
         Ok(())
     }
 
+    /// Returns cluster metadata.
     pub fn metadata(&self) -> anyhow::Result<Metadata> {
         Ok(self.inner.inner().fetch_metadata(None, None)?)
     }
 
+    /// Returns the list of consumer groups.
     pub fn groups(&self) -> anyhow::Result<GroupList> {
         Ok(self.inner.inner().fetch_group_list(None, None)?)
     }
 
+    /// Ensures all specified topics exist, creating any that don't.
     pub async fn ensure_topics(&self, topic_names: &[&str]) -> anyhow::Result<()> {
         let metadata = self.metadata()?;
         for topic_name in topic_names {
@@ -86,6 +98,7 @@ impl Client {
         Ok(())
     }
 
+    /// Returns the configuration for a topic.
     pub async fn topic_config(&self, topic_name: &str) -> anyhow::Result<Vec<ConfigEntry>> {
         Ok(self
             .inner
@@ -100,6 +113,7 @@ impl Client {
             .unwrap_or_default())
     }
 
+    /// Deletes all topics in the cluster.
     // TODO: only delete topic containing prefix
     pub async fn cleanup_topics(&self) -> anyhow::Result<()> {
         let metadata = self.metadata()?;
@@ -112,6 +126,7 @@ impl Client {
         Ok(())
     }
 
+    /// Deletes all consumer groups in the cluster.
     // TODO: only delete group containing prefix
     pub async fn cleanup_groups(&self) -> anyhow::Result<()> {
         let groups = self.groups()?;

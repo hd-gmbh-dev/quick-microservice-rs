@@ -6,14 +6,25 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::config::Config;
 
+/// Event namespace for categorizing events.
+///
+/// Used to organize events by domain area (e.g., customer, organization, user).
 pub enum EventNs {
+    /// Customer events.
     Customer,
+    /// Organization events.
     Organization,
+    /// Organization unit events.
     OrganizationUnit,
+    /// Institution events.
     Institution,
+    /// User events.
     User,
+    /// Entity events.
     Entity,
+    /// RC object events.
     RcObject,
+    /// Role events.
     Role,
 }
 
@@ -52,43 +63,64 @@ impl FromStr for EventNs {
     }
 }
 
+/// Type of event being produced.
+///
+/// Represents CRUD operations and other event actions.
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub enum EventType {
+    /// Upload event.
     Upload,
+    /// Send event.
     Send,
+    /// Receive event.
     Receive,
+    /// Create event.
     Create,
+    /// Update event.
     Update,
+    /// Delete event.
     Delete,
+    /// Assign event.
     Assign,
+    /// Unassign event.
     Unassign,
+    /// Link event.
     Link,
 }
 
+/// A Kafka event with type and payload information.
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct Event {
+    /// The event type.
     pub event: EventType,
+    /// The entity type.
     pub ty: String,
+    /// The child entity type.
     pub cty: String,
+    /// The event payload.
     pub object: serde_json::Value,
 }
 
+/// Internal producer state.
 pub struct Inner {
     config: Config,
     producer: FutureProducer,
 }
 
+/// Builder for creating Producer instances.
 #[derive(Default)]
 pub struct ProducerBuilder {
     env_prefix: Option<&'static str>,
 }
 
 impl ProducerBuilder {
+    /// Sets the environment variable prefix.
     pub fn with_env_prefix(mut self, prefix: &'static str) -> Self {
         self.env_prefix = Some(prefix);
         self
     }
 
+    /// Builds the Producer.
     pub fn build(self) -> anyhow::Result<Producer> {
         let mut config_builder = Config::builder();
         if let Some(prefix) = self.env_prefix {
@@ -106,20 +138,27 @@ impl ProducerBuilder {
     }
 }
 
+/// Kafka producer for creating events.
+///
+/// Provides methods for producing structured events to Kafka topics
+/// with support for different event types and namespaces.
 #[derive(Clone)]
 pub struct Producer {
     inner: Arc<Inner>,
 }
 
 impl Producer {
+    /// Creates a new Producer with default settings.
     pub fn new() -> anyhow::Result<Self> {
         ProducerBuilder::default().build()
     }
 
+    /// Returns a reference to the configuration.
     pub fn config(&self) -> &Config {
         &self.inner.config
     }
 
+    /// Creates a create event.
     pub async fn create_event<O>(
         &self,
         event_ns: &EventNs,
@@ -134,6 +173,7 @@ impl Producer {
             .await
     }
 
+    /// Creates an update event.
     pub async fn update_event<O>(
         &self,
         event_ns: &EventNs,
@@ -148,6 +188,7 @@ impl Producer {
             .await
     }
 
+    /// Creates a delete event.
     pub async fn delete_event<O>(
         &self,
         event_ns: &EventNs,
@@ -162,6 +203,7 @@ impl Producer {
             .await
     }
 
+    /// Creates a link event.
     pub async fn link_event<O>(
         &self,
         event_ns: &EventNs,
@@ -216,6 +258,7 @@ impl Producer {
         Ok(())
     }
 
+    /// Creates a custom event with the specified event type.
     pub async fn event<N, O>(
         &self,
         event: EventType,
