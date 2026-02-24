@@ -71,9 +71,9 @@ impl From<ObjectId> for ID {
     }
 }
 
-impl Into<Bson> for ID {
-    fn into(self) -> Bson {
-        self.0.into()
+impl From<ID> for Bson {
+    fn from(val: ID) -> Self {
+        val.0.into()
     }
 }
 
