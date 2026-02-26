@@ -40,14 +40,7 @@ where
     }) {
         client.redirect_uris = Some(
             urls.iter()
-                .map(|uri| {
-                    let uri = if uri.chars().filter(|c| c == &':').count() > 1 {
-                        uri.rsplit_once(':').map(|(l, _)| l).unwrap_or(uri)
-                    } else {
-                        &uri
-                    };
-                    [format!("{}*", uri), uri.to_string()]
-                })
+                .map(|uri| [format!("{}*", uri), uri.to_string()])
                 .flatten()
                 .collect(),
         );
