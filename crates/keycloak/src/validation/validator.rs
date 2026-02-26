@@ -287,11 +287,16 @@ async fn check_client(
         }
         // base_url must be the configured value
         if let Some(url) = &client.base_url {
-            if url.trim_end_matches('/') != ctx.cfg().public_url().trim_end_matches('/') {
+            let cfg_url = ctx
+                .cfg()
+                .public_urls()
+                .first()
+                .expect("we always have at least one default");
+            if url.trim_end_matches('/') != cfg_url.trim_end_matches('/') {
                 tracing::info!(
                     "[{}]: Expected the 'base_url' value to be '{}' but was '{}'",
                     realm,
-                    ctx.cfg().public_url().trim_end_matches('/'),
+                    cfg_url.trim_end_matches('/'),
                     url.trim_end_matches('/')
                 );
                 add_error(
@@ -358,13 +363,14 @@ async fn check_client(
         // redirect_uris must contain a pattern matching the configured value
         if let Some(urls) = &client.redirect_uris {
             if !urls.iter().all(|url| {
-                url == ctx.cfg().public_url() || url.replace('*', "") == ctx.cfg().public_url()
+                ctx.cfg().public_urls().contains(&&**url)
+                    || ctx.cfg().public_urls().contains(&&*url.replace('*', ""))
             }) {
                 tracing::info!(
-                    "[{}]: Expected the 'redirect_uris' values '{:?}' to contain a pattern that matches '{}'",
+                    "[{}]: Expected the 'redirect_uris' values '{:?}' to match matches '{:?}'",
                     realm,
                     urls,
-                    ctx.cfg().public_url()
+                    ctx.cfg().public_urls()
                 );
                 add_error(
                     realm_errors::CLIENTS_CLIENT_REDIRECT_URIS_INVALID_ID,
@@ -381,11 +387,16 @@ async fn check_client(
         }
         // root_url must be the configured value
         if let Some(url) = &client.root_url {
-            if url.trim_end_matches('/') != ctx.cfg().public_url().trim_end_matches('/') {
+            let cfg_url = ctx
+                .cfg()
+                .public_urls()
+                .first()
+                .expect("we always have at least one default");
+            if url.trim_end_matches('/') != cfg_url.trim_end_matches('/') {
                 tracing::info!(
                     "[{}]: Expected the 'root_url' value to be '{}' but was '{}'",
                     realm,
-                    ctx.cfg().public_url().trim_end_matches('/'),
+                    cfg_url.trim_end_matches('/'),
                     url.trim_end_matches('/')
                 );
                 add_error(

@@ -589,7 +589,11 @@ async fn update_client_settings(
                 realm_errors::CLIENTS_CLIENT_BASE_URL_INVALID_ID
                 | realm_errors::CLIENTS_CLIENT_BASE_URL_MISSING_ID => {
                     tracing::trace!("Setting 'registration_allowed' for client '{client_id}' in realm '{realm}'");
-                    rep.base_url = Some(ctx.cfg().public_url().trim_end_matches('/').to_string());
+                    rep.base_url = Some(ctx
+                            .cfg()
+                            .public_urls()
+                            .first()
+                            .expect("we always have at least one default").trim_end_matches('/').to_string());
                 }
                 realm_errors::CLIENTS_CLIENT_CLIENT_ID_ID => {
                     tracing::trace!("Setting 'client_id' for client '{client_id}' in realm '{realm}'");
@@ -618,18 +622,26 @@ async fn update_client_settings(
                 realm_errors::CLIENTS_CLIENT_REDIRECT_URIS_INVALID_ID
                 | realm_errors::CLIENTS_CLIENT_REDIRECT_URIS_MISSING_ID => {
                     tracing::trace!("Adding 'redirect_uris' for configured value for client '{client_id}' in realm '{realm}'");
+                    let mut redirect_uris = ctx.cfg()
+                        .public_urls()
+                        .iter()
+                        .map(ToString::to_string)
+                        .collect();
                     if let Some(uris) = rep.redirect_uris.as_mut() {
                         uris.clear();
-                        uris.push(ctx.cfg().public_url().to_string());
-                        uris.push(format!("{}*", ctx.cfg().public_url()));
+                        uris.append(&mut redirect_uris);
                     } else {
-                        rep.redirect_uris = Some(vec![format!("{}*", ctx.cfg().public_url())]);
+                        rep.redirect_uris = Some(redirect_uris);
                     }
                 }
                 realm_errors::CLIENTS_CLIENT_ROOT_URL_INVALID_ID
                 | realm_errors::CLIENTS_CLIENT_ROOT_URL_MISSING_ID => {
                     tracing::trace!("Setting 'root_url' for client '{client_id}' in realm '{realm}'");
-                    rep.root_url = Some(ctx.cfg().public_url().trim_end_matches('/').to_string());
+                    rep.root_url = Some(ctx
+                            .cfg()
+                            .public_urls()
+                            .first()
+                            .expect("we always have at least one default").trim_end_matches('/').to_string());
                 }
                 realm_errors::CLIENTS_CLIENT_SERVICE_ACCOUNTS_ENABLED_ID => {
                     tracing::trace!("Setting 'service_accounts_enabled' for client '{client_id}' in realm '{realm}'");
@@ -654,6 +666,11 @@ async fn update_client_settings(
             .update_client(realm, rep.id.as_ref().unwrap(), rep.clone())
             .await?;
     } else {
+        let base_url = ctx
+            .cfg()
+            .public_urls()
+            .first()
+            .expect("we always have at least one default");
         let rep = ClientRepresentation {
             attributes: Some(HashMap::from_iter(vec![
                 (
@@ -665,15 +682,21 @@ async fn update_client_settings(
                     "http://qm-backend:10220/api/logout".to_string(),
                 ),
             ])),
-            base_url: Some(ctx.cfg().public_url().trim_end_matches('/').to_string()),
+            base_url: Some(base_url.trim_end_matches('/').to_string()),
             client_id: Some(client_id.to_string()),
             consent_required: Some(false),
             direct_access_grants_enabled: Some(true),
             enabled: Some(true),
             implicit_flow_enabled: Some(false),
             public_client: Some(true),
-            redirect_uris: Some(vec![format!("{}*", ctx.cfg().public_url())]),
-            root_url: Some(ctx.cfg().public_url().trim_end_matches('/').to_string()),
+            redirect_uris: Some(
+                ctx.cfg()
+                    .public_urls()
+                    .iter()
+                    .map(ToString::to_string)
+                    .collect(),
+            ),
+            root_url: Some(base_url.trim_end_matches('/').to_string()),
             service_accounts_enabled: Some(false),
             standard_flow_enabled: Some(true),
             frontchannel_logout: Some(false),

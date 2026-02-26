@@ -4,8 +4,8 @@ use crate::{Keycloak, KeycloakConfig};
 pub struct Config<'a> {
     /// Keycloak config.
     pub keycloak: &'a KeycloakConfig,
-    /// Public URL.
-    pub public_url: &'a str,
+    /// App URLs, first one is used for root URL, and all are used to set redirect URIs.
+    pub public_urls: &'a [&'a str],
     /// Realm name.
     pub realm: &'a str,
     /// Client ID.
@@ -17,9 +17,9 @@ impl<'a> Config<'a> {
     pub fn keycloak(&self) -> &'a KeycloakConfig {
         self.keycloak
     }
-    /// Gets the public URL.
-    pub fn public_url(&self) -> &'a str {
-        self.public_url
+    /// App URLs, first one is used for root URL, and all are used to set redirect URIs.
+    pub fn public_urls(&self) -> &'a [&'a str] {
+        self.public_urls
     }
     /// Gets the realm name.
     pub fn realm(&self) -> &'a str {

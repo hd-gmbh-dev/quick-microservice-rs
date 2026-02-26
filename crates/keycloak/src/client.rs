@@ -134,6 +134,11 @@ impl Keycloak {
         KeycloakBuilder::default().build().await
     }
 
+    /// App URLs, first one is used for root URL, and all are used to set redirect URIs.
+    pub fn app_urls(&self) -> Vec<&str> {
+        self.inner.config.app_urls()
+    }
+
     /// Returns the public URL.
     pub fn public_url(&self) -> &str {
         self.inner.config.public_url()

@@ -16,12 +16,6 @@ use qm_role::Group;
 
 lazy_static::lazy_static! {
     static ref REALM_TEMPLATE: RealmRepresentation = serde_json::from_str(include_str!("../templates/realm.json")).unwrap();
-    static ref APP_URL: String = std::env::var("SERVER_APP_URL").unwrap_or_else(|_| "http://localhost:5173".to_string());
-}
-
-/// Returns the application URL.
-pub fn app_url() -> &'static str {
-    APP_URL.as_str()
 }
 
 /// Creates a Keycloak realm.
@@ -36,23 +30,29 @@ where
 {
     let realm = keycloak.config().realm();
     let client_id = keycloak.config().client_id();
-    let url = APP_URL.as_str();
+    let urls = keycloak.config().app_urls();
+    let url = urls.first().expect("we always have at least one default");
     let mut realm_representation = REALM_TEMPLATE.clone();
     realm_representation.realm = Some(realm.to_string());
     if let Some(client) = realm_representation.clients.as_mut().and_then(|c| {
         c.iter_mut()
             .find(|c| c.client_id.as_deref() == Some(client_id))
     }) {
-        client.redirect_uris = Some(vec![format!(
-            "{}*",
-            if url.chars().filter(|c| c == &':').count() > 1 {
-                url.rsplit_once(':').map(|(l, _)| l).unwrap_or(url)
-            } else {
-                &url
-            }
-        )]);
-        client.base_url = Some(format!("{}/", &url));
-        client.root_url = Some(format!("{}/", &url));
+        client.redirect_uris = Some(
+            urls.iter()
+                .map(|uri| {
+                    let uri = if uri.chars().filter(|c| c == &':').count() > 1 {
+                        uri.rsplit_once(':').map(|(l, _)| l).unwrap_or(uri)
+                    } else {
+                        &uri
+                    };
+                    [format!("{}*", uri), uri.to_string()]
+                })
+                .flatten()
+                .collect(),
+        );
+        client.base_url = Some(format!("{}/", url));
+        client.root_url = Some(format!("{}/", url));
         client.direct_access_grants_enabled = Some(true);
     }
     let ctx = ValidationContext {
@@ -60,7 +60,7 @@ where
             realm,
             client_id,
             keycloak: keycloak.config(),
-            public_url: url,
+            public_urls: &urls,
         },
         keycloak,
     };
@@ -83,14 +83,14 @@ where
 {
     let realm = keycloak.config().realm();
     let client_id = keycloak.config().client_id();
-    let url = APP_URL.as_str();
+    let urls = keycloak.config().app_urls();
     let keycloak_config = keycloak.config();
     let ctx = ValidationContext {
         config: &Config {
             realm,
             client_id,
             keycloak: keycloak_config,
-            public_url: url,
+            public_urls: &urls,
         },
         keycloak,
     };

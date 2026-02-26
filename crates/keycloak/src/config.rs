@@ -21,6 +21,13 @@ impl<'a> ConfigBuilder<'a> {
             envy::prefixed("KEYCLOAK_")
         }
         .from_env()?;
+        cfg.app_urls = std::env::var("SERVER_APP_URL").ok().map(|s| {
+            s.split(',')
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .map(Arc::from)
+                .collect()
+        });
         if cfg.realm.is_none() {
             cfg.realm = Some("rmp".into());
         }
@@ -88,6 +95,8 @@ pub struct Config {
     port: Option<u16>,
     host: Option<Arc<str>>,
     address: Option<Arc<str>>,
+    #[serde(default, skip)]
+    app_urls: Option<Arc<[Arc<str>]>>,
     public_url: Option<Arc<str>>,
     smtp_reply_to_display_name: Option<Arc<str>>,
     smtp_starttls: Option<bool>,
@@ -155,6 +164,14 @@ impl Config {
     /// Returns the Keycloak server address.
     pub fn address(&self) -> &str {
         self.address.as_deref().unwrap_or("http://127.0.0.1:42210")
+    }
+
+    /// App URLs, first one is used for root URL, and all are used to set redirect URIs.
+    pub fn app_urls(&self) -> Vec<&str> {
+        self.app_urls
+            .as_deref()
+            .map(|s| s.iter().map(AsRef::as_ref).collect::<Vec<_>>())
+            .unwrap_or(vec!["http://localhost:5173"])
     }
 
     /// Returns the public-facing URL.
