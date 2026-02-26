@@ -67,6 +67,7 @@ struct Inner {
 pub struct KeycloakBuilder {
     no_refresh: bool,
     env_prefix: Option<&'static str>,
+    app_url_var_name: Option<&'static str>,
 }
 
 impl KeycloakBuilder {
@@ -82,11 +83,20 @@ impl KeycloakBuilder {
         self
     }
 
+    /// Sets a custom environment variable for app url.
+    pub fn with_app_url_var_name(mut self, var_name: &'static str) -> Self {
+        self.app_url_var_name = Some(var_name);
+        self
+    }
+
     /// Builds the Keycloak client.
     pub async fn build(self) -> anyhow::Result<Keycloak> {
         let mut config_builder = KeycloakConfig::builder();
         if let Some(prefix) = self.env_prefix {
             config_builder = config_builder.with_prefix(prefix);
+        }
+        if let Some(app_url_var_name) = self.app_url_var_name {
+            config_builder = config_builder.with_app_url_var_name(app_url_var_name);
         }
         let config = config_builder.build()?;
         let refresh_token_enabled = !self.no_refresh;

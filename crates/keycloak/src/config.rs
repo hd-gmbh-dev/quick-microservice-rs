@@ -15,7 +15,7 @@ impl<'a> ConfigBuilder<'a> {
     }
 
     /// Sets a custom environment variable for app url.
-    pub fn app_url_var_name(mut self, var_name: &'a str) -> Self {
+    pub fn with_app_url_var_name(mut self, var_name: &'a str) -> Self {
         self.app_url_var_name = Some(var_name);
         self
     }
