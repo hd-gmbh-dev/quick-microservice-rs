@@ -287,16 +287,11 @@ async fn check_client(
         }
         // base_url must be the configured value
         if let Some(url) = &client.base_url {
-            let cfg_url = ctx
-                .cfg()
-                .public_urls()
-                .first()
-                .expect("we always have at least one default");
-            if url.trim_end_matches('/') != cfg_url.trim_end_matches('/') {
+            if url.trim_end_matches('/') != ctx.cfg().base_url().trim_end_matches('/') {
                 tracing::info!(
                     "[{}]: Expected the 'base_url' value to be '{}' but was '{}'",
                     realm,
-                    cfg_url.trim_end_matches('/'),
+                    ctx.cfg().base_url().trim_end_matches('/'),
                     url.trim_end_matches('/')
                 );
                 add_error(
@@ -387,16 +382,11 @@ async fn check_client(
         }
         // root_url must be the configured value
         if let Some(url) = &client.root_url {
-            let cfg_url = ctx
-                .cfg()
-                .public_urls()
-                .first()
-                .expect("we always have at least one default");
-            if url.trim_end_matches('/') != cfg_url.trim_end_matches('/') {
+            if url.trim_end_matches('/') != ctx.cfg().base_url().trim_end_matches('/') {
                 tracing::info!(
                     "[{}]: Expected the 'root_url' value to be '{}' but was '{}'",
                     realm,
-                    cfg_url.trim_end_matches('/'),
+                    ctx.cfg().base_url().trim_end_matches('/'),
                     url.trim_end_matches('/')
                 );
                 add_error(

@@ -4,7 +4,9 @@ use crate::{Keycloak, KeycloakConfig};
 pub struct Config<'a> {
     /// Keycloak config.
     pub keycloak: &'a KeycloakConfig,
-    /// App URLs, first one is used for root URL, and all are used to set redirect URIs.
+    /// Base and root URL
+    pub base_url: &'a str,
+    /// App URLs, used to set redirect URIs.
     pub public_urls: &'a [&'a str],
     /// Realm name.
     pub realm: &'a str,
@@ -17,7 +19,11 @@ impl<'a> Config<'a> {
     pub fn keycloak(&self) -> &'a KeycloakConfig {
         self.keycloak
     }
-    /// App URLs, first one is used for root URL, and all are used to set redirect URIs.
+    /// Base and root URL
+    pub fn base_url(&self) -> &'a str {
+        self.base_url
+    }
+    /// App URLs, used to set redirect URIs.
     pub fn public_urls(&self) -> &'a [&'a str] {
         self.public_urls
     }

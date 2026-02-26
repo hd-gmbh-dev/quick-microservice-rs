@@ -666,11 +666,6 @@ async fn update_client_settings(
             .update_client(realm, rep.id.as_ref().unwrap(), rep.clone())
             .await?;
     } else {
-        let base_url = ctx
-            .cfg()
-            .public_urls()
-            .first()
-            .expect("we always have at least one default");
         let rep = ClientRepresentation {
             attributes: Some(HashMap::from_iter(vec![
                 (
@@ -682,7 +677,7 @@ async fn update_client_settings(
                     "http://qm-backend:10220/api/logout".to_string(),
                 ),
             ])),
-            base_url: Some(base_url.trim_end_matches('/').to_string()),
+            base_url: Some(ctx.cfg().base_url().trim_end_matches('/').to_string()),
             client_id: Some(client_id.to_string()),
             consent_required: Some(false),
             direct_access_grants_enabled: Some(true),
@@ -696,7 +691,7 @@ async fn update_client_settings(
                     .map(ToString::to_string)
                     .collect(),
             ),
-            root_url: Some(base_url.trim_end_matches('/').to_string()),
+            root_url: Some(ctx.cfg().base_url().trim_end_matches('/').to_string()),
             service_accounts_enabled: Some(false),
             standard_flow_enabled: Some(true),
             frontchannel_logout: Some(false),

@@ -31,7 +31,7 @@ where
     let realm = keycloak.config().realm();
     let client_id = keycloak.config().client_id();
     let urls = keycloak.config().app_urls();
-    let url = urls.first().expect("we always have at least one default");
+    let base_url = urls.first().expect("we always have at least one default");
     let mut realm_representation = REALM_TEMPLATE.clone();
     realm_representation.realm = Some(realm.to_string());
     if let Some(client) = realm_representation.clients.as_mut().and_then(|c| {
@@ -44,8 +44,8 @@ where
                 .flatten()
                 .collect(),
         );
-        client.base_url = Some(format!("{}/", url));
-        client.root_url = Some(format!("{}/", url));
+        client.base_url = Some(format!("{}/", base_url));
+        client.root_url = Some(format!("{}/", base_url));
         client.direct_access_grants_enabled = Some(true);
     }
     let ctx = ValidationContext {
@@ -53,6 +53,7 @@ where
             realm,
             client_id,
             keycloak: keycloak.config(),
+            base_url,
             public_urls: &urls,
         },
         keycloak,
@@ -77,12 +78,14 @@ where
     let realm = keycloak.config().realm();
     let client_id = keycloak.config().client_id();
     let urls = keycloak.config().app_urls();
+    let base_url = urls.first().expect("we always have at least one default");
     let keycloak_config = keycloak.config();
     let ctx = ValidationContext {
         config: &Config {
             realm,
             client_id,
             keycloak: keycloak_config,
+            base_url,
             public_urls: &urls,
         },
         keycloak,
