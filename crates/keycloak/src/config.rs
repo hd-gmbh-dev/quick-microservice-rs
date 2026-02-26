@@ -4,12 +4,19 @@ use std::sync::Arc;
 #[derive(Default)]
 pub struct ConfigBuilder<'a> {
     prefix: Option<&'a str>,
+    app_url_var_name: Option<&'a str>,
 }
 
 impl<'a> ConfigBuilder<'a> {
     /// Sets a custom environment variable prefix.
     pub fn with_prefix(mut self, prefix: &'a str) -> Self {
         self.prefix = Some(prefix);
+        self
+    }
+
+    /// Sets a custom environment variable for app url.
+    pub fn app_url_var_name(mut self, var_name: &'a str) -> Self {
+        self.app_url_var_name = Some(var_name);
         self
     }
 
@@ -21,13 +28,15 @@ impl<'a> ConfigBuilder<'a> {
             envy::prefixed("KEYCLOAK_")
         }
         .from_env()?;
-        cfg.app_urls = std::env::var("SERVER_APP_URL").ok().map(|s| {
-            s.split(',')
-                .map(str::trim)
-                .filter(|s| !s.is_empty())
-                .map(Arc::from)
-                .collect()
-        });
+        cfg.app_urls = std::env::var(self.app_url_var_name.unwrap_or("SERVER_APP_URL"))
+            .ok()
+            .map(|s| {
+                s.split(',')
+                    .map(str::trim)
+                    .filter(|s| !s.is_empty())
+                    .map(Arc::from)
+                    .collect()
+            });
         if cfg.realm.is_none() {
             cfg.realm = Some("rmp".into());
         }
