@@ -12,6 +12,7 @@ use crate::{
     RoleRepresentation, UserRepresentation,
 };
 
+use anyhow::anyhow;
 use qm_role::Group;
 
 lazy_static::lazy_static! {
@@ -31,7 +32,9 @@ where
     let realm = keycloak.config().realm();
     let client_id = keycloak.config().client_id();
     let urls = keycloak.config().app_urls();
-    let base_url = urls.first().expect("we always have at least one default");
+    let base_url = urls
+        .first()
+        .ok_or_else(|| anyhow!("'app_url' is unexpectedly empty"))?;
     let mut realm_representation = REALM_TEMPLATE.clone();
     realm_representation.realm = Some(realm.to_string());
     if let Some(client) = realm_representation.clients.as_mut().and_then(|c| {
@@ -78,7 +81,9 @@ where
     let realm = keycloak.config().realm();
     let client_id = keycloak.config().client_id();
     let urls = keycloak.config().app_urls();
-    let base_url = urls.first().expect("we always have at least one default");
+    let base_url = urls
+        .first()
+        .ok_or_else(|| anyhow!("'app_url' is unexpectedly empty"))?;
     let keycloak_config = keycloak.config();
     let ctx = ValidationContext {
         config: &Config {
