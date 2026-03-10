@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::env;
 
+use anyhow::anyhow;
 use keycloak::types::{
     AuthenticationExecutionInfoRepresentation, AuthenticatorConfigRepresentation, TypeMap,
 };
@@ -564,7 +565,7 @@ async fn update_client_settings(
 
     if let Some(rep) = client.as_mut() {
         rep.direct_access_grants_enabled = Some(true);
-        errors.iter().for_each(|e| {
+        for e in errors.iter() {
             match e.id.as_str() {
                 realm_errors::CLIENTS_CLIENT_ATTRIBUTES_OAUTH2_DEVICE_AUTHORIZATION_GRANT_ENABLED_INVALID_ID
                 | realm_errors::CLIENTS_CLIENT_ATTRIBUTES_OAUTH2_DEVICE_AUTHORIZATION_GRANT_ENABLED_MISSING_ID
@@ -593,7 +594,8 @@ async fn update_client_settings(
                             .cfg()
                             .public_urls()
                             .first()
-                            .expect("we always have at least one default").trim_end_matches('/').to_string());
+                            .ok_or_else(|| anyhow!("we always have at least one default, so 'base_url' is unexpectedly empty"))?
+                            .trim_end_matches('/').to_string());
                 }
                 realm_errors::CLIENTS_CLIENT_CLIENT_ID_ID => {
                     tracing::trace!("Setting 'client_id' for client '{client_id}' in realm '{realm}'");
@@ -641,7 +643,8 @@ async fn update_client_settings(
                             .cfg()
                             .public_urls()
                             .first()
-                            .expect("we always have at least one default").trim_end_matches('/').to_string());
+                            .ok_or_else(|| anyhow!("we always have at least one default, so 'root_url' is unexpectedly empty"))?
+                            .trim_end_matches('/').to_string());
                 }
                 realm_errors::CLIENTS_CLIENT_SERVICE_ACCOUNTS_ENABLED_ID => {
                     tracing::trace!("Setting 'service_accounts_enabled' for client '{client_id}' in realm '{realm}'");
@@ -657,7 +660,7 @@ async fn update_client_settings(
                 }
                 _ => tracing::warn!("Unknown client error id '{}'. No action taken.", e.id),
             }
-        });
+        }
 
         tracing::info!(
             "Updating the client '{client_id}' for realm '{realm}' with the following representation: {rep:?}"
