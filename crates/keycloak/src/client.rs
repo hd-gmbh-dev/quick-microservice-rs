@@ -67,6 +67,7 @@ struct Inner {
 pub struct KeycloakBuilder {
     no_refresh: bool,
     env_prefix: Option<&'static str>,
+    config: Option<KeycloakConfig>,
 }
 
 impl KeycloakBuilder {
@@ -82,13 +83,23 @@ impl KeycloakBuilder {
         self
     }
 
+    /// Sets a custom environment variable for app url.
+    pub fn with_config(mut self, config: KeycloakConfig) -> Self {
+        self.config = Some(config);
+        self
+    }
+
     /// Builds the Keycloak client.
     pub async fn build(self) -> anyhow::Result<Keycloak> {
         let mut config_builder = KeycloakConfig::builder();
-        if let Some(prefix) = self.env_prefix {
-            config_builder = config_builder.with_prefix(prefix);
-        }
-        let config = config_builder.build()?;
+        let config = if let Some(config) = self.config {
+            config
+        } else {
+            if let Some(prefix) = self.env_prefix {
+                config_builder = config_builder.with_prefix(prefix);
+            }
+            config_builder.build()?
+        };
         let refresh_token_enabled = !self.no_refresh;
         let url: Arc<str> = Arc::from(config.address().to_string());
         let username: Arc<str> = Arc::from(config.username().to_string());
@@ -132,6 +143,11 @@ impl Keycloak {
     /// Creates a new Keycloak instance with default configuration.
     pub async fn new() -> anyhow::Result<Self> {
         KeycloakBuilder::default().build().await
+    }
+
+    /// App URLs, first one is used for root URL, and all are used to set redirect URIs.
+    pub fn app_urls(&self) -> Vec<&str> {
+        self.inner.config.app_urls()
     }
 
     /// Returns the public URL.
