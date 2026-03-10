@@ -1,3 +1,10 @@
+#![deny(missing_docs)]
+
+//! Role abstraction layer for quick-microservice.
+//!
+//! This crate provides role-based access control (RBAC) abstractions,
+//! including access types, roles, and authentication containers.
+
 use async_graphql::{InputValueError, InputValueResult, Scalar, ScalarType, Value};
 use std::{
     collections::{BTreeSet, HashSet},
@@ -6,6 +13,10 @@ use std::{
 };
 use tokio::sync::RwLock;
 
+/// Includes generated role code at compile time.
+///
+/// This macro includes the generated role code from the build process.
+/// The filename is relative to the OUT_DIR environment variable.
 #[macro_export]
 macro_rules! include_roles {
     ($filename:tt) => {
@@ -13,6 +24,20 @@ macro_rules! include_roles {
     };
 }
 
+/// Creates a new role with the given resource type.
+///
+/// This macro provides a convenient way to create roles without explicitly
+/// calling the Role constructor.
+///
+/// # Arguments
+/// * `$resource` - The resource type
+/// * `$permission` - Optional permission (if not provided, uses None)
+///
+/// # Example
+/// ```
+/// let role = role!("customer");
+/// let role_with_perm = role!("customer", "read");
+/// ```
 #[macro_export]
 macro_rules! role {
     ($resource:expr) => {
@@ -37,15 +62,33 @@ pub struct Access {
 }
 
 impl Access {
+    /// Creates a new access with the given type.
+    ///
+    /// # Arguments
+    /// * `ty` - The type of access
     pub fn new(ty: Arc<str>) -> Self {
         Self { ty, id: None }
     }
 
+    /// Sets the ID for this access.
+    ///
+    /// # Arguments
+    /// * `id` - The access ID
+    ///
+    /// # Returns
+    /// A new Access with the specified ID.
     pub fn with_id(mut self, id: Arc<str>) -> Self {
         self.id = Some(id);
         self
     }
 
+    /// Sets the ID for this access using a displayable type.
+    ///
+    /// # Arguments
+    /// * `id` - The access ID as a displayable type
+    ///
+    /// # Returns
+    /// A new Access with the specified ID.
     pub fn with_fmt_id(mut self, id: Option<&impl std::fmt::Display>) -> Self {
         if let Some(id) = id {
             self.id = Some(Arc::from(id.to_string()));
@@ -53,10 +96,18 @@ impl Access {
         self
     }
 
+    /// Returns the type of this access.
+    ///
+    /// # Returns
+    /// The access type as a string slice.
     pub fn ty(&self) -> &str {
         &self.ty
     }
 
+    /// Returns the ID of this access, if any.
+    ///
+    /// # Returns
+    /// The access ID as a string slice, or None if not set.
     pub fn id(&self) -> Option<&str> {
         self.id.as_deref()
     }
@@ -106,12 +157,18 @@ impl FromStr for Access {
     feature = "serde-str",
     derive(serde_with::DeserializeFromStr, serde_with::SerializeDisplay)
 )]
+/// A role with a type and optional permission.
+///
+/// Represents a role in the system that can be used for access control.
+/// The role consists of a type (resource) and an optional permission.
 pub struct Role<R, P>
 where
     R: std::fmt::Debug + std::marker::Copy + Clone,
     P: std::fmt::Debug + std::marker::Copy + Clone,
 {
+    /// The type (resource) of this role.
     pub ty: R,
+    /// The optional permission associated with this role.
     pub permission: Option<P>,
 }
 
@@ -120,6 +177,14 @@ where
     R: std::fmt::Debug + std::marker::Copy + Clone,
     P: std::fmt::Debug + std::marker::Copy + Clone,
 {
+    /// Creates a new role with the given type and optional permission.
+    ///
+    /// # Arguments
+    /// * `ty` - The role type (resource)
+    /// * `permission` - Optional permission
+    ///
+    /// # Returns
+    /// A new Role instance.
     pub fn new(ty: R, permission: Option<P>) -> Self {
         Self { ty, permission }
     }
@@ -217,12 +282,18 @@ where
 
 #[derive(Ord, PartialOrd, Eq, PartialEq, Clone)]
 #[cfg_attr(feature = "serde-str", derive(serde_with::DeserializeFromStr))]
+/// Represents either an access or a role.
+///
+/// This enum is used when parsing or serializing data that can be either
+/// an access or a role, providing flexibility in handling both types.
 pub enum AccessOrRole<R, P>
 where
     R: std::fmt::Debug + Clone + std::marker::Copy,
     P: std::fmt::Debug + Clone + std::marker::Copy,
 {
+    /// An access entity.
     Access(Access),
+    /// A role entity.
     Role(Role<R, P>),
 }
 
@@ -289,12 +360,17 @@ where
     }
 }
 
+/// The result of parsing roles and accesses.
+///
+/// Contains the parsed access set and role set from a collection of role strings.
 pub struct ParseResult<R, P>
 where
     R: std::fmt::Debug + std::marker::Copy + Clone,
     P: std::fmt::Debug + std::marker::Copy + Clone,
 {
+    /// The set of parsed accesses.
     pub access: BTreeSet<Access>,
+    /// The set of parsed roles.
     pub roles: HashSet<Role<R, P>>,
 }
 
@@ -311,6 +387,20 @@ where
     }
 }
 
+/// Parses a collection of role strings into separate access and role sets.
+///
+/// This function takes a slice of role strings and parses each one,
+/// categorizing them into either accesses or roles.
+///
+/// # Arguments
+/// * `roles` - A slice of role strings to parse
+///
+/// # Type Parameters
+/// * `R` - The role type that implements FromStr
+/// * `P` - The permission type that implements FromStr
+///
+/// # Returns
+/// A ParseResult containing the parsed accesses and roles.
 pub fn parse<R, P>(roles: &[Arc<str>]) -> ParseResult<R, P>
 where
     R: Ord
@@ -343,14 +433,22 @@ where
         })
 }
 
+/// A group of roles with a name and path.
+///
+/// Represents a logical grouping of roles that can be used for
+/// organizing and managing access control.
 pub struct Group<R, P>
 where
     R: std::fmt::Debug + std::marker::Copy + Clone,
     P: std::fmt::Debug + std::marker::Copy + Clone,
 {
+    /// The name of this group.
     pub name: String,
+    /// The path to this group in the hierarchy.
     pub path: String,
+    /// The resource roles associated with this group.
     resource_roles: Vec<Role<R, P>>,
+    /// The allowed types for this group.
     allowed_types: Vec<String>,
 }
 
@@ -359,6 +457,16 @@ where
     R: std::fmt::Debug + std::marker::Copy + Clone,
     P: std::fmt::Debug + std::marker::Copy + Clone,
 {
+    /// Creates a new group with the given parameters.
+    ///
+    /// # Arguments
+    /// * `name` - The name of the group
+    /// * `path` - The path to this group in the hierarchy
+    /// * `allowed_types` - The allowed types for this group
+    /// * `resource_roles` - The resource roles associated with this group
+    ///
+    /// # Returns
+    /// A new Group instance.
     pub fn new(
         name: String,
         path: String,
@@ -373,6 +481,10 @@ where
         }
     }
 
+    /// Returns the allowed types for this group.
+    ///
+    /// # Returns
+    /// A slice of strings representing the allowed types.
     pub fn allowed_types(&self) -> &[String] {
         &self.allowed_types
     }
@@ -383,6 +495,10 @@ where
     R: AsRef<str> + std::fmt::Debug + std::marker::Copy + Clone,
     P: AsRef<str> + std::fmt::Debug + std::marker::Copy + Clone,
 {
+    /// Returns the resources associated with this group as strings.
+    ///
+    /// # Returns
+    /// A vector of string representations of the resource roles.
     pub fn resources(&self) -> Vec<String> {
         self.resource_roles.iter().map(|r| r.to_string()).collect()
     }
@@ -393,12 +509,23 @@ struct Inner<T> {
     decoded: RwLock<Option<T>>,
 }
 
+/// A container for authentication data with lazy decoding.
+///
+/// This struct holds encoded authentication data and provides
+/// lazy decoding capabilities.
 #[derive(Clone)]
 pub struct AuthContainer<T> {
     inner: Arc<Inner<T>>,
 }
 
 impl<T> AuthContainer<T> {
+    /// Creates a new AuthContainer with the given encoded data.
+    ///
+    /// # Arguments
+    /// * `encoded` - The encoded authentication data
+    ///
+    /// # Returns
+    /// A new AuthContainer instance.
     pub fn new(encoded: &str) -> Self {
         Self {
             inner: Arc::new(Inner {
@@ -408,18 +535,34 @@ impl<T> AuthContainer<T> {
         }
     }
 
+    /// Returns whether this container has encoded data.
+    ///
+    /// # Returns
+    /// True if encoded data is present, false otherwise.
     pub fn has_encoded(&self) -> bool {
         self.inner.encoded.is_some()
     }
 
+    /// Returns the encoded data if present.
+    ///
+    /// # Returns
+    /// The encoded data as a string slice, or None if not set.
     pub fn encoded(&self) -> Option<&str> {
         self.inner.encoded.as_deref()
     }
 
+    /// Returns a write guard for the decoded data.
+    ///
+    /// # Returns
+    /// A write lock guard for the optional decoded data.
     pub async fn write(&self) -> tokio::sync::RwLockWriteGuard<'_, Option<T>> {
         self.inner.decoded.write().await
     }
 
+    /// Returns a read guard for the decoded data.
+    ///
+    /// # Returns
+    /// A read lock guard for the optional decoded data.
     pub async fn read(&self) -> tokio::sync::RwLockReadGuard<'_, Option<T>> {
         self.inner.decoded.read().await
     }
