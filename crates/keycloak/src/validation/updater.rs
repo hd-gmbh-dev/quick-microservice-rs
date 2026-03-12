@@ -627,7 +627,7 @@ async fn update_client_settings(
                     let mut redirect_uris = ctx.cfg()
                         .public_urls()
                         .iter()
-                        .map(ToString::to_string)
+                        .flat_map(|url| [format!("{url}*"), url.to_string()])
                         .collect();
                     if let Some(uris) = rep.redirect_uris.as_mut() {
                         uris.clear();
