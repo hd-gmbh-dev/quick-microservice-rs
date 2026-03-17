@@ -2,7 +2,7 @@ use std::{borrow::Cow, collections::HashMap, convert::identity, sync::Arc};
 
 use keycloak::types::{
     ClientScopeRepresentation, ComponentRepresentation, IdentityProviderMapperRepresentation,
-    ProtocolMapperRepresentation,
+    ProtocolMapperRepresentation, RequiredActionProviderRepresentation,
 };
 pub use keycloak::{
     types::{
@@ -1158,7 +1158,7 @@ impl Keycloak {
             .await;
         match result {
             Ok(response) => {
-                tracing::info!("Getted flow executions successfully.");
+                tracing::info!("Got flow executions successfully.");
                 Ok(response)
             }
             Err(e) => {
@@ -1257,7 +1257,7 @@ impl Keycloak {
                 Ok(())
             }
             Err(e) => {
-                tracing::error!("Failed to crete execution: {e}");
+                tracing::error!("Failed to create execution: {e}");
                 Err(e)
             }
         }
@@ -1274,6 +1274,47 @@ impl Keycloak {
             .admin
             .realm(realm)
             .authentication_executions_with_execution_id_config_post(execution_id, body)
+            .await?;
+        Ok(())
+    }
+
+    /// Gets required actions.
+    pub async fn get_authentication_required_actions(
+        &self,
+        realm: &str,
+    ) -> Result<Vec<RequiredActionProviderRepresentation>, KeycloakError> {
+        self.inner
+            .admin
+            .realm(realm)
+            .authentication_required_actions_get()
+            .await
+    }
+
+    /// Update a required action.
+    pub async fn update_authentication_required_action(
+        &self,
+        realm: &str,
+        required_action: RequiredActionProviderRepresentation,
+    ) -> Result<(), KeycloakError> {
+        let alias = required_action.alias.clone().unwrap_or_default();
+        self.inner
+            .admin
+            .realm(realm)
+            .authentication_required_actions_with_alias_put(&alias, required_action)
+            .await?;
+        Ok(())
+    }
+
+    /// Register a new required action.
+    pub async fn register_authentication_required_action(
+        &self,
+        realm: &str,
+        required_action: RequiredActionProviderRepresentation,
+    ) -> Result<(), KeycloakError> {
+        self.inner
+            .admin
+            .realm(realm)
+            .authentication_register_required_action_post(required_action)
             .await?;
         Ok(())
     }
