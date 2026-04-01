@@ -14,7 +14,7 @@ repository = "https://github.com/hd-gmbh-dev/quick-microservice-rs"
 [workspace.dependencies]
 anyhow = "1.0.102"
 async-trait = "0.1.89"
-async-nats = "0.44.2"
+async-nats = "0.47.0"
 axum = "0.8.8"
 tynm = "0.2.0"
 base64 = "0.22.1"
