@@ -28,7 +28,7 @@ thiserror = "2.0.18"
 itertools = "0.14.0"
 envy = "0.4.2"
 reqwest = { version = "0.13", default-features = false, features = ["json"] }
-jsonwebtoken = { version = "10.0.0", features = ["rust_crypto"] }
+jsonwebtoken = { version = "10.3.0", features = ["rust_crypto"] }
 serde = { version = "1.0.228", features = ["derive", "rc"] }
 serde_json = "1.0.149"
 keycloak = { version = "~26.5.200", default-features = false, features = [
