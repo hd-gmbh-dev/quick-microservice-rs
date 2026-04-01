@@ -1,4 +1,5 @@
 use rdkafka::config::ClientConfig;
+use rdkafka::producer::future_producer::Delivery;
 use rdkafka::producer::{FutureProducer, FutureRecord};
 use std::str::FromStr;
 use std::sync::Arc;
@@ -240,7 +241,7 @@ impl Producer {
             object,
         };
         let event = serde_json::to_string(&event)?;
-        let (a, b) = self
+        let Delivery { partition, offset, timestamp } = self
             .inner
             .producer
             .send_result(
@@ -253,7 +254,8 @@ impl Producer {
             .await?
             .map_err(|e| anyhow::anyhow!("{e:#?}"))?;
         tracing::debug!(
-            "produced {event_name} event for type {ty} with partition {a} and offset {b}"
+            "produced {event_name} event for type {ty} with partition {partition} and offset {offset} at timestamp {}",
+            timestamp.to_millis().map(|t| t.to_string()).unwrap_or("'unknown'".to_string())
         );
         Ok(())
     }
@@ -280,7 +282,7 @@ impl Producer {
             object,
         };
         let event = serde_json::to_string(&event)?;
-        let (a, b) = self
+        let Delivery { partition, offset, timestamp } = self
             .inner
             .producer
             .send_result(
@@ -292,7 +294,10 @@ impl Producer {
             .map_err(|e| anyhow::anyhow!("{e:#?}"))?
             .await?
             .map_err(|e| anyhow::anyhow!("{e:#?}"))?;
-        tracing::debug!("produced {event:?} event for type {ty} with partition {a} and offset {b}");
+        tracing::debug!(
+            "produced {event:?} event for type {ty} with partition {partition} and offset {offset} at timestamp {}",
+            timestamp.to_millis().map(|t| t.to_string()).unwrap_or("'unknown'".to_string())
+        );
         Ok(())
     }
 }
