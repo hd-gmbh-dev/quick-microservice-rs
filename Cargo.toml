@@ -52,8 +52,8 @@ mongodb = { version = "3.5.2", features = ["bson-3"] }
 lazy_static = "1.5.0"
 tracing = "0.1.44"
 strum = { version = "0.28.0", features = ["derive"] }
-redis = { version = "0.32.7", features = ["tokio-comp", "json"] }
-deadpool-redis = "0.22.0"
+redis = { version = "1.0", features = ["tokio-comp", "json"] }
+deadpool-redis = "0.23.0"
 uuid = { version = "1.16.0", features = ["v4", "v7"] }
 glob = "0.3.3"
 async-graphql-axum = "7.2.1"
