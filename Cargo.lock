@@ -2237,13 +2237,14 @@ dependencies = [
 
 [[package]]
 name = "keycloak"
-version = "26.4.0"
+version = "26.5.200"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ed451521a2e0523fb954fa585815bd9d131d6d51095d23eced49381816e40944"
+checksum = "620fc013ebc3b3cea16e8e600893809670cf65d499b91991388093365d3b0d01"
 dependencies = [
  "async-trait",
  "percent-encoding",
- "reqwest",
+ "reqwest 0.12.28",
+ "reqwest 0.13.2",
  "serde",
  "serde_json",
  "serde_with",
@@ -3170,7 +3171,7 @@ dependencies = [
  "qm-nats",
  "qm-redis",
  "qm-role",
- "reqwest",
+ "reqwest 0.13.2",
  "sea-orm",
  "serde",
  "serde_json",
@@ -3300,7 +3301,7 @@ dependencies = [
  "keycloak",
  "lazy_static",
  "qm-role",
- "reqwest",
+ "reqwest 0.13.2",
  "serde",
  "serde_json",
  "tokio",
@@ -3654,6 +3655,40 @@ name = "reqwest"
 version = "0.12.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "eddd3ca559203180a307f12d114c268abf583f59b03cb906fd0b3ff8646c1147"
+dependencies = [
+ "base64",
+ "bytes",
+ "futures-core",
+ "futures-util",
+ "http",
+ "http-body",
+ "http-body-util",
+ "hyper",
+ "hyper-util",
+ "js-sys",
+ "log",
+ "mime_guess",
+ "percent-encoding",
+ "pin-project-lite",
+ "serde",
+ "serde_json",
+ "serde_urlencoded",
+ "sync_wrapper",
+ "tokio",
+ "tower",
+ "tower-http",
+ "tower-service",
+ "url",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+]
+
+[[package]]
+name = "reqwest"
+version = "0.13.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ab3f43e3283ab1488b624b44b0e988d0acea0b3214e694730a055cb6b2efa801"
 dependencies = [
  "base64",
  "bytes",
