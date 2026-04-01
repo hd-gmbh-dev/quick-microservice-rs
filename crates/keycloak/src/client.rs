@@ -480,7 +480,7 @@ impl Keycloak {
             .roles_with_role_name_users_get(role_name)
             .await?
             .into_iter()
-            .nth(0))
+            .next())
     }
 
     /// Gets a user by username.
@@ -499,7 +499,7 @@ impl Keycloak {
             .username(username)
             .await?
             .into_iter()
-            .nth(0))
+            .next())
     }
 
     /// Gets realm information.
