@@ -12,26 +12,27 @@ license = "MIT"
 repository = "https://github.com/hd-gmbh-dev/quick-microservice-rs"
 
 [workspace.dependencies]
-anyhow = "1.0.100"
-async-trait = "0.1.88"
-async-nats = "0.44.2"
-axum = "0.8.6"
+anyhow = "1.0.102"
+async-trait = "0.1.89"
+async-nats = "0.47.0"
+axum = "0.8.8"
 tynm = "0.2.0"
 base64 = "0.22.1"
-constcat = "0.6.0"
+constcat = "0.6.1"
 bson = "3.1.0"
-chrono = { version = "0.4.38", features = ["serde"] }
-futures = "0.3.31"
+chrono = { version = "0.4.44", features = ["serde"] }
+futures = "0.3.32"
 tokio = { version = "1.44.2", features = ["full"] }
-tower-http = { version = "0.6.2", features = ["cors"] }
-thiserror = "2.0.17"
+tower-http = { version = "0.6.8", features = ["cors"] }
+thiserror = "2.0.18"
 itertools = "0.14.0"
 envy = "0.4.2"
-reqwest = { version = "0.12", default-features = false, features = ["json"] }
-jsonwebtoken = { version = "10.0.0", features = ["rust_crypto"] }
+reqwest = { version = "0.13", default-features = false, features = ["json"] }
+jsonwebtoken = { version = "10.3.0", features = ["rust_crypto"] }
 serde = { version = "1.0.228", features = ["derive", "rc"] }
-serde_json = "1.0.140"
-keycloak = { version = "~26.4.0", default-features = false, features = [
+serde_json = "1.0.149"
+keycloak = { version = "~26.5.200", default-features = false, features = [
+    "reqwest13",
     "multipart",
     "resource-builder",
     "tag-attack-detection",
@@ -48,14 +49,14 @@ keycloak = { version = "~26.4.0", default-features = false, features = [
     "tag-roles-by-id",
     "tag-users",
 ] }
-mongodb = { version = "3.5.1", features = ["bson-3"] }
+mongodb = { version = "3.5.2", features = ["bson-3"] }
 lazy_static = "1.5.0"
-tracing = "0.1.40"
-strum = { version = "0.27.2", features = ["derive"] }
-redis = { version = "0.32.7", features = ["tokio-comp", "json"] }
-deadpool-redis = "0.22.0"
-uuid = { version = "1.16.0", features = ["v4", "v7"] }
-glob = "0.3.1"
+tracing = "0.1.44"
+strum = { version = "0.28.0", features = ["derive"] }
+redis = { version = "1.0", features = ["tokio-comp", "json"] }
+deadpool-redis = "0.23.0"
+uuid = { version = "1.23.0", features = ["v4", "v7"] }
+glob = "0.3.3"
 async-graphql-axum = "7.2.1"
 sqlx = { version = "0.8", features = [
     "runtime-tokio",
@@ -63,7 +64,7 @@ sqlx = { version = "0.8", features = [
     "uuid",
     "time",
 ] }
-time = { version = "0.3.44", features = [
+time = { version = "0.3.47", features = [
     "formatting",
     "parsing",
     "macros",
@@ -78,12 +79,12 @@ async-graphql = { version = "7.2.1", features = [
     "graphiql",
     "time",
 ] }
-prometheus-client = "0.24.0"
-rdkafka = { version = "0.37" }
+prometheus-client = "0.24.1"
+rdkafka = { version = "0.39" }
 
 hex = "0.4.3"
-serde_with = "3.15.0"
-sea-orm = { version = "1.1.17", default-features = false, features = [
+serde_with = "3.18.0"
+sea-orm = { version = "1.1.20", default-features = false, features = [
     "sqlx-postgres",
 ] }
 

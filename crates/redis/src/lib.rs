@@ -93,14 +93,11 @@ impl<T> FromRedisValue for Json<T>
 where
     T: DeserializeOwned,
 {
-    fn from_redis_value(v: &redis::Value) -> RedisResult<Self> {
+    fn from_redis_value(v: redis::Value) -> Result<Self, redis::ParsingError> {
         if let redis::Value::SimpleString(s) = v {
-            serde_json::from_str(s).map_err(From::from)
+            serde_json::from_str(&s).map_err(|e| redis::ParsingError::from(e.to_string()))
         } else {
-            Err(redis::RedisError::from((
-                redis::ErrorKind::TypeError,
-                "expected simple string value",
-            )))
+            Err(redis::ParsingError::from("expected simple string value"))
         }
     }
 }
