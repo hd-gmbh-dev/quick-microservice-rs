@@ -241,7 +241,11 @@ impl Producer {
             object,
         };
         let event = serde_json::to_string(&event)?;
-        let Delivery { partition, offset, timestamp } = self
+        let Delivery {
+            partition,
+            offset,
+            timestamp,
+        } = self
             .inner
             .producer
             .send_result(
@@ -282,7 +286,11 @@ impl Producer {
             object,
         };
         let event = serde_json::to_string(&event)?;
-        let Delivery { partition, offset, timestamp } = self
+        let Delivery {
+            partition,
+            offset,
+            timestamp,
+        } = self
             .inner
             .producer
             .send_result(
