@@ -359,7 +359,10 @@ async fn check_client(
         if let Some(urls) = &client.redirect_uris {
             if !urls.iter().all(|url| {
                 ctx.cfg().public_urls().contains(&&**url)
-                    || ctx.cfg().public_urls().contains(&&*url.replace('*', ""))
+                    || ctx
+                        .cfg()
+                        .public_urls()
+                        .contains(&&*url.trim_end_matches(['*', '/']))
             }) {
                 tracing::info!(
                     "[{}]: Expected the 'redirect_uris' values '{:?}' to match matches '{:?}'",

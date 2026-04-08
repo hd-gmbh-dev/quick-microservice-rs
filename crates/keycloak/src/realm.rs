@@ -43,12 +43,15 @@ where
     }) {
         client.redirect_uris = Some(
             urls.iter()
-                .map(|uri| [format!("{}*", uri), uri.to_string()])
+                .map(|uri| {
+                    let uri = format!("{}/", uri.trim_end_matches("/"));
+                    [format!("{}*", &uri), uri]
+                })
                 .flatten()
                 .collect(),
         );
-        client.base_url = Some(format!("{}/", base_url));
-        client.root_url = Some(format!("{}/", base_url));
+        client.base_url = Some(format!("{}/", base_url.trim_end_matches("/")));
+        client.root_url = Some(format!("{}/", base_url.trim_end_matches("/")));
         client.direct_access_grants_enabled = Some(true);
     }
     let ctx = ValidationContext {
