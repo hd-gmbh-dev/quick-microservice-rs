@@ -17,21 +17,18 @@ jobs:
     - uses: dtolnay/rust-toolchain@1.90.0
     - name: Publish to crates.io.
       run: |
-        cargo publish --token ${CRATES_TOKEN} -p qm-utils-derive
-        cargo publish --token ${CRATES_TOKEN} -p qm-utils
-        cargo publish --token ${CRATES_TOKEN} -p qm-role-build
-        cargo publish --token ${CRATES_TOKEN} -p qm-role
-        cargo publish --token ${CRATES_TOKEN} -p qm-pg
-        cargo publish --token ${CRATES_TOKEN} -p qm-redis
-        cargo publish --token ${CRATES_TOKEN} -p qm-mongodb
-        cargo publish --token ${CRATES_TOKEN} -p qm-s3
-        cargo publish --token ${CRATES_TOKEN} -p qm-kafka
-        cargo publish --token ${CRATES_TOKEN} -p qm-nats
-        cargo publish --token ${CRATES_TOKEN} -p qm-keycloak
-        cargo publish --token ${CRATES_TOKEN} -p qm-entity-derive
-        cargo publish --token ${CRATES_TOKEN} -p qm-entity
-        cargo publish --token ${CRATES_TOKEN} -p qm-server
-        cargo publish --token ${CRATES_TOKEN} -p qm
+        VERSION=$(cargo pkgid -p qm 2>/dev/null | sed 's/.*@//')
+        echo "Version: $VERSION"
+        for crate in qm-utils-derive qm-utils qm-role-build qm-role qm-pg qm-redis qm-mongodb qm-s3 qm-kafka qm-nats qm-keycloak qm-entity-derive qm-entity qm-server qm; do
+          if curl -s -4 --fail-with-body \
+                -H "User-Agent: github-actions/${GITHUB_REPOSITORY}" \
+                "https://crates.io/api/v1/crates/${crate}/versions" \
+                | jq -e --arg v "${VERSION}" '.versions[] | select(.num == $v) | .num' > /dev/null; then
+            echo "Skipping $crate - already published ($VERSION)"
+          else
+            cargo publish --token ${CRATES_TOKEN} -p "$crate"
+          fi
+        done
       env:
         CRATES_TOKEN: ${{ secrets.CRATES_TOKEN }}
         SQLX_OFFLINE: true
