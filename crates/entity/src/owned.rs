@@ -478,6 +478,32 @@ where
             .map_err(From::from)
     }
 
+    /// Gets entities by IDs.
+    pub async fn by_ids(
+        db: &Database,
+        ids: impl ToMongoFilterMany,
+    ) -> Result<Vec<Self>, EntityError> {
+        T::mongo_collection(db)
+            .find(ids.to_mongo_filter_many().expect("moin"))
+            .await?
+            .try_collect()
+            .await
+            .map_err(From::from)
+    }
+
+    /// Gets entities by IDs.
+    pub async fn by_ids(
+        db: &Database,
+        ids: impl ToMongoFilterMany,
+    ) -> Result<Vec<Self>, EntityError> {
+        T::mongo_collection(db)
+            .find(ids.to_mongo_filter_many().expect("moin"))
+            .await?
+            .try_collect()
+            .await
+            .map_err(From::from)
+    }
+
     pub async fn update(
         db: &Database,
         context: impl ToMongoFilterOne,
