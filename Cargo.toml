@@ -15,15 +15,15 @@ repository = "https://github.com/hd-gmbh-dev/quick-microservice-rs"
 anyhow = "1.0.102"
 async-trait = "0.1.89"
 async-nats = "0.47.0"
-axum = "0.8.8"
+axum = "0.8.9"
 tynm = "0.2.0"
 base64 = "0.22.1"
 constcat = "0.6.1"
 bson = "3.1.0"
 chrono = { version = "0.4.44", features = ["serde"] }
 futures = "0.3.32"
-tokio = { version = "1.44.2", features = ["full"] }
-tower-http = { version = "0.6.8", features = ["cors"] }
+tokio = { version = "1.52.3", features = ["full"] }
+tower-http = { version = "0.7.0", features = ["cors"] }
 thiserror = "2.0.18"
 itertools = "0.14.0"
 envy = "0.4.2"
@@ -49,13 +49,13 @@ keycloak = { version = "~26.5.200", default-features = false, features = [
     "tag-roles-by-id",
     "tag-users",
 ] }
-mongodb = { version = "3.5.2", features = ["bson-3"] }
+mongodb = { version = "3.7.0", default-features = false, features = ["compat-3-3-0", "rustls-tls", "bson-3"] }
 lazy_static = "1.5.0"
 tracing = "0.1.44"
 strum = { version = "0.28.0", features = ["derive"] }
 redis = { version = "1.0", features = ["tokio-comp", "json"] }
 deadpool-redis = "0.23.0"
-uuid = { version = "1.23.0", features = ["v4", "v7"] }
+uuid = { version = "1.23.3", features = ["v4", "v7"] }
 glob = "0.3.3"
 async-graphql-axum = "7.2.1"
 sqlx = { version = "0.8", features = [
@@ -83,7 +83,7 @@ prometheus-client = "0.24.1"
 rdkafka = { version = "0.39" }
 
 hex = "0.4.3"
-serde_with = "3.18.0"
+serde_with = "3.20.0"
 sea-orm = { version = "1.1.20", default-features = false, features = [
     "sqlx-postgres",
 ] }
