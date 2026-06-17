@@ -346,6 +346,27 @@ impl Publisher {
             .await?;
         Ok(())
     }
+
+    /// Publishes an event using the subject derived from the event type and additional headers.
+    pub async fn publish_event_with_headers<S, M, P>(
+        &self,
+        subject: &S,
+        payload: &P,
+        headers: async_nats::HeaderMap,
+    ) -> anyhow::Result<()>
+    where
+        S: ?Sized + EventToSubject<M>,
+        P: ?Sized + serde::Serialize,
+    {
+        self.ctx
+            .publish_with_headers(
+                subject.event_to_subject(),
+                headers,
+                serde_json::to_vec(payload)?.into(),
+            )
+            .await?;
+        Ok(())
+    }
 }
 
 impl AsRef<Context> for Publisher {
