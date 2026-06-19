@@ -94,7 +94,6 @@ qm-server = { path = "crates/server", version = "0.0.79" }
 qm-mongodb = { path = "crates/mongodb", version = "0.0.79" }
 qm-pg = { path = "crates/pg", version = "0.0.79" }
 qm-redis = { path = "crates/redis", version = "0.0.79" }
-qm-s3 = { path = "crates/s3", version = "0.0.79" }
 qm-kafka = { path = "crates/kafka", version = "0.0.79" }
 qm-nats = { path = "crates/nats", version = "0.0.79" }
 qm-keycloak = { path = "crates/keycloak", version = "0.0.79" }
@@ -124,7 +123,6 @@ qm-mongodb = { workspace = true, optional = true }
 qm-redis = { workspace = true, optional = true }
 qm-pg = { workspace = true, optional = true }
 qm-nats = { workspace = true, optional = true }
-qm-s3 = { workspace = true, optional = true }
 qm-kafka = { workspace = true, optional = true }
 qm-keycloak = { workspace = true, optional = true }
 qm-role = { workspace = true, optional = true }
@@ -138,7 +136,6 @@ default = [
     # "mongodb",
     # "redis",
     # "pg",
-    # "s3",
     # "kafka",
     # "keycloak",
     # "role",
@@ -150,7 +147,6 @@ server = ["qm-server"]
 mongodb = ["qm-mongodb"]
 redis = ["qm-redis"]
 pg = ["qm-pg"]
-s3 = ["qm-s3"]
 kafka = ["qm-kafka"]
 nats = ["qm-nats"]
 keycloak = ["qm-keycloak"]

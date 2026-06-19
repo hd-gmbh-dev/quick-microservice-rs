@@ -3059,7 +3059,6 @@ dependencies = [
  "qm-redis",
  "qm-role",
  "qm-role-build",
- "qm-s3",
  "qm-server",
  "qm-utils",
 ]
@@ -3300,10 +3299,6 @@ dependencies = [
  "anyhow",
  "heck 0.5.0",
 ]
-
-[[package]]
-name = "qm-s3"
-version = "0.0.79"
 
 [[package]]
 name = "qm-server"
