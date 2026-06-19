@@ -7,10 +7,6 @@ name = "Inflector"
 version = "0.11.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fe438c63458706e03479442743baae6c88256498e6431708f6dfc520a26515d3"
-dependencies = [
- "lazy_static",
- "regex",
-]
 
 [[package]]
 name = "ahash"
@@ -3099,7 +3095,6 @@ dependencies = [
 name = "qm-entity-derive"
 version = "0.0.79"
 dependencies = [
- "Inflector",
  "darling 0.21.3",
  "lazy_static",
  "proc-macro-crate",
@@ -3302,8 +3297,8 @@ dependencies = [
 name = "qm-role-build"
 version = "0.0.79"
 dependencies = [
- "Inflector",
  "anyhow",
+ "heck 0.5.0",
 ]
 
 [[package]]

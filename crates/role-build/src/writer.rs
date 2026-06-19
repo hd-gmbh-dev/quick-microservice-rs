@@ -3,6 +3,8 @@ use std::{
     path::Path,
 };
 
+use heck::{ToPascalCase, ToShoutySnakeCase, ToSnakeCase};
+
 use crate::parser::ParseResult;
 
 pub struct WriteResult<W> {
@@ -85,7 +87,7 @@ where
                 1,
                 &format!(
                     "{},",
-                    inflector::cases::classcase::to_class_case(permission.as_ref())
+                    permission.as_ref().to_pascal_case()
                 ),
             )?;
         }
@@ -104,7 +106,7 @@ where
                 1,
                 &format!(
                     "{},",
-                    inflector::cases::classcase::to_class_case(resource.as_ref())
+                    resource.as_ref().to_pascal_case()
                 ),
             )?;
         }
@@ -118,9 +120,7 @@ where
                 user_group_name_mappings.get(&role_mapping.user_group)
             {
                 group_names.insert(user_group_name);
-                let cnst_name = inflector::cases::screamingsnakecase::to_screaming_snake_case(
-                    role_mapping.user_group.as_ref(),
-                );
+                let cnst_name = role_mapping.user_group.as_ref().to_shouty_snake_case();
                 self.write_line(
                     0,
                     &format!(
@@ -129,7 +129,7 @@ where
                     ),
                 )?;
                 let fn_name =
-                    inflector::cases::snakecase::to_snake_case(role_mapping.user_group.as_ref());
+                    role_mapping.user_group.as_ref().to_snake_case();
                 self.write_line(
                     0,
                     &format!(
@@ -147,11 +147,11 @@ where
                 )?;
                 for role in role_mapping.roles.iter() {
                     if let Some((resource, permission)) = role.as_ref().split_once(':') {
-                        let resource = inflector::cases::classcase::to_class_case(resource);
-                        let permission = inflector::cases::classcase::to_class_case(permission);
+                        let resource = resource.to_pascal_case();
+                        let permission = permission.to_pascal_case();
                         self.write_line(2, &format!("qm::role::Role::new(Resource::{resource}, Some(Permission::{permission})),"))?;
                     } else {
-                        let resource = inflector::cases::classcase::to_class_case(role);
+                        let resource = role.to_pascal_case();
                         self.write_line(
                             2,
                             &format!("qm::role::Role::new(Resource::{resource}, None),"),
@@ -197,7 +197,7 @@ where
         )?;
         for group_name in group_names.iter() {
             let n =
-                inflector::cases::screamingsnakecase::to_screaming_snake_case(group_name.as_ref());
+                group_name.as_ref().to_shouty_snake_case();
             self.write_line(1, &format!("{n}_PATH,"))?;
         }
         self.write_line(0, "];")?;
@@ -209,14 +209,14 @@ where
                 1,
                 &format!(
                     "#[strum(serialize = \"/app/{}\")]",
-                    inflector::cases::snakecase::to_snake_case(group_name.as_ref())
+                    group_name.as_ref().to_snake_case()
                 ),
             )?;
             self.write_line(
                 1,
                 &format!(
                     "{},",
-                    inflector::cases::classcase::to_class_case(group_name.as_ref())
+                    group_name.as_ref().to_pascal_case()
                 ),
             )?;
         }
@@ -229,7 +229,7 @@ where
         self.write_line(1, "fn from(val: BuiltInGroup) -> Self {")?;
         self.write_line(2, "match val {")?;
         for r in role_mappings.iter() {
-            let fn_name = inflector::cases::snakecase::to_snake_case(r.user_group.as_ref());
+            let fn_name = r.user_group.as_ref().to_snake_case();
             self.write_line(
                 3,
                 &format!("BuiltInGroup::{} => {fn_name}_group(),", r.user_group),
