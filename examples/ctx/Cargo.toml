@@ -16,7 +16,6 @@ qm = { workspace = true, default-features = false, features = [
     "mongodb",
     "redis",
     "kafka",
-    "s3",
     "keycloak",
     "server",
     "role",

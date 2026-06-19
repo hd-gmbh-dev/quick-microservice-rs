@@ -13,9 +13,6 @@ pub use qm_nats as nats;
 #[cfg(feature = "pg")]
 pub use qm_pg as pg;
 
-#[cfg(feature = "s3")]
-pub use qm_s3 as s3;
-
 #[cfg(feature = "keycloak")]
 pub use qm_keycloak as keycloak;
 
