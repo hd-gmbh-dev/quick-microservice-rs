@@ -51,7 +51,6 @@
 //! | `NATS_EVENTS_STREAM_SUBJECT` | Subject pattern for events | `ev.>` |
 
 use std::{
-    collections::HashSet,
     error::Error,
     sync::{
         atomic::{AtomicU64, Ordering},
@@ -64,7 +63,8 @@ use async_nats::{
         self,
         consumer::PullConsumer,
         context::{
-            CreateKeyValueErrorKind, CreateStreamError, GetStreamErrorKind, KeyValueErrorKind,
+            CreateKeyValueErrorKind, CreateStreamError, GetStreamByNameErrorKind,
+            GetStreamErrorKind, KeyValueErrorKind,
         },
         kv::{self, Operation, Store},
         stream::ConsumerError,
@@ -73,7 +73,7 @@ use async_nats::{
     subject::ToSubject,
     Client, ConnectError, ConnectErrorKind,
 };
-use futures::{StreamExt, TryStreamExt};
+use futures::StreamExt;
 use tokio::task::JoinHandle;
 
 pub use async_nats;
@@ -304,18 +304,26 @@ pub struct Publisher {
 
 impl Publisher {
     async fn init(&self, config: &Config) -> Result<(), CreateStreamError> {
-        let names: HashSet<String> = self.ctx.stream_names().try_collect().await?;
-        if !names.contains(config.events_stream_name()) {
-            self.ctx
-                .create_stream(jetstream::stream::Config {
-                    name: config.events_stream_name().to_string(),
-                    subjects: vec![config.events_stream_subject().into()],
-                    allow_direct: true,
-                    deny_delete: true,
-                    deny_purge: true,
-                    ..Default::default()
-                })
-                .await?;
+        let stream_name = self
+            .ctx
+            .stream_by_subject(config.events_stream_subject().to_string())
+            .await;
+        match stream_name {
+            Err(err) => {
+                if matches!(err.kind(), GetStreamByNameErrorKind::NotFound) {
+                    self.ctx
+                        .create_stream(jetstream::stream::Config {
+                            name: config.events_stream_name().to_string(),
+                            subjects: vec![config.events_stream_subject().into()],
+                            allow_direct: true,
+                            deny_delete: true,
+                            deny_purge: true,
+                            ..Default::default()
+                        })
+                        .await?;
+                }
+            }
+            _ => {}
         }
         Ok(())
     }
