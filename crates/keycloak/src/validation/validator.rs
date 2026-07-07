@@ -362,7 +362,7 @@ async fn check_client(
                     || ctx
                         .cfg()
                         .public_urls()
-                        .contains(&&*url.trim_end_matches(['*', '/']))
+                        .contains(&url.trim_end_matches(['*', '/']))
             }) {
                 tracing::info!(
                     "[{}]: Expected the 'redirect_uris' values '{:?}' to match matches '{:?}'",

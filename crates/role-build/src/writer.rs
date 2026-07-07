@@ -83,13 +83,7 @@ where
                 1,
                 &format!("#[strum(serialize = \"{}\")]", permission.as_ref()),
             )?;
-            self.write_line(
-                1,
-                &format!(
-                    "{},",
-                    permission.as_ref().to_pascal_case()
-                ),
-            )?;
+            self.write_line(1, &format!("{},", permission.as_ref().to_pascal_case()))?;
         }
         self.write_line(1, "#[strum(serialize = \"none\")]")?;
         self.write_line(1, "None,")?;
@@ -102,13 +96,7 @@ where
                 1,
                 &format!("#[strum(serialize = \"{}\")]", resource.as_ref()),
             )?;
-            self.write_line(
-                1,
-                &format!(
-                    "{},",
-                    resource.as_ref().to_pascal_case()
-                ),
-            )?;
+            self.write_line(1, &format!("{},", resource.as_ref().to_pascal_case()))?;
         }
         self.write_line(0, "}")?;
         self.write_line(0, "")?;
@@ -128,8 +116,7 @@ where
                         user_group_name.as_ref()
                     ),
                 )?;
-                let fn_name =
-                    role_mapping.user_group.as_ref().to_snake_case();
+                let fn_name = role_mapping.user_group.as_ref().to_snake_case();
                 self.write_line(
                     0,
                     &format!(
@@ -196,8 +183,7 @@ where
             ),
         )?;
         for group_name in group_names.iter() {
-            let n =
-                group_name.as_ref().to_shouty_snake_case();
+            let n = group_name.as_ref().to_shouty_snake_case();
             self.write_line(1, &format!("{n}_PATH,"))?;
         }
         self.write_line(0, "];")?;
@@ -212,13 +198,7 @@ where
                     group_name.as_ref().to_snake_case()
                 ),
             )?;
-            self.write_line(
-                1,
-                &format!(
-                    "{},",
-                    group_name.as_ref().to_pascal_case()
-                ),
-            )?;
+            self.write_line(1, &format!("{},", group_name.as_ref().to_pascal_case()))?;
         }
         self.write_line(0, "}")?;
         self.write_line(0, "")?;
