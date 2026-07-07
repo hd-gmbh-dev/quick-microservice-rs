@@ -43,11 +43,10 @@ where
     }) {
         client.redirect_uris = Some(
             urls.iter()
-                .map(|uri| {
+                .flat_map(|uri| {
                     let uri = format!("{}/", uri.trim_end_matches("/"));
                     [format!("{}*", &uri), uri]
                 })
-                .flatten()
                 .collect(),
         );
         client.base_url = Some(format!("{}/", base_url.trim_end_matches("/")));

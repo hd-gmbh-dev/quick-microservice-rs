@@ -308,22 +308,19 @@ impl Publisher {
             .ctx
             .stream_by_subject(config.events_stream_subject().to_string())
             .await;
-        match stream_name {
-            Err(err) => {
-                if matches!(err.kind(), GetStreamByNameErrorKind::NotFound) {
-                    self.ctx
-                        .create_stream(jetstream::stream::Config {
-                            name: config.events_stream_name().to_string(),
-                            subjects: vec![config.events_stream_subject().into()],
-                            allow_direct: true,
-                            deny_delete: true,
-                            deny_purge: true,
-                            ..Default::default()
-                        })
-                        .await?;
-                }
+        if let Err(err) = stream_name {
+            if matches!(err.kind(), GetStreamByNameErrorKind::NotFound) {
+                self.ctx
+                    .create_stream(jetstream::stream::Config {
+                        name: config.events_stream_name().to_string(),
+                        subjects: vec![config.events_stream_subject().into()],
+                        allow_direct: true,
+                        deny_delete: true,
+                        deny_purge: true,
+                        ..Default::default()
+                    })
+                    .await?;
             }
-            _ => {}
         }
         Ok(())
     }
