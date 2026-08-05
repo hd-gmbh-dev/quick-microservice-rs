@@ -45,7 +45,7 @@ where
             urls.iter()
                 .flat_map(|uri| {
                     let uri = format!("{}/", uri.trim_end_matches("/"));
-                    [format!("{}*", &uri), uri]
+                    [format!("{}*", uri), uri]
                 })
                 .collect(),
         );
@@ -290,7 +290,7 @@ where
     P: std::fmt::Debug + std::marker::Copy + Clone,
 {
     let mut groups: BTreeMap<String, GroupRepresentation> = BTreeMap::new();
-    for (_, group) in group_map.iter() {
+    for group in group_map.values() {
         let s = group
             .path
             .split('/')

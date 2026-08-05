@@ -75,7 +75,7 @@ impl JwtStore {
         let builder = self
             .inner
             .client
-            .get(format!("{}/realms/{realm}", &self.inner.url));
+            .get(format!("{}/realms/{realm}", self.inner.url));
         Ok(builder.send().await?.json().await?)
     }
 

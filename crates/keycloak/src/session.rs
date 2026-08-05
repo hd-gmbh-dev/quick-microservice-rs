@@ -149,7 +149,7 @@ impl KeycloakSessionToken {
         }
         token.client_token = Some(Arc::from(format!(
             "{} {}",
-            &token.token_type, &token.access_token
+            token.token_type, token.access_token
         )));
         token
     }
