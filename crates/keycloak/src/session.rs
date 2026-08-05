@@ -195,9 +195,7 @@ impl KeycloakSessionClient {
         let result = error(
             self.inner
                 .client
-                .post(format!(
-                    "{url}/realms/{realm}/protocol/openid-connect/token",
-                ))
+                .post(format!("{url}realms/{realm}/protocol/openid-connect/token",))
                 .form(&serde_json::json!({
                     "username": username,
                     "password": password,
@@ -233,9 +231,7 @@ impl KeycloakSessionClient {
         let result = error(
             self.inner
                 .client
-                .post(format!(
-                    "{url}/realms/{realm}/protocol/openid-connect/token",
-                ))
+                .post(format!("{url}realms/{realm}/protocol/openid-connect/token",))
                 .form(&serde_json::json!({
                     "client_id": client_id,
                     "client_secret": secret,
@@ -264,9 +260,7 @@ impl KeycloakSessionClient {
         let result = error(
             self.inner
                 .client
-                .post(format!(
-                    "{url}/realms/{realm}/protocol/openid-connect/token",
-                ))
+                .post(format!("{url}realms/{realm}/protocol/openid-connect/token",))
                 .form(&serde_json::json!({
                     "grant_type": "refresh_token",
                     "refresh_token": refresh_token,

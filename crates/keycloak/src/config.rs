@@ -63,6 +63,11 @@ impl<'a> ConfigBuilder<'a> {
             let port = cfg.port.unwrap_or(42210);
             cfg.address = Some(Arc::from(format!("http://{}:{}/", host, port)));
         }
+        if let Some(address) = cfg.address.as_deref() {
+            if !address.ends_with('/') {
+                cfg.address = Some(Arc::from(format!("{address}/")));
+            }
+        }
         if cfg.smtp_starttls.is_none() {
             cfg.smtp_starttls = Some(false);
         }
@@ -172,7 +177,7 @@ impl Config {
 
     /// Returns the Keycloak server address.
     pub fn address(&self) -> &str {
-        self.address.as_deref().unwrap_or("http://127.0.0.1:42210")
+        self.address.as_deref().unwrap_or("http://127.0.0.1:42210/")
     }
 
     /// App URLs, first one is used for root URL, and all are used to set redirect URIs.

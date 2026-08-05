@@ -507,7 +507,7 @@ impl Keycloak {
         let builder = self
             .inner
             .client
-            .get(format!("{}/realms/{realm}", self.inner.url));
+            .get(format!("{}realms/{realm}", self.inner.url));
         let response = builder.send().await?;
         Ok(error_check(response).await?.json().await?)
     }
