@@ -29,6 +29,8 @@ pub enum Type {
     Update,
     /// Delete event.
     Delete,
+    /// Warning event, e.g. an upcoming automatic deletion.
+    Warning,
     /// Download event.
     Download,
     /// Upload event.
@@ -69,6 +71,14 @@ where
     C: Clone + OutputType,
 {
     /// Event version.
+    ///
+    /// Versions like `V1`/`V2` are **message** versions, not API versions.
+    /// They allow producers to evolve the subject grammar and payload formats
+    /// while already deployed consumers keep working: old consumers subscribe
+    /// to the version they understand, and producers keep publishing the
+    /// versions that are still consumed. During a migration a consumer may
+    /// therefore subscribe to several versions at once (e.g. `ev.V1.*` and
+    /// `ev.V2.*`) and must be able to parse each subscribed version.
     pub version: V,
     /// Operation type.
     pub op: Op,
@@ -218,6 +228,11 @@ where
     /// Create a delete subject.
     pub fn delete() -> Self {
         Self::factory(Type::Delete)
+    }
+
+    /// Create a warning subject.
+    pub fn warning() -> Self {
+        Self::factory(Type::Warning)
     }
 
     /// Create a download subject.
@@ -493,6 +508,23 @@ mod tests {
         assert_eq!(
             subject.resource(),
             async_nats::Subject::from_static("ev.V1.res.DE.system._.user.create._._.error"),
+        );
+    }
+
+    #[test]
+    fn test_subject_warning() {
+        let subject = Subject::<Version, ParentCtx, CtxType, Resource>::warning()
+            .with_parent_ctx(ParentCtx::BY)
+            .with_ctx_type(CtxType::Test)
+            .with_ctx("R3425921760D")
+            .with_request_id("165789548978")
+            .with_actor("EA4DCDCA-1CFD-48B9-905A-60DAB47964CB")
+            .with_resource(Resource::Qr);
+        assert_eq!(
+            subject.resource(),
+            async_nats::Subject::from_static(
+                "ev.V1.req.BY.test.R3425921760D.qr.warning.165789548978.EA4DCDCA-1CFD-48B9-905A-60DAB47964CB",
+            ),
         );
     }
 
