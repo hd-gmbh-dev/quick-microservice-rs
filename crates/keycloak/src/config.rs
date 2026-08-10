@@ -61,7 +61,12 @@ impl<'a> ConfigBuilder<'a> {
         if cfg.address.is_none() {
             let host = cfg.host.as_deref().unwrap_or("127.0.0.1");
             let port = cfg.port.unwrap_or(42210);
-            cfg.address = Some(Arc::from(format!("http://{}:{}/", host, port)));
+            cfg.address = Some(Arc::from(format!("http://{}:{}", host, port)));
+        }
+        if let Some(address) = cfg.address.as_deref() {
+            if address.ends_with('/') {
+                cfg.address = Some(Arc::from(address.trim_end_matches('/')));
+            }
         }
         if cfg.smtp_starttls.is_none() {
             cfg.smtp_starttls = Some(false);
