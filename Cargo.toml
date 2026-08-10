@@ -5,7 +5,7 @@ members = ["crates/*", "examples/*"]
 
 [workspace.package]
 edition = "2024"
-version = "0.0.81"
+version = "0.0.82"
 rust-version = "1.90.0"
 authors = ["Jürgen Seitz <juergen.seitz@h-d-gmbh.de>"]
 license = "MIT"
@@ -88,20 +88,20 @@ sea-orm = { version = "2.0.1", default-features = false, features = [
     "sqlx-postgres",
 ] }
 
-qm-entity = { path = "crates/entity", version = "0.0.81" }
-qm-entity-derive = { path = "crates/entity-derive", version = "0.0.81" }
-qm-server = { path = "crates/server", version = "0.0.81" }
-qm-mongodb = { path = "crates/mongodb", version = "0.0.81" }
-qm-pg = { path = "crates/pg", version = "0.0.81" }
-qm-redis = { path = "crates/redis", version = "0.0.81" }
-qm-kafka = { path = "crates/kafka", version = "0.0.81" }
-qm-nats = { path = "crates/nats", version = "0.0.81" }
-qm-keycloak = { path = "crates/keycloak", version = "0.0.81" }
-qm-role = { path = "crates/role", version = "0.0.81" }
-qm-role-build = { path = "crates/role-build", version = "0.0.81" }
-qm-utils = { path = "crates/utils", version = "0.0.81" }
-qm-utils-derive = { path = "crates/utils-derive", version = "0.0.81" }
-qm = { path = ".", default-features = false, version = "0.0.81" }
+qm-entity = { path = "crates/entity", version = "0.0.82" }
+qm-entity-derive = { path = "crates/entity-derive", version = "0.0.82" }
+qm-server = { path = "crates/server", version = "0.0.82" }
+qm-mongodb = { path = "crates/mongodb", version = "0.0.82" }
+qm-pg = { path = "crates/pg", version = "0.0.82" }
+qm-redis = { path = "crates/redis", version = "0.0.82" }
+qm-kafka = { path = "crates/kafka", version = "0.0.82" }
+qm-nats = { path = "crates/nats", version = "0.0.82" }
+qm-keycloak = { path = "crates/keycloak", version = "0.0.82" }
+qm-role = { path = "crates/role", version = "0.0.82" }
+qm-role-build = { path = "crates/role-build", version = "0.0.82" }
+qm-utils = { path = "crates/utils", version = "0.0.82" }
+qm-utils-derive = { path = "crates/utils-derive", version = "0.0.82" }
+qm = { path = ".", default-features = false, version = "0.0.82" }
 
 
 [package]
