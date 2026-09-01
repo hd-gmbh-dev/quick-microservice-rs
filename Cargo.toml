@@ -31,7 +31,7 @@ reqwest = { version = "0.13", default-features = false, features = ["json"] }
 jsonwebtoken = { version = "11.0.0", features = ["rust_crypto"] }
 serde = { version = "1.0.229", features = ["derive", "rc"] }
 serde_json = "1.0.151"
-keycloak = { version = "~26.5.200", default-features = false, features = [
+keycloak = { version = "~26.7.300", default-features = false, features = [
     "reqwest13",
     "multipart",
     "resource-builder",
