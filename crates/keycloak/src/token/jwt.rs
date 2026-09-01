@@ -224,6 +224,16 @@ mod tests {
     }
 
     #[test]
+    fn jwt_store_normalizes_address() {
+        // trailing slash in address -> `//realms/<realm>` rejected by
+        // KC >= 26.6 with `missingNormalization`
+        assert_eq!(
+            crate::token::store::normalized_address("http://127.0.0.1:42210/").as_ref(),
+            "http://127.0.0.1:42210"
+        );
+    }
+
+    #[test]
     fn claims_with_resource_access() {
         let json = r#"{
             "exp": 0, "iat": 0, "iss": "iss", "aud": [], "sub": "sub",
