@@ -55,7 +55,11 @@ pub struct Claims {
     /// Realm access.
     pub realm_access: RealmAccess,
     /// Resource access.
-    pub resource_access: ResourceAccess,
+    ///
+    /// Not present in tokens issued to clients that carry no client role
+    /// access (e.g. public SPA clients with a restricted role scope).
+    #[serde(default)]
+    pub resource_access: Option<ResourceAccess>,
     /// Scope.
     #[serde(default)]
     pub scope: String,
@@ -100,9 +104,7 @@ impl Default for Claims {
             acr: "".to_string(),
             allowed_origins: None,
             realm_access: RealmAccess { roles: vec![] },
-            resource_access: ResourceAccess {
-                account: RealmAccess { roles: vec![] },
-            },
+            resource_access: None,
             scope: "".to_string(),
             sid: "".to_string(),
             email_verified: false,
@@ -202,5 +204,35 @@ impl Jwt {
     ) -> anyhow::Result<C> {
         let result = decode(token, &self.decoding_key, &self.logout_validation)?;
         Ok(result.claims)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::token::jwt::Claims;
+
+    #[test]
+    fn claims_without_resource_access() {
+        let json = r#"{
+            "exp": 0, "iat": 0, "iss": "iss", "aud": [], "sub": "sub",
+            "typ": "Bearer", "azp": "spa", "acr": "1", "jti": "jti",
+            "realm_access": { "roles": ["administration"] }
+        }"#;
+        let claims: Claims = serde_json::from_str(json).expect("should decode");
+        assert_eq!(claims.realm_access.roles, vec!["administration".into()]);
+        assert!(claims.resource_access.is_none());
+    }
+
+    #[test]
+    fn claims_with_resource_access() {
+        let json = r#"{
+            "exp": 0, "iat": 0, "iss": "iss", "aud": [], "sub": "sub",
+            "typ": "Bearer", "azp": "spa", "acr": "1", "jti": "jti",
+            "realm_access": { "roles": [] },
+            "resource_access": { "account": { "roles": ["manage-account"] } }
+        }"#;
+        let claims: Claims = serde_json::from_str(json).expect("should decode");
+        let account = claims.resource_access.expect("should decode");
+        assert_eq!(account.account.roles.len(), 1);
     }
 }
