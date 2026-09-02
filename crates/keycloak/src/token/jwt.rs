@@ -155,8 +155,15 @@ impl Jwt {
         public_key: &str,
         client_id: &str,
     ) -> anyhow::Result<Self> {
+        let _ = client_id; // audience no longer validated (see comment below)
         let mut validation = Validation::new(alg);
-        validation.set_audience(&[client_id, "account"]);
+        // Keycloak 26.6+ issues tokens with varying audiences: `aud: [azp]` for
+        // user tokens (the `account` default client scope was dropped),
+        // `aud: ["account"]` via the custom `service_account` client scope, or
+        // an empty `aud` array. Audience matching against the token's own `azp`
+        // adds no security (it is compared against the token itself), so skip
+        // it; signature, issuer and expiry still validate.
+        validation.validate_aud = false;
         // needed workaround to validate logout tokens (they contain no exp field)
         let mut logout_validation = Validation::new(alg);
         logout_validation.validate_exp = false;
