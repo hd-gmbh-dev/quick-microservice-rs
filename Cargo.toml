@@ -47,6 +47,7 @@ keycloak = { version = "~26.7.300", default-features = false, features = [
     "tag-role-mapper",
     "tag-roles",
     "tag-roles-by-id",
+    "tag-scope-mappings",
     "tag-users",
 ] }
 mongodb = { version = "3.8.0", default-features = false, features = ["compat-3-3-0", "rustls-tls", "bson-3"] }
