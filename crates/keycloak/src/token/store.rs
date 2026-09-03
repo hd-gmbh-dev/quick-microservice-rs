@@ -41,6 +41,12 @@ impl JwtConfig for crate::config::Config {
     }
 }
 
+/// Keycloak base URL without trailing slash so appended paths stay normalized
+/// (Keycloak >= 26.6 rejects paths with empty segments).
+pub(crate) fn normalized_address(address: &str) -> Arc<str> {
+    Arc::from(address.trim_end_matches('/'))
+}
+
 struct Inner {
     url: Arc<str>,
     public_url: Arc<str>,
@@ -58,7 +64,10 @@ impl JwtStore {
     /// Creates a new JWT store.
     pub fn new(config: &impl JwtConfig) -> Self {
         let client = reqwest::Client::new();
-        let url = Arc::from(config.address());
+        // KC >= 26.6 rejects non-normalized paths (`missingNormalization`):
+        // `format!("{url}/realms/{realm}")` with a trailing slash in the
+        // address produced `//realms/...` and realm-info lookups failed.
+        let url = normalized_address(config.address());
         let public_url = Arc::from(config.public_url());
         Self {
             inner: Arc::new(Inner {

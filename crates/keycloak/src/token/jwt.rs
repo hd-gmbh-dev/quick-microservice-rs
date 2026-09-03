@@ -55,7 +55,11 @@ pub struct Claims {
     /// Realm access.
     pub realm_access: RealmAccess,
     /// Resource access.
-    pub resource_access: ResourceAccess,
+    ///
+    /// Not present in tokens issued to clients that carry no client role
+    /// access (e.g. public SPA clients with a restricted role scope).
+    #[serde(default)]
+    pub resource_access: Option<ResourceAccess>,
     /// Scope.
     #[serde(default)]
     pub scope: String,
@@ -100,9 +104,7 @@ impl Default for Claims {
             acr: "".to_string(),
             allowed_origins: None,
             realm_access: RealmAccess { roles: vec![] },
-            resource_access: ResourceAccess {
-                account: RealmAccess { roles: vec![] },
-            },
+            resource_access: None,
             scope: "".to_string(),
             sid: "".to_string(),
             email_verified: false,
@@ -140,6 +142,7 @@ pub struct LogoutClaims {
 pub struct Jwt {
     /// Key ID.
     pub kid: String,
+    client_id: String,
     validation: Validation,
     logout_validation: Validation,
     decoding_key: DecodingKey,
@@ -153,8 +156,12 @@ impl Jwt {
         public_key: &str,
         client_id: &str,
     ) -> anyhow::Result<Self> {
+        // RFC 9068/OIDC expect audience validation; the `jsonwebtoken` crate
+        // cannot express "allow empty/missing aud, else must contain azp or
+        // `account`", so the structural check is disabled here and the
+        // semantic check runs post-decode in [`validate_aud`].
         let mut validation = Validation::new(alg);
-        validation.set_audience(&[client_id, "account"]);
+        validation.validate_aud = false;
         // needed workaround to validate logout tokens (they contain no exp field)
         let mut logout_validation = Validation::new(alg);
         logout_validation.validate_exp = false;
@@ -170,6 +177,7 @@ impl Jwt {
             .insert("aud".to_string());
         Ok(Self {
             kid,
+            client_id: client_id.to_string(),
             validation,
             logout_validation,
             decoding_key: DecodingKey::from_rsa_pem(
@@ -181,7 +189,9 @@ impl Jwt {
 
     /// Decodes a token to Claims.
     pub fn decode(&self, token: &str) -> anyhow::Result<Claims> {
-        self.decode_custom(token)
+        let claims = self.decode_custom::<Claims>(token)?;
+        validate_aud(&claims.aud, &self.client_id)?;
+        Ok(claims)
     }
 
     /// Decodes a token to custom claims.
@@ -202,5 +212,105 @@ impl Jwt {
     ) -> anyhow::Result<C> {
         let result = decode(token, &self.decoding_key, &self.logout_validation)?;
         Ok(result.claims)
+    }
+}
+
+/// Validates the `aud` claim (RFC 9068 semantics, tolerant of Keycloak's
+/// actual shapes).
+///
+/// Keycloak 26.6+ issues tokens with varying audiences: `aud: [azp]` for user
+/// tokens, `aud: ["account"]` for client-credentials tokens (via the custom
+/// `service_account` client scope), or an empty/missing `aud`. A resource
+/// server in this system has no dedicated Keycloak client, so a statically
+/// configured expected audience does not exist; the audience is instead taken
+/// from the token's own `azp`. Accepts:
+///
+/// - missing/empty `aud`
+/// - `aud` containing the token's own `azp`
+/// - `aud` containing the legacy `account` audience
+///
+/// and rejects everything else (e.g. an unexpected third-party audience).
+fn validate_aud(aud: &serde_json::Value, client_id: &str) -> anyhow::Result<()> {
+    match aud {
+        serde_json::Value::Null => Ok(()),
+        serde_json::Value::Array(items) => {
+            if items.is_empty() {
+                return Ok(());
+            }
+            let items: Vec<&str> = items.iter().filter_map(|v| v.as_str()).collect();
+            if items.contains(&client_id) || items.contains(&"account") {
+                Ok(())
+            } else {
+                anyhow::bail!("InvalidAudience")
+            }
+        }
+        serde_json::Value::String(s) if s == client_id || s == "account" => Ok(()),
+        _ => anyhow::bail!("InvalidAudience"),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::token::jwt::Claims;
+
+    #[test]
+    fn aud_soft_rule() {
+        use crate::token::jwt::validate_aud;
+        use serde_json::json;
+        // accepted shapes
+        for aud in [
+            json!(null),
+            json!([]),
+            json!("spa"),
+            json!(["spa"]),
+            json!(["spa", "account"]),
+            json!("account"),
+            json!(["account"]),
+        ] {
+            assert!(validate_aud(&aud, "spa").is_ok(), "must accept {aud}");
+        }
+        // rejected shapes: token claims to be issued for an unrelated audience
+        for aud in [
+            json!("shapth-xml-integrity"),
+            json!(["other-client"]),
+            json!(["spa "]),
+        ] {
+            assert!(validate_aud(&aud, "spa").is_err(), "must reject {aud}");
+        }
+    }
+
+    #[test]
+    fn claims_without_resource_access() {
+        let json = r#"{
+            "exp": 0, "iat": 0, "iss": "iss", "aud": [], "sub": "sub",
+            "typ": "Bearer", "azp": "spa", "acr": "1", "jti": "jti",
+            "realm_access": { "roles": ["administration"] }
+        }"#;
+        let claims: Claims = serde_json::from_str(json).expect("should decode");
+        assert_eq!(claims.realm_access.roles, vec!["administration".into()]);
+        assert!(claims.resource_access.is_none());
+    }
+
+    #[test]
+    fn jwt_store_normalizes_address() {
+        // trailing slash in address -> `//realms/<realm>` rejected by
+        // KC >= 26.6 with `missingNormalization`
+        assert_eq!(
+            crate::token::store::normalized_address("http://127.0.0.1:42210/").as_ref(),
+            "http://127.0.0.1:42210"
+        );
+    }
+
+    #[test]
+    fn claims_with_resource_access() {
+        let json = r#"{
+            "exp": 0, "iat": 0, "iss": "iss", "aud": [], "sub": "sub",
+            "typ": "Bearer", "azp": "spa", "acr": "1", "jti": "jti",
+            "realm_access": { "roles": [] },
+            "resource_access": { "account": { "roles": ["manage-account"] } }
+        }"#;
+        let claims: Claims = serde_json::from_str(json).expect("should decode");
+        let account = claims.resource_access.expect("should decode");
+        assert_eq!(account.account.roles.len(), 1);
     }
 }
