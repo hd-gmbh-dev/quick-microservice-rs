@@ -547,6 +547,29 @@ impl Keycloak {
             .pop())
     }
 
+    /// Assigns the given realm role to this client's service account
+    /// (`"spa"`-style client realm-role scope mapping).
+    ///
+    /// No-op if the configured client does not exist in the realm.
+    pub async fn ensure_realm_role_scope_mapping(
+        &self,
+        realm: &str,
+        role: RoleRepresentation,
+    ) -> Result<(), KeycloakError> {
+        let Some(client) = self.get_client(realm).await? else {
+            return Ok(());
+        };
+        let Some(uuid) = client.id else {
+            return Ok(());
+        };
+        self.inner
+            .admin
+            .realm(realm)
+            .clients_with_client_uuid_scope_mappings_realm_post(&uuid, vec![role])
+            .await
+            .map(|_| ())
+    }
+
     /// Gets a client's service account user.
     pub async fn get_client_service_account(
         &self,
