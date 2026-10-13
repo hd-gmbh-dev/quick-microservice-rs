@@ -9,7 +9,7 @@ services:
     volumes:
       - 'redis:/bitnami/redis/data'
   kafka:
-    image: bitnami/kafka:3.6
+    image: soldevelo/kafka:3.6
     ports:
       - "9092:9092"
     volumes:
@@ -33,7 +33,7 @@ services:
     volumes:
       - mongodb:/data/db
   postgresql:
-    image: bitnami/postgresql:15
+    image: soldevelo/postgresql:15
     environment:
       - ALLOW_EMPTY_PASSWORD=yes
       - POSTGRESQL_USERNAME=bn_keycloak
