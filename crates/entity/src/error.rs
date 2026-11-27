@@ -1,5 +1,6 @@
 use crate::UserId;
 use async_graphql::ErrorExtensions;
+#[cfg(feature = "keycloak")]
 use qm_keycloak::KeycloakError;
 use sqlx::types::Uuid;
 use thiserror::Error;
@@ -8,6 +9,7 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 #[non_exhaustive]
 pub enum EntityError {
+    #[cfg(feature = "redis")]
     /// A unhandled Database error occurred.
     #[error("{0}")]
     Lock(#[from] qm_redis::lock::Error),
@@ -20,15 +22,19 @@ pub enum EntityError {
     /// Keycloak request failure.
     #[error(transparent)]
     KeycloakRequest(#[from] reqwest::Error),
+    #[cfg(feature = "keycloak")]
     /// Keycloak error
     #[error(transparent)]
     KeycloakError(#[from] KeycloakError),
+    #[cfg(feature = "nats")]
     /// distributed locks error
     #[error(transparent)]
     DistributedLocksError(#[from] qm_nats::DistributedLocksError),
+    #[cfg(feature = "nats")]
     /// lock manager error
     #[error(transparent)]
     LockManagerError(#[from] qm_nats::LockManagerError),
+    #[cfg(feature = "nats")]
     /// sequence manager error
     #[error(transparent)]
     SequenceManagerError(#[from] qm_nats::SequenceManagerError),

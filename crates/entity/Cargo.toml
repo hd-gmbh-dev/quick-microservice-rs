@@ -13,6 +13,9 @@ repository = "https://github.com/hd-gmbh-dev/quick-microservice-rs"
 [features]
 default = []
 serde-str = ["serde_with/macros"]
+keycloak = ["dep:qm-keycloak"]
+nats = ["dep:qm-nats"]
+redis = ["dep:qm-redis"]
 
 [dependencies]
 anyhow.workspace = true
@@ -30,9 +33,9 @@ tracing.workspace = true
 sqlx.workspace = true
 hex.workspace = true
 sea-orm.workspace = true
-qm-redis.workspace = true
-qm-keycloak.workspace = true
+qm-redis = { workspace = true, optional = true }
+qm-keycloak = { workspace = true, optional = true }
 qm-role.workspace = true
 qm-mongodb.workspace = true
-qm-nats.workspace = true
+qm-nats = { workspace = true, optional = true }
 qm-entity-derive.workspace = true
